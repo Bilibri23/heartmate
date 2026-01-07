@@ -1,0 +1,129 @@
+# RoomBuddy Docker Compose
+# Local development environment with all services
+#
+# Usage:
+#   docker-compose up -d        # Start all services in background
+#   docker-compose up           # Start with logs visible
+#   docker-compose down         # Stop all services
+#   docker-compose logs -f      # Follow logs
+#   docker-compose ps           # List running services
+
+version: '3.8'
+
+services:
+  # ==================== DATABASE ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: roombuddy-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: roombuddy
+      POSTGRES_USER: roombuddy
+      POSTGRES_PASSWORD: roombuddy_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roombuddy -d roombuddy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - roombuddy-network
+
+  # ==================== BACKEND API ====================
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: roombuddy-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/roombuddy
+      SPRING_DATASOURCE_USERNAME: roombuddy
+      SPRING_DATASOURCE_PASSWORD: roombuddy_secret
+      # JPA
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "false"
+      # JWT (use strong secret in production!)
+      SPRING_JWT_SECRET: your-super-secret-jwt-key-change-in-production-min-32-chars
+      SPRING_JWT_ACCESS_TOKEN_EXPIRATION: 3600000
+      SPRING_JWT_REFRESH_TOKEN_EXPIRATION: 604800000
+      # Mail (using Mailhog for local testing)
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_USERNAME: ""
+      SPRING_MAIL_PASSWORD: ""
+      # Cloudinary (add your credentials)
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-your-cloud-name}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-your-api-key}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-your-api-secret}
+      # App config
+      APP_BASE_URL: http://localhost:5173
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - roombuddy-network
+
+  # ==================== FRONTEND ====================
+  frontend:
+    build:
+      context: ./frontend/room8
+      dockerfile: Dockerfile
+    container_name: roombuddy-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - roombuddy-network
+
+  # ==================== MAIL SERVER (Development) ====================
+  # Mailhog catches all outgoing emails for testing
+  # Access UI at http://localhost:8025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: roombuddy-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP server
+      - "8025:8025"   # Web UI
+    networks:
+      - roombuddy-network
+
+  # ==================== ADMINER (Database UI) ====================
+  # Access at http://localhost:8081
+  adminer:
+    image: adminer:latest
+    container_name: roombuddy-adminer
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8080"
+    networks:
+      - roombuddy-network
+
+# ==================== VOLUMES ====================
+volumes:
+  postgres_data:
+    driver: local
+
+# ==================== NETWORKS ====================
+networks:
+  roombuddy-network:
+    driver: bridge

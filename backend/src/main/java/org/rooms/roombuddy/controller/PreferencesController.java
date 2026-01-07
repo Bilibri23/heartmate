@@ -1,0 +1,62 @@
+package org.rooms.roombuddy.controller;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.rooms.roombuddy.dto.request.PreferencesRequest;
+import org.rooms.roombuddy.dto.response.PreferencesResponse;
+import org.rooms.roombuddy.service.PreferencesService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/preferences")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Roommate Preferences", description = "APIs for managing roommate preferences")
+public class PreferencesController {
+    
+    private final PreferencesService preferencesService;
+    
+    @PostMapping
+    @Operation(summary = "Create preferences", description = "Create roommate preferences for a user")
+    public ResponseEntity<PreferencesResponse> createPreferences(
+            @Valid @RequestBody PreferencesRequest request,
+            @RequestParam UUID userId) {
+        log.info("Creating preferences for user: {}", userId);
+        PreferencesResponse response = preferencesService.createPreferences(userId, request);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+    
+    @GetMapping("/{userId}")
+    @Operation(summary = "Get preferences by user ID", description = "Retrieve roommate preferences for a user")
+    public ResponseEntity<PreferencesResponse> getPreferences(@PathVariable UUID userId) {
+        log.info("Fetching preferences for user: {}", userId);
+        PreferencesResponse response = preferencesService.getPreferences(userId);
+        return ResponseEntity.ok(response);
+    }
+    
+    @PutMapping("/{userId}")
+    @Operation(summary = "Update preferences", description = "Update roommate preferences for a user")
+    public ResponseEntity<PreferencesResponse> updatePreferences(
+            @PathVariable UUID userId,
+            @Valid @RequestBody PreferencesRequest request) {
+        log.info("Updating preferences for user: {}", userId);
+        PreferencesResponse response = preferencesService.updatePreferences(userId, request);
+        return ResponseEntity.ok(response);
+    }
+    
+    @DeleteMapping("/{userId}")
+    @Operation(summary = "Delete preferences", description = "Delete roommate preferences for a user")
+    public ResponseEntity<Void> deletePreferences(@PathVariable UUID userId) {
+        log.info("Deleting preferences for user: {}", userId);
+        preferencesService.deletePreferences(userId);
+        return ResponseEntity.noContent().build();
+    }
+}
+

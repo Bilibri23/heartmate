@@ -1,0 +1,62 @@
+package org.rooms.roombuddy.controller;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.rooms.roombuddy.dto.request.VerificationRequest;
+import org.rooms.roombuddy.dto.response.VerificationResponse;
+import org.rooms.roombuddy.service.VerificationService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/verifications")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Student Verification", description = "APIs for student verification")
+public class VerificationController {
+    
+    private final VerificationService verificationService;
+    
+    @PostMapping
+    @Operation(summary = "Submit verification request", description = "Submit a student verification request")
+    public ResponseEntity<VerificationResponse> submitVerification(
+            @Valid @RequestBody VerificationRequest request,
+            @RequestParam UUID userId) {
+        log.info("Submitting verification request for user: {}", userId);
+        VerificationResponse response = verificationService.submitVerification(userId, request);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+    
+    @GetMapping("/{userId}")
+    @Operation(summary = "Get verification by user ID", description = "Retrieve verification status for a user")
+    public ResponseEntity<VerificationResponse> getVerification(@PathVariable UUID userId) {
+        log.info("Fetching verification for user: {}", userId);
+        VerificationResponse response = verificationService.getVerification(userId);
+        return ResponseEntity.ok(response);
+    }
+    
+    @PutMapping("/{userId}")
+    @Operation(summary = "Update verification", description = "Update a verification request (only if PENDING or REJECTED)")
+    public ResponseEntity<VerificationResponse> updateVerification(
+            @PathVariable UUID userId,
+            @Valid @RequestBody VerificationRequest request) {
+        log.info("Updating verification for user: {}", userId);
+        VerificationResponse response = verificationService.updateVerification(userId, request);
+        return ResponseEntity.ok(response);
+    }
+    
+    @DeleteMapping("/{userId}")
+    @Operation(summary = "Delete verification", description = "Delete a verification request")
+    public ResponseEntity<Void> deleteVerification(@PathVariable UUID userId) {
+        log.info("Deleting verification for user: {}", userId);
+        verificationService.deleteVerification(userId);
+        return ResponseEntity.noContent().build();
+    }
+}
+

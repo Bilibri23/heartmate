@@ -1,0 +1,109 @@
+# RoomBuddy Docker Compose - Local Build Version
+# Use this if the main docker-compose.yml build is too slow
+#
+# Prerequisites:
+#   1. Build the backend JAR first: mvn clean package
+#   2. Build the frontend: cd frontend/room8 && npm run build
+#
+# Usage:
+#   docker-compose -f docker-compose.local.yml up -d
+
+version: '3.8'
+
+services:
+  # ==================== DATABASE ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: roombuddy-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: roombuddy
+      POSTGRES_USER: roombuddy
+      POSTGRES_PASSWORD: roombuddy_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U roombuddy -d roombuddy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - roombuddy-network
+
+  # ==================== BACKEND API ====================
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.simple
+    container_name: roombuddy-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/roombuddy
+      SPRING_DATASOURCE_USERNAME: roombuddy
+      SPRING_DATASOURCE_PASSWORD: roombuddy_secret
+      # JPA
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "false"
+      # JWT
+      SPRING_JWT_SECRET: your-super-secret-jwt-key-change-in-production-min-32-chars
+      SPRING_JWT_ACCESS_TOKEN_EXPIRATION: 3600000
+      SPRING_JWT_REFRESH_TOKEN_EXPIRATION: 604800000
+      # Mail (using Mailhog)
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_USERNAME: ""
+      SPRING_MAIL_PASSWORD: ""
+      # Cloudinary
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-do9vj3e0l}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-638513396149293}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-Jf1fuPhzKkDdR_74ad3XsB4VrKI}
+      # App config
+      APP_BASE_URL: http://localhost:5173
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - roombuddy-network
+
+  # ==================== MAIL SERVER (Development) ====================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: roombuddy-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP server
+      - "8025:8025"   # Web UI
+    networks:
+      - roombuddy-network
+
+  # ==================== ADMINER (Database UI) ====================
+  adminer:
+    image: adminer:latest
+    container_name: roombuddy-adminer
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8080"
+    networks:
+      - roombuddy-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  roombuddy-network:
+    driver: bridge
