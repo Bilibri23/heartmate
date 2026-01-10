@@ -97,7 +97,11 @@ export default function LandlordVerificationPage() {
       headers: token ? { "Authorization": `Bearer ${token}` } : {},
       body: formData
     })
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`)
+    }
     const data = await response.json()
+    console.log("Upload response:", data)
     return data?.data || data?.url || data
   }
 
@@ -107,19 +111,30 @@ export default function LandlordVerificationPage() {
     setIsSubmitting(true)
     try {
       // Step 1: Upload files to get URLs
+      console.log("Uploading ID document...")
       const idFrontPhotoUrl = await uploadFile(idDocument)
-      const selfieWithIdUrl = selfie ? await uploadFile(selfie) : undefined
+      console.log("ID photo URL:", idFrontPhotoUrl)
+      
+      let selfieWithIdUrl = idFrontPhotoUrl
+      if (selfie) {
+        console.log("Uploading selfie...")
+        selfieWithIdUrl = await uploadFile(selfie)
+        console.log("Selfie URL:", selfieWithIdUrl)
+      }
       
       // Step 2: Submit identity verification with JSON body
-      await api.post("/landlord-verifications/identity", {
+      const requestBody = {
         idType: "NATIONAL_ID",
         idNumber: "PENDING_REVIEW",
         idFrontPhotoUrl: idFrontPhotoUrl,
-        selfieWithIdUrl: selfieWithIdUrl || idFrontPhotoUrl,
+        selfieWithIdUrl: selfieWithIdUrl,
         addressLine1: "To be verified",
         city: "Douala",
         region: "Littoral"
-      })
+      }
+      console.log("Submitting verification:", requestBody)
+      
+      await api.post("/landlord-verifications/identity", requestBody)
       
       // Step 3: If property doc provided, submit property verification
       if (propertyDoc) {
@@ -130,8 +145,15 @@ export default function LandlordVerificationPage() {
       }
       
       fetchStatus()
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to submit verification:", err)
+      const errorMessage = err?.response?.data?.message || "Failed to submit verification"
+      if (errorMessage.includes("already verified") || errorMessage.includes("already submitted")) {
+        alert("Verification already submitted. Please wait for admin review or contact support.")
+        fetchStatus()
+      } else {
+        alert(errorMessage)
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -140,6 +162,7 @@ export default function LandlordVerificationPage() {
   const getOverallStatus = () => {
     if (!status) return "NOT_STARTED"
     if (status.isTrustedLandlord) return "VERIFIED"
+    if (status.identityStatus === "VERIFIED") return "VERIFIED"
     if (status.identityStatus === "PENDING" || status.businessStatus === "PENDING" || status.propertyStatus === "PENDING") return "PENDING"
     if (status.identityStatus === "REJECTED") return "REJECTED"
     return "NOT_STARTED"

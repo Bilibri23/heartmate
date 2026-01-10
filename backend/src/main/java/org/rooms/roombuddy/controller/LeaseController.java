@@ -10,12 +10,15 @@ import org.rooms.roombuddy.dto.request.LeaseRequest;
 import org.rooms.roombuddy.dto.response.LeaseResponse;
 import org.rooms.roombuddy.entity.Lease;
 import org.rooms.roombuddy.security.SecurityUtils;
+import org.rooms.roombuddy.service.LeaseDocumentService;
 import org.rooms.roombuddy.service.LeaseService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +33,7 @@ import java.util.UUID;
 public class LeaseController {
     
     private final LeaseService leaseService;
+    private final LeaseDocumentService leaseDocumentService;
     
     @PostMapping
     @Operation(summary = "Create lease from accepted application", description = "Landlord creates a lease after accepting an application")
@@ -127,5 +131,32 @@ public class LeaseController {
         log.info("Landlord {} completing lease {}", userId, leaseId);
         LeaseResponse lease = leaseService.completeLease(leaseId, userId);
         return ResponseEntity.ok(lease);
+    }
+    
+    @PostMapping("/create-for-accepted")
+    @Operation(summary = "Create leases for accepted applications", description = "Creates leases for all accepted applications that don't have leases yet")
+    public ResponseEntity<java.util.Map<String, Object>> createLeasesForAccepted() {
+        log.info("Creating leases for accepted applications");
+        int created = leaseService.createLeasesForAcceptedApplications();
+        return ResponseEntity.ok(java.util.Map.of("created", created, "message", "Created " + created + " leases"));
+    }
+    
+    @GetMapping("/{leaseId}/document")
+    @Operation(summary = "Download lease document", description = "Download the lease agreement as a PDF document")
+    public ResponseEntity<byte[]> downloadLeaseDocument(@PathVariable UUID leaseId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        log.info("User {} downloading document for lease {}", userId, leaseId);
+        
+        // Verify user has access to this lease
+        leaseService.getLeaseById(leaseId, userId);
+        
+        byte[] pdfBytes = leaseDocumentService.generateLeaseDocument(leaseId);
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "lease-agreement-" + leaseId + ".pdf");
+        headers.setContentLength(pdfBytes.length);
+        
+        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
     }
 }

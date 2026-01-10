@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import api from "@/lib/api"
 
-type VerificationStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED"
+type VerificationStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED" | "VERIFIED"
 
 interface VerificationData {
   status: VerificationStatus
@@ -104,8 +104,13 @@ export default function VerificationPage() {
       })
 
       setVerification({ status: "PENDING" })
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to submit verification:", err)
+      const errorMessage = err?.response?.data?.message || ""
+      if (errorMessage.includes("already exists") || errorMessage.includes("VERIFIED")) {
+        // Already verified, refresh status
+        setVerification({ status: "VERIFIED" })
+      }
     } finally {
       setIsSubmitting(false)
     }

@@ -63,10 +63,10 @@ public class RecommendationService {
             .map(fav -> fav.getListing().getId())
             .collect(Collectors.toList());
         
-        // Score each listing
+        // Score each listing (LinkedIn-style: always show relevant content)
         List<ScoredListing> scoredListings = new ArrayList<>();
         for (PropertyListing listing : allListings) {
-            // Skip if already favorited
+            // Skip if already favorited (they already saved it)
             if (favoritedListingIds.contains(listing.getId())) {
                 continue;
             }
@@ -77,19 +77,22 @@ public class RecommendationService {
             // Calculate behavioral boost
             int behaviorBoost = calculateBehaviorBoost(listing, recentViews, favoritedListingIds);
             
-            // Combined score
-            int totalScore = (int) ((preferenceScore * PREFERENCE_WEIGHT) + 
-                                   (behaviorBoost * BEHAVIOR_WEIGHT));
+            // Add engagement signals (like LinkedIn's engagement-based ranking)
+            int engagementBoost = calculateEngagementBoost(listing);
             
-            if (totalScore >= 50) { // Minimum threshold
-                scoredListings.add(ScoredListing.builder()
-                    .listing(listing)
-                    .totalScore(totalScore)
-                    .preferenceScore(preferenceScore)
-                    .behaviorScore(behaviorBoost)
-                    .reasons(generateReasons(prefs, listing, preferenceScore, behaviorBoost))
-                    .build());
-            }
+            // Combined score with engagement factor
+            int totalScore = (int) ((preferenceScore * PREFERENCE_WEIGHT) + 
+                                   (behaviorBoost * BEHAVIOR_WEIGHT * 0.7) +
+                                   (engagementBoost * 0.3));
+            
+            // Always include listings, let sorting handle relevance (LinkedIn approach)
+            scoredListings.add(ScoredListing.builder()
+                .listing(listing)
+                .totalScore(Math.max(totalScore, 10)) // Minimum score of 10
+                .preferenceScore(preferenceScore)
+                .behaviorScore(behaviorBoost)
+                .reasons(generateReasons(prefs, listing, preferenceScore, behaviorBoost))
+                .build());
         }
         
         // Sort by score and return top N
@@ -98,6 +101,12 @@ public class RecommendationService {
         List<ScoredListing> topRecommendations = scoredListings.stream()
             .limit(MAX_RECOMMENDATIONS)
             .collect(Collectors.toList());
+        
+        // If no recommendations, fall back to popular listings
+        if (topRecommendations.isEmpty()) {
+            log.info("No scored recommendations, falling back to popular listings for {}", studentId);
+            return getPopularListings(MAX_RECOMMENDATIONS);
+        }
         
         log.info("Generated {} recommendations for student {}", topRecommendations.size(), studentId);
         return topRecommendations;
@@ -163,6 +172,54 @@ public class RecommendationService {
         }
         
         return factors > 0 ? score / factors : 50;
+    }
+    
+    /**
+     * Calculate engagement boost based on listing popularity (LinkedIn-style signals)
+     */
+    private int calculateEngagementBoost(PropertyListing listing) {
+        int boost = 0;
+        
+        // Views indicate interest from community
+        int views = listing.getViewsCount() != null ? listing.getViewsCount() : 0;
+        if (views > 100) boost += 25;
+        else if (views > 50) boost += 20;
+        else if (views > 20) boost += 15;
+        else if (views > 5) boost += 10;
+        
+        // Favorites indicate high quality
+        int favorites = listing.getFavoritesCount() != null ? listing.getFavoritesCount() : 0;
+        if (favorites > 20) boost += 25;
+        else if (favorites > 10) boost += 20;
+        else if (favorites > 5) boost += 15;
+        else if (favorites > 0) boost += 10;
+        
+        // Good ratings boost visibility
+        Double rating = listing.getAverageRating();
+        if (rating != null && rating > 0) {
+            if (rating >= 4.5) boost += 25;
+            else if (rating >= 4.0) boost += 20;
+            else if (rating >= 3.5) boost += 15;
+            else if (rating >= 3.0) boost += 10;
+        }
+        
+        // Featured listings get priority
+        if (Boolean.TRUE.equals(listing.getFeatured())) {
+            boost += 20;
+        }
+        
+        // Fresh content boost (like LinkedIn's recency signal)
+        if (listing.getCreatedAt() != null) {
+            long daysOld = java.time.temporal.ChronoUnit.DAYS.between(
+                listing.getCreatedAt().toLocalDate(), 
+                java.time.LocalDate.now()
+            );
+            if (daysOld <= 1) boost += 20;      // Posted today/yesterday
+            else if (daysOld <= 3) boost += 15; // Last 3 days
+            else if (daysOld <= 7) boost += 10; // Last week
+        }
+        
+        return Math.min(100, boost);
     }
     
     /**

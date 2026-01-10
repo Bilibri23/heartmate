@@ -293,4 +293,29 @@ public class PaymentService {
         
         return response;
     }
+    
+    /**
+     * Cancel a pending payment
+     */
+    @Transactional
+    public void cancelPayment(UUID paymentId, UUID userId) {
+        log.info("Cancelling payment: {} by user: {}", paymentId, userId);
+        
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+        
+        // Verify user owns this payment
+        if (!payment.getPayer().getId().equals(userId)) {
+            throw new BadRequestException("You can only cancel your own payments");
+        }
+        
+        // Only pending payments can be cancelled
+        if (payment.getStatus() != Payment.PaymentStatus.PENDING) {
+            throw new BadRequestException("Only pending payments can be cancelled. Current status: " + payment.getStatus());
+        }
+        
+        // Delete the payment
+        paymentRepository.delete(payment);
+        log.info("Payment {} cancelled successfully", paymentId);
+    }
 }

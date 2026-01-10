@@ -73,6 +73,16 @@ export default function AdminPaymentsPage() {
     } catch (err) { console.error(err) }
   }
 
+  const handleReject = async (id: string) => {
+    const reason = prompt("Enter rejection reason:")
+    if (!reason) return
+    try {
+      await api.post(`/admin/payments/${id}/reject?reason=${encodeURIComponent(reason)}`)
+      fetchData()
+      setIsDetailOpen(false)
+    } catch (err) { console.error(err) }
+  }
+
   const filtered = payments.filter(p => {
     const matchesSearch = p.payerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.recipientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -83,8 +93,11 @@ export default function AdminPaymentsPage() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
+      VERIFIED: "bg-green-100 text-green-700",
       COMPLETED: "bg-green-100 text-green-700",
       PENDING: "bg-amber-100 text-amber-700",
+      SUBMITTED: "bg-blue-100 text-blue-700",
+      REJECTED: "bg-red-100 text-red-700",
       FAILED: "bg-red-100 text-red-700",
       PENDING_VERIFICATION: "bg-blue-100 text-blue-700"
     }
@@ -187,10 +200,22 @@ export default function AdminPaymentsPage() {
                 {selected.transactionId && <p><span className="text-slate-500">Transaction ID:</span> {selected.transactionId}</p>}
                 <p><span className="text-slate-500">Date:</span> {new Date(selected.createdAt).toLocaleString()}</p>
               </div>
-              {selected.status === "PENDING_VERIFICATION" && (
-                <Button className="w-full rounded-xl bg-green-600 hover:bg-green-700" onClick={() => handleApprove(selected.id)}>
-                  <CheckCircle className="h-4 w-4 mr-2" /> Approve Payment
-                </Button>
+              {(selected.status === "SUBMITTED" || selected.status === "PENDING_VERIFICATION") && (
+                <div className="flex gap-3">
+                  <Button 
+                    className="flex-1 rounded-xl bg-green-600 hover:bg-green-700" 
+                    onClick={() => handleApprove(selected.id)}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="flex-1 rounded-xl text-red-600 border-red-200 hover:bg-red-50" 
+                    onClick={() => handleReject(selected.id)}
+                  >
+                    <XCircle className="h-4 w-4 mr-2" /> Reject
+                  </Button>
+                </div>
               )}
             </div>
           )}

@@ -40,6 +40,7 @@ public class ApplicationService {
     private final StudentVerificationRepository verificationRepository;
     private final ProfileRepository profileRepository;
     private final NotificationService notificationService;
+    private final org.springframework.context.ApplicationContext applicationContext;
     
     private static final int APPLICATION_EXPIRY_DAYS = 30;
     
@@ -242,6 +243,21 @@ public class ApplicationService {
                     application.getId(),
                     application.getListing().getTitle()
             );
+            
+            // Auto-create lease when application is accepted
+            try {
+                LeaseService leaseService = applicationContext.getBean(LeaseService.class);
+                org.rooms.roombuddy.dto.request.LeaseRequest leaseRequest = new org.rooms.roombuddy.dto.request.LeaseRequest();
+                leaseRequest.setApplicationId(application.getId());
+                leaseRequest.setStartDate(application.getMoveInDate());
+                leaseRequest.setEndDate(application.getMoveInDate().plusMonths(application.getLeaseDurationMonths()));
+                leaseRequest.setMonthlyRent(application.getListing().getRentAmount());
+                leaseRequest.setDepositAmount(application.getListing().getDeposit());
+                leaseService.createLeaseFromApplication(landlordId, leaseRequest);
+                log.info("Auto-created lease for accepted application {}", applicationId);
+            } catch (Exception e) {
+                log.warn("Failed to auto-create lease for application {}: {}", applicationId, e.getMessage());
+            }
         } else if (request.getStatus() == RoomApplication.Status.REJECTED) {
             notificationService.notifyApplicationRejected(
                     application.getStudent().getId(),

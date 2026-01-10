@@ -160,6 +160,11 @@ public class Lease {
     }
     
     public boolean canBeReviewed() {
-        return status == LeaseStatus.COMPLETED || status == LeaseStatus.TERMINATED;
+        // Allow reviewing active, completed, or terminated leases
+        return status == LeaseStatus.ACTIVE || status == LeaseStatus.COMPLETED || status == LeaseStatus.TERMINATED;
+    }
+    
+    public int getDurationMonths() {
+        return (int) java.time.temporal.ChronoUnit.MONTHS.between(startDate, endDate);
     }
 }

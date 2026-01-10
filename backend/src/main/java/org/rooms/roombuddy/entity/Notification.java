@@ -71,6 +71,7 @@ public class Notification {
         LEASE_ACTIVE,
         LEASE_COMPLETED,
         LEASE_TERMINATED,
+        LEASE_EXPIRING,
         
         // Payment notifications
         PAYMENT_INITIATED,
@@ -78,6 +79,7 @@ public class Notification {
         PAYMENT_VERIFIED,
         PAYMENT_REJECTED,
         PAYMENT_RECEIVED,
+        PAYMENT_REMINDER,
         
         // Review notifications
         REVIEW_RECEIVED,

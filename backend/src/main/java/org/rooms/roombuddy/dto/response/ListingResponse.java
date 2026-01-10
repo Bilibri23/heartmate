@@ -20,7 +20,6 @@ public class ListingResponse {
     private UUID id;
     private UUID landlordId;
     private String landlordName;
-    private String landlordWhatsapp;
     private String title;
     private String description;
     private String propertyType;

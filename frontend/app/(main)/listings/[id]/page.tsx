@@ -44,14 +44,16 @@ interface ListingDetail {
   title: string
   description: string
   rentAmount: number
-  depositAmount: number
+  depositAmount?: number
+  deposit?: number
   city: string
   neighborhood: string
   address: string
   propertyType: string
   bedrooms: number
   bathrooms: number
-  size: number
+  size?: number
+  squareMeters?: number
   amenities: string[]
   photos: { id: string; photoUrl: string; isPrimary: boolean }[]
   verified: boolean
@@ -59,8 +61,13 @@ interface ListingDetail {
   status: string
   viewsCount: number
   favoritesCount: number
-  isFavorited: boolean
-  landlord: {
+  isFavorited?: boolean
+  isFavorite?: boolean
+  // Backend returns flat landlord fields
+  landlordId: string
+  landlordName: string
+  // Also support nested landlord object if present
+  landlord?: {
     id: string
     firstName: string
     lastName: string
@@ -69,6 +76,7 @@ interface ListingDetail {
   }
   averageRating?: number
   reviewsCount?: number
+  reviewCount?: number
   createdAt: string
 }
 
@@ -84,6 +92,8 @@ export default function ListingDetailPage() {
   const [isApplyOpen, setIsApplyOpen] = useState(false)
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
   const [applicationMessage, setApplicationMessage] = useState("")
+  const [moveInDate, setMoveInDate] = useState("")
+  const [leaseDuration, setLeaseDuration] = useState(6)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [viewingDate, setViewingDate] = useState("")
   const [viewingTime, setViewingTime] = useState("")
@@ -97,7 +107,7 @@ export default function ListingDetailPage() {
           params: user?.id ? { userId: user.id } : undefined
         })
         setListing(response.data)
-        setIsFavorited(response.data?.isFavorited || false)
+        setIsFavorited(response.data?.isFavorited || response.data?.isFavorite || false)
         
         // Track view (don't await, fire and forget)
         api.post(`/listings/${params.id}/view`, null, {
@@ -139,26 +149,42 @@ export default function ListingDetailPage() {
     }
   }
 
+  const [applicationError, setApplicationError] = useState<string | null>(null)
+
   const handleApply = async () => {
     if (!user?.id) {
       router.push("/login")
       return
     }
 
+    // Validate required fields
+    if (!moveInDate || !applicationMessage || applicationMessage.length < 50) {
+      setApplicationError("Please fill in all required fields. Message must be at least 50 characters.")
+      return
+    }
+
     setIsSubmitting(true)
+    setApplicationError(null)
     try {
       await api.post("/applications", {
         listingId: params.id,
         message: applicationMessage,
+        moveInDate: moveInDate,
+        leaseDurationMonths: leaseDuration,
       })
       setIsApplyOpen(false)
       // Show success toast or redirect
       router.push("/applications")
     } catch (err: any) {
       console.error("Failed to apply:", err)
-      // Check if verification required
-      if (err.response?.status === 403) {
+      const errorMessage = err.response?.data?.message || ""
+      // Check for duplicate application
+      if (err.response?.status === 400 && (errorMessage.toLowerCase().includes("already") || errorMessage.toLowerCase().includes("exists"))) {
+        setApplicationError("You have already applied to this listing. Check your applications page to view the status.")
+      } else if (err.response?.status === 403) {
         router.push("/verification")
+      } else {
+        setApplicationError("Failed to submit application. Please try again.")
       }
     } finally {
       setIsSubmitting(false)
@@ -180,8 +206,15 @@ export default function ListingDetailPage() {
   }
 
   const handleScheduleViewing = async () => {
-    if (!user?.id || !listing?.landlord?.id) {
+    if (!user?.id) {
       router.push("/login")
+      return
+    }
+    
+    // Get landlord ID from either nested object or flat field
+    const landlordId = listing?.landlord?.id || listing?.landlordId
+    if (!landlordId) {
+      console.error("No landlord ID available")
       return
     }
 
@@ -199,8 +232,8 @@ export default function ListingDetailPage() {
       
       const message = `📅 **Viewing Request**\n\nI would like to schedule a viewing for:\n\n🏠 Property: ${listing.title}\n📍 Location: ${listing.neighborhood}, ${listing.city}\n📆 Date: ${formattedDate}\n⏰ Time: ${viewingTime}\n\n${viewingMessage ? `Message: ${viewingMessage}` : ""}`
       
-      await api.post("/messages/send", {
-        receiverId: listing.landlord.id,
+      await api.post("/messages", {
+        receiverId: landlordId,
         content: message,
       })
       
@@ -210,7 +243,7 @@ export default function ListingDetailPage() {
       setViewingMessage("")
       
       // Redirect to messages
-      router.push(`/messages/${listing.landlord.id}`)
+      router.push(`/messages/${landlordId}`)
     } catch (err) {
       console.error("Failed to schedule viewing:", err)
     } finally {
@@ -265,7 +298,7 @@ export default function ListingDetailPage() {
   return (
     <div className="min-h-screen bg-white pb-24">
       {/* Photo Gallery */}
-      <div className="relative h-72 bg-slate-200">
+      <div className="relative h-72 sm:h-96 bg-slate-200 overflow-hidden">
         {listing.photos && listing.photos.length > 0 ? (
           <>
             <Image
@@ -440,20 +473,20 @@ export default function ListingDetailPage() {
           <h2 className="text-lg font-semibold text-slate-900 mb-3">
             Landlord
           </h2>
-          {listing.landlord ? (
+          {(listing.landlord || listing.landlordId) ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={listing.landlord.profilePhotoUrl || undefined} />
+                  <AvatarImage src={listing.landlord?.profilePhotoUrl || undefined} />
                   <AvatarFallback className="bg-blue-100 text-blue-600">
-                    {listing.landlord.firstName?.[0] || "L"}{listing.landlord.lastName?.[0] || ""}
+                    {listing.landlord?.firstName?.[0] || listing.landlordName?.[0] || "L"}
                   </AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="font-medium text-slate-900">
-                    {listing.landlord.firstName} {listing.landlord.lastName}
+                    {listing.landlord ? `${listing.landlord.firstName} ${listing.landlord.lastName}` : listing.landlordName}
                   </p>
-                  {listing.landlord.verified && (
+                  {listing.landlord?.verified && (
                     <p className="text-xs text-emerald-600 flex items-center gap-1">
                       <Shield className="h-3 w-3" />
                       Verified Landlord
@@ -461,7 +494,7 @@ export default function ListingDetailPage() {
                   )}
                 </div>
               </div>
-              <Link href={`/messages/${listing.landlord.id}`}>
+              <Link href={`/messages/${listing.landlord?.id || listing.landlordId}`}>
                 <Button variant="outline" size="sm" className="rounded-xl">
                   <MessageCircle className="h-4 w-4 mr-1" />
                   Message
@@ -579,28 +612,77 @@ export default function ListingDetailPage() {
                 {t.listings.applyNow}
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[60vh] rounded-t-3xl">
+            <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl overflow-y-auto">
               <SheetHeader>
                 <SheetTitle>{t.applications.apply}</SheetTitle>
               </SheetHeader>
               
               <div className="mt-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      Move-in Date *
+                    </label>
+                    <Input
+                      type="date"
+                      value={moveInDate}
+                      onChange={(e) => setMoveInDate(e.target.value)}
+                      min={new Date().toISOString().split("T")[0]}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 mb-2 block">
+                      Lease Duration *
+                    </label>
+                    <select
+                      value={leaseDuration}
+                      onChange={(e) => setLeaseDuration(Number(e.target.value))}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm"
+                    >
+                      {[1, 2, 3, 6, 9, 12, 18, 24].map((months) => (
+                        <option key={months} value={months}>
+                          {months} {months === 1 ? "month" : "months"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-2 block">
-                    {t.applications.message}
+                    {t.applications.message} * <span className="text-slate-400 font-normal">(min 50 characters)</span>
                   </label>
                   <Textarea
-                    placeholder={t.applications.messagePlaceholder}
+                    placeholder="Tell the landlord about yourself, why you're interested in this property, your occupation, etc."
                     value={applicationMessage}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setApplicationMessage(e.target.value)}
                     className="min-h-[120px] rounded-xl"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    {applicationMessage.length}/50 characters minimum
+                  </p>
                 </div>
+
+                {applicationError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                    <p className="text-sm text-red-600">{applicationError}</p>
+                    {applicationError.includes("already applied") && (
+                      <Button 
+                        variant="link" 
+                        className="text-red-600 p-0 h-auto mt-1"
+                        onClick={() => router.push("/applications")}
+                      >
+                        View my applications →
+                      </Button>
+                    )}
+                  </div>
+                )}
                 
                 <Button 
                   className="w-full h-12 rounded-xl"
                   onClick={handleApply}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !moveInDate || applicationMessage.length < 50}
                 >
                   {isSubmitting ? t.common.loading : t.applications.apply}
                 </Button>

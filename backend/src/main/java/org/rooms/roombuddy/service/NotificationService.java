@@ -25,6 +25,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final EmailService emailService;
     
     @Transactional
     public void createNotification(UUID userId, Notification.NotificationType type, 
@@ -110,68 +111,114 @@ public class NotificationService {
         notificationRepository.delete(notification);
     }
     
-    // Helper methods for creating specific notification types
+    // Helper methods for creating specific notification types with email
     public void notifyApplicationReceived(UUID landlordId, UUID applicationId, String studentName, String listingTitle) {
         createNotification(landlordId, Notification.NotificationType.APPLICATION_RECEIVED,
                 "New Application Received",
                 studentName + " has applied for " + listingTitle,
-                applicationId, "APPLICATION", "/admin/landlord/applications");
+                applicationId, "APPLICATION", "/landlord/applications");
+        
+        // Send email
+        User landlord = userRepository.findById(landlordId).orElse(null);
+        if (landlord != null && landlord.getEmail() != null) {
+            emailService.sendApplicationReceivedEmail(landlord.getEmail(), studentName, listingTitle);
+        }
     }
     
     public void notifyApplicationAccepted(UUID studentId, UUID applicationId, String listingTitle) {
         createNotification(studentId, Notification.NotificationType.APPLICATION_ACCEPTED,
                 "Application Accepted!",
                 "Your application for " + listingTitle + " has been accepted",
-                applicationId, "APPLICATION", "/admin/student/applications");
+                applicationId, "APPLICATION", "/applications");
+        
+        // Send email
+        User student = userRepository.findById(studentId).orElse(null);
+        if (student != null && student.getEmail() != null) {
+            emailService.sendApplicationStatusEmail(student.getEmail(), listingTitle, "ACCEPTED");
+        }
     }
     
     public void notifyApplicationRejected(UUID studentId, UUID applicationId, String listingTitle) {
         createNotification(studentId, Notification.NotificationType.APPLICATION_REJECTED,
                 "Application Update",
                 "Your application for " + listingTitle + " was not accepted",
-                applicationId, "APPLICATION", "/admin/student/applications");
+                applicationId, "APPLICATION", "/applications");
+        
+        // Send email
+        User student = userRepository.findById(studentId).orElse(null);
+        if (student != null && student.getEmail() != null) {
+            emailService.sendApplicationStatusEmail(student.getEmail(), listingTitle, "REJECTED");
+        }
     }
     
     public void notifyLeaseCreated(UUID studentId, UUID leaseId, String listingTitle) {
         createNotification(studentId, Notification.NotificationType.LEASE_CREATED,
                 "Lease Created",
                 "A lease has been created for " + listingTitle + ". Please review and sign.",
-                leaseId, "LEASE", "/admin/leases");
+                leaseId, "LEASE", "/leases");
+        
+        // Send email
+        User student = userRepository.findById(studentId).orElse(null);
+        if (student != null && student.getEmail() != null) {
+            emailService.sendLeaseCreatedEmail(student.getEmail(), listingTitle);
+        }
     }
     
     public void notifyPaymentVerified(UUID studentId, UUID paymentId, String amount) {
         createNotification(studentId, Notification.NotificationType.PAYMENT_VERIFIED,
                 "Payment Verified",
                 "Your payment of " + amount + " XAF has been verified",
-                paymentId, "PAYMENT", "/admin/leases");
+                paymentId, "PAYMENT", "/leases");
+        
+        // Send email - amount is string, parse it
+        User student = userRepository.findById(studentId).orElse(null);
+        if (student != null && student.getEmail() != null) {
+            try {
+                int amountInt = Integer.parseInt(amount.replaceAll("[^0-9]", ""));
+                emailService.sendPaymentVerifiedEmail(student.getEmail(), amountInt, "Your property");
+            } catch (Exception e) {
+                log.warn("Could not send payment verified email: {}", e.getMessage());
+            }
+        }
     }
     
     public void notifyPaymentRejected(UUID studentId, UUID paymentId, String reason) {
         createNotification(studentId, Notification.NotificationType.PAYMENT_REJECTED,
                 "Payment Rejected",
                 "Your payment was rejected: " + reason,
-                paymentId, "PAYMENT", "/admin/leases");
+                paymentId, "PAYMENT", "/payments");
     }
     
     public void notifyPaymentReceived(UUID landlordId, UUID paymentId, String amount, String studentName) {
         createNotification(landlordId, Notification.NotificationType.PAYMENT_RECEIVED,
                 "Payment Received",
                 "You received " + amount + " XAF from " + studentName,
-                paymentId, "PAYMENT", "/admin/leases");
+                paymentId, "PAYMENT", "/landlord/payments");
+        
+        // Send email
+        User landlord = userRepository.findById(landlordId).orElse(null);
+        if (landlord != null && landlord.getEmail() != null) {
+            try {
+                int amountInt = Integer.parseInt(amount.replaceAll("[^0-9]", ""));
+                emailService.sendPaymentReceivedEmail(landlord.getEmail(), amountInt, studentName, "Your property");
+            } catch (Exception e) {
+                log.warn("Could not send payment received email: {}", e.getMessage());
+            }
+        }
     }
     
     public void notifyNewMessage(UUID userId, UUID conversationId, String senderName) {
         createNotification(userId, Notification.NotificationType.NEW_MESSAGE,
                 "New Message",
                 "You have a new message from " + senderName,
-                conversationId, "MESSAGE", "/admin/student/messages");
+                conversationId, "MESSAGE", "/messages");
     }
     
     public void notifyReviewReceived(UUID userId, UUID reviewId, String reviewerName) {
         createNotification(userId, Notification.NotificationType.REVIEW_RECEIVED,
                 "New Review",
                 reviewerName + " left you a review",
-                reviewId, "REVIEW", "/admin/profile");
+                reviewId, "REVIEW", "/reviews");
     }
     
     public void notifyDisputeUpdated(UUID userId, UUID disputeId, String status) {

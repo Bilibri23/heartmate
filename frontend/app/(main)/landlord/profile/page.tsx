@@ -58,24 +58,34 @@ export default function LandlordProfilePage() {
       // Fetch stats - profile data comes from auth context
       const statsRes = await api.get(`/listings/landlord/${user.id}/statistics`)
       
-      // Try to get profile, but don't fail if it doesn't exist
-      let profileData: Partial<LandlordProfile> = {}
+      // Try to get profile for photo and bio
+      let profilePhotoUrl: string | undefined
       try {
         const profileRes = await api.get(`/profiles/${user.id}`)
-        profileData = profileRes.data || {}
+        profilePhotoUrl = profileRes.data?.profilePhotoUrl
       } catch {
-        // Profile may not exist yet, use auth context data
+        // Profile may not exist yet
+      }
+      
+      // Also try to get user details for photo
+      try {
+        const userRes = await api.get(`/users/${user.id}`)
+        if (!profilePhotoUrl && userRes.data?.profilePhotoUrl) {
+          profilePhotoUrl = userRes.data.profilePhotoUrl
+        }
+      } catch {
+        // User endpoint may not exist
       }
       
       setProfile({
         id: user.id,
-        firstName: profileData.firstName || user.firstName,
-        lastName: profileData.lastName || user.lastName,
-        email: profileData.email || user.email || "",
-        phone: profileData.phone || user.phone || "",
-        profilePhotoUrl: profileData.profilePhotoUrl,
-        verified: profileData.verified || false,
-        createdAt: profileData.createdAt || new Date().toISOString(),
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email || "",
+        phone: user.phone || "",
+        profilePhotoUrl: profilePhotoUrl,
+        verified: false,
+        createdAt: new Date().toISOString(),
         totalListings: statsRes.data?.totalListings || 0,
         activeListings: statsRes.data?.activeListings || 0,
         totalTenants: statsRes.data?.totalTenants || 0,
@@ -119,6 +129,7 @@ export default function LandlordProfilePage() {
       items: [
         { icon: Building2, label: "My Listings", href: "/landlord", badge: profile?.activeListings },
         { icon: FileText, label: "Applications", href: "/landlord/applications" },
+        { icon: FileText, label: "Leases", href: "/landlord/leases" },
         { icon: Users, label: "Tenants", href: "/landlord/tenants" },
         { icon: CreditCard, label: "Payments", href: "/landlord/payments" },
       ]

@@ -116,14 +116,15 @@ export default function EditLandlordProfilePage() {
         }
       }
 
-      // Upload photo if changed
+      // Upload photo if changed - use dedicated photo upload endpoint
       if (profilePhoto) {
         const photoFormData = new FormData()
         photoFormData.append("file", profilePhoto)
-        photoFormData.append("bio", formData.bio || "")
-        await api.post(`/profiles`, photoFormData, {
-          params: { userId: user.id },
-          headers: { "Content-Type": "multipart/form-data" }
+        const token = localStorage.getItem("token")
+        await fetch("http://localhost:8080/api/upload/profile-photo", {
+          method: "POST",
+          headers: token ? { "Authorization": `Bearer ${token}` } : {},
+          body: photoFormData
         })
       }
 

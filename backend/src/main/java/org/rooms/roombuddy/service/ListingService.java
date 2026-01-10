@@ -556,7 +556,6 @@ public class ListingService {
                 .id(listing.getId())
                 .landlordId(listing.getLandlord().getId())
                 .landlordName(listing.getLandlord().getFirstName() + " " + listing.getLandlord().getLastName())
-                .landlordWhatsapp(listing.getLandlordWhatsapp())
                 .title(listing.getTitle())
                 .description(listing.getDescription())
                 .propertyType(listing.getPropertyType() != null ? listing.getPropertyType().name() : null)
@@ -701,10 +700,18 @@ public class ListingService {
         return mapToResponse(saved, landlordId);
     }
 
-    // Mark listing as available
+    // Mark listing as available - if DRAFT, set to PENDING for admin approval
     public ListingResponse markAsAvailable(UUID listingId, UUID landlordId) {
         PropertyListing listing = findListingByIdAndLandlord(listingId, landlordId);
-        listing.setStatus(PropertyListing.Status.ACTIVE);
+        // If listing is DRAFT or INACTIVE, set to PENDING for admin approval
+        if (listing.getStatus() == PropertyListing.Status.DRAFT || 
+            listing.getStatus() == PropertyListing.Status.INACTIVE) {
+            listing.setStatus(PropertyListing.Status.PENDING);
+            log.info("Listing {} set to PENDING for admin approval", listingId);
+        } else {
+            // For RENTED listings being re-listed, set directly to ACTIVE
+            listing.setStatus(PropertyListing.Status.ACTIVE);
+        }
         PropertyListing saved = listingRepository.save(listing);
         return mapToResponse(saved, landlordId);
     }

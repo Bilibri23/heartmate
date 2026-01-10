@@ -88,11 +88,15 @@ export default function AdminListingsPage() {
   const fetchListings = async () => {
     setIsLoading(true)
     try {
-      const endpoint = statusFilter === "pending" 
-        ? "/admin/listings/pending"
-        : "/listings"
-      const response = await api.get(endpoint)
-      const data = response.data?.content || response.data || []
+      // Always fetch pending listings for admin - these are listings awaiting approval
+      const response = await api.get("/admin/listings/pending")
+      let data = response.data?.content || response.data || []
+      
+      // Filter by status if not "all"
+      if (statusFilter !== "all" && statusFilter !== "pending") {
+        data = data.filter((l: Listing) => l.status === statusFilter.toUpperCase())
+      }
+      
       setListings(data)
     } catch (err) {
       console.error("Failed to fetch listings:", err)

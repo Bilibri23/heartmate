@@ -37,7 +37,18 @@ export default function MessagesPage() {
     setIsLoading(true)
     try {
       const response = await api.get("/messages/conversations")
-      setConversations(response.data || [])
+      // Map backend response to frontend format
+      const mapped = (response.data || []).map((conv: any) => ({
+        id: conv.userId || conv.id,
+        participantId: conv.userId,
+        participantName: conv.participantName || `${conv.firstName || ''} ${conv.lastName || ''}`.trim() || 'Unknown User',
+        participantPhotoUrl: conv.participantPhotoUrl || conv.profilePhotoUrl || null,
+        lastMessage: conv.lastMessage?.content || conv.lastMessage || '',
+        lastMessageTime: conv.lastMessageTime,
+        unreadCount: conv.unreadCount || 0,
+        listingTitle: conv.listingTitle,
+      }))
+      setConversations(mapped)
     } catch (err) {
       console.error("Failed to fetch conversations:", err)
     } finally {

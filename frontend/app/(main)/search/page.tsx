@@ -7,7 +7,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Search, SlidersHorizontal, MapPin, X } from "lucide-react"
+import { Search, SlidersHorizontal, MapPin, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -86,12 +86,17 @@ export default function SearchPage() {
     maxPrice: 500000,
   })
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+  const PAGE_SIZE = 12
 
-  const fetchListings = useCallback(async () => {
+  const fetchListings = useCallback(async (page: number = 0) => {
     setIsLoading(true)
     try {
       const params: Record<string, any> = {
-        size: 20,
+        size: PAGE_SIZE,
+        page: page,
         sortBy: "createdAt",
         sortDir: "DESC",
       }
@@ -103,8 +108,12 @@ export default function SearchPage() {
       if (user?.id) params.userId = user.id
 
       const response = await api.get("/listings", { params })
-      const content = response.data?.content || response.data || []
+      const data = response.data
+      const content = data?.content || data || []
       setListings(content)
+      setTotalPages(data?.totalPages || 1)
+      setTotalElements(data?.totalElements || content.length)
+      setCurrentPage(data?.number || 0)
     } catch (err) {
       console.error("Failed to fetch listings:", err)
     } finally {
@@ -315,9 +324,12 @@ export default function SearchPage() {
         <div className="p-4">
           {/* Results count */}
           {!isLoading && (
-            <p className="text-sm text-slate-500 mb-4">
-              {filteredListings.length} {filteredListings.length === 1 ? "result" : "results"}
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-slate-500">
+                {totalElements} {totalElements === 1 ? "result" : "results"}
+                {totalPages > 1 && ` • Page ${currentPage + 1} of ${totalPages}`}
+              </p>
+            </div>
           )}
 
           {/* Loading */}
@@ -349,25 +361,81 @@ export default function SearchPage() {
 
           {/* Listings */}
           {!isLoading && filteredListings.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {filteredListings.map((listing) => (
-                <ListingCard
-                  key={listing.id}
-                  id={listing.id}
-                  title={listing.title}
-                  price={listing.rentAmount}
-                  city={listing.city}
-                  neighborhood={listing.neighborhood}
-                  bedrooms={listing.bedrooms}
-                  bathrooms={listing.bathrooms}
-                  imageUrl={listing.photos?.find(p => p.isPrimary)?.photoUrl || listing.photos?.[0]?.photoUrl}
-                  isVerified={listing.verified}
-                  isFeatured={listing.featured}
-                  isFavorited={listing.isFavorited}
-                  onFavoriteToggle={handleFavoriteToggle}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {filteredListings.map((listing) => (
+                  <ListingCard
+                    key={listing.id}
+                    id={listing.id}
+                    title={listing.title}
+                    price={listing.rentAmount}
+                    city={listing.city}
+                    neighborhood={listing.neighborhood}
+                    bedrooms={listing.bedrooms}
+                    bathrooms={listing.bathrooms}
+                    imageUrl={listing.photos?.find(p => p.isPrimary)?.photoUrl || listing.photos?.[0]?.photoUrl}
+                    isVerified={listing.verified}
+                    isFeatured={listing.featured}
+                    isFavorited={listing.isFavorited}
+                    onFavoriteToggle={handleFavoriteToggle}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 py-6">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    disabled={currentPage === 0}
+                    onClick={() => fetchListings(currentPage - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    {/* Page numbers */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum: number
+                      if (totalPages <= 5) {
+                        pageNum = i
+                      } else if (currentPage < 3) {
+                        pageNum = i
+                      } else if (currentPage > totalPages - 4) {
+                        pageNum = totalPages - 5 + i
+                      } else {
+                        pageNum = currentPage - 2 + i
+                      }
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => fetchListings(pageNum)}
+                          className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
+                            currentPage === pageNum
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          {pageNum + 1}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    disabled={currentPage >= totalPages - 1}
+                    onClick={() => fetchListings(currentPage + 1)}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

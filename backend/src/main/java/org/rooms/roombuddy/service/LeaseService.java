@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -287,5 +288,74 @@ public class LeaseService {
                 .canBeReviewed(lease.canBeReviewed())
                 .isActive(lease.isActive())
                 .build();
+    }
+    
+    /**
+     * Create leases for all accepted applications that don't have leases yet
+     */
+    @Transactional
+    public int createLeasesForAcceptedApplications() {
+        log.info("Creating leases for accepted applications without leases");
+        
+        List<RoomApplication> acceptedApplications = applicationRepository.findByStatus(RoomApplication.Status.ACCEPTED);
+        int created = 0;
+        
+        for (RoomApplication application : acceptedApplications) {
+            // Check if lease already exists
+            boolean leaseExists = leaseRepository.existsByListingIdAndStudentIdAndStatusIn(
+                    application.getListing().getId(),
+                    application.getStudent().getId(),
+                    Arrays.asList(Lease.LeaseStatus.PENDING_PAYMENT, Lease.LeaseStatus.PENDING_SIGNATURES, Lease.LeaseStatus.ACTIVE)
+            );
+            
+            if (!leaseExists) {
+                try {
+                    PropertyListing listing = application.getListing();
+                    User student = application.getStudent();
+                    User landlord = listing.getLandlord();
+                    
+                    int deposit = listing.getDeposit() != null ? listing.getDeposit() : 0;
+                    int agencyFees = listing.getAgencyFees() != null ? listing.getAgencyFees() : 0;
+                    int monthlyRent = listing.getRentAmount();
+                    int totalInitial = deposit + monthlyRent + agencyFees;
+                    
+                    java.time.LocalDate startDate = application.getMoveInDate() != null ? 
+                            application.getMoveInDate() : java.time.LocalDate.now();
+                    int leaseDuration = application.getLeaseDurationMonths() != null ? 
+                            application.getLeaseDurationMonths() : 12;
+                    
+                    Lease lease = Lease.builder()
+                            .listing(listing)
+                            .student(student)
+                            .landlord(landlord)
+                            .application(application)
+                            .startDate(startDate)
+                            .endDate(startDate.plusMonths(leaseDuration))
+                            .monthlyRent(monthlyRent)
+                            .depositAmount(deposit)
+                            .agencyFees(agencyFees)
+                            .totalInitialPayment(totalInitial)
+                            .status(Lease.LeaseStatus.PENDING_PAYMENT)
+                            .termsContent(DEFAULT_TERMS_TEMPLATE)
+                            .build();
+                    
+                    leaseRepository.save(lease);
+                    created++;
+                    log.info("Created lease for application {}", application.getId());
+                    
+                    // Notify student
+                    notificationService.notifyLeaseCreated(
+                            student.getId(),
+                            lease.getId(),
+                            listing.getTitle()
+                    );
+                } catch (Exception e) {
+                    log.warn("Failed to create lease for application {}: {}", application.getId(), e.getMessage());
+                }
+            }
+        }
+        
+        log.info("Created {} leases for accepted applications", created);
+        return created;
     }
 }

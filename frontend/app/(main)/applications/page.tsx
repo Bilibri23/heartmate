@@ -89,7 +89,14 @@ export default function ApplicationsPage() {
       
       const response = await api.get("/applications/my", { params })
       const content = response.data?.content || response.data || []
-      setApplications(content)
+      // Map backend response to frontend format
+      const mapped = content.map((app: any) => ({
+        ...app,
+        listingPhotoUrl: app.listingPhotoUrl || app.listingPrimaryPhotoUrl || null,
+        listingNeighborhood: app.listingNeighborhood || app.listingAddress || '',
+        rentAmount: app.rentAmount || app.listingPrice || 0,
+      }))
+      setApplications(mapped)
     } catch (err) {
       console.error("Failed to fetch applications:", err)
     } finally {

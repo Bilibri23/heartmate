@@ -18,6 +18,17 @@ export interface Conversation {
   unreadCount: number;
 }
 
+// Backend response format
+interface ConversationApiResponse {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  profilePhotoUrl?: string;
+  lastMessage?: { content: string };
+  lastMessageTime: string;
+  unreadCount: number;
+}
+
 export const messageService = {
   getUnreadCount: async () => {
     const response = await api.get<{ unreadCount: number }>('/messages/unread-count');
@@ -25,13 +36,23 @@ export const messageService = {
   },
 
   getConversations: async () => {
-    const response = await api.get<Conversation[]>('/messages/conversations');
-    return response.data;
+    const response = await api.get<ConversationApiResponse[]>('/messages/conversations');
+    // Map backend response to frontend format
+    return response.data.map((conv) => ({
+      userId: conv.userId,
+      userName: `${conv.firstName || ''} ${conv.lastName || ''}`.trim() || 'Unknown User',
+      userAvatar: conv.profilePhotoUrl,
+      lastMessage: conv.lastMessage?.content || '',
+      lastMessageTime: conv.lastMessageTime,
+      unreadCount: conv.unreadCount || 0,
+    }));
   },
 
   getConversation: async (userId: string) => {
     const response = await api.get<any>(`/messages/conversation/${userId}`);
-    return response.data;
+    // Backend returns Page<MessageResponse> with content array
+    const messages = response.data?.content || response.data || [];
+    return { messages };
   },
 
   sendMessage: async (receiverId: string, content: string) => {

@@ -53,23 +53,55 @@ export default function LandlordAnalyticsPage() {
     
     setIsLoading(true)
     try {
-      const response = await api.get(`/listings/landlord/${user.id}/analytics`, {
-        params: { period }
+      // Fetch landlord's listings and compute analytics locally
+      const listingsRes = await api.get(`/listings/landlord/${user.id}`)
+      const listings = listingsRes.data || []
+      
+      // Compute analytics from listings data
+      const totalViews = listings.reduce((sum: number, l: any) => sum + (l.viewsCount || 0), 0)
+      const totalFavorites = listings.reduce((sum: number, l: any) => sum + (l.favoritesCount || 0), 0)
+      const totalApplications = listings.reduce((sum: number, l: any) => sum + (l.applicationsCount || 0), 0)
+      const activeListings = listings.filter((l: any) => l.status === "ACTIVE").length
+      const rentedListings = listings.filter((l: any) => l.status === "RENTED").length
+      const occupancyRate = listings.length > 0 ? Math.round((rentedListings / listings.length) * 100) : 0
+      
+      // Top listings by views
+      const topListings = [...listings]
+        .sort((a: any, b: any) => (b.viewsCount || 0) - (a.viewsCount || 0))
+        .slice(0, 5)
+        .map((l: any) => ({
+          id: l.id,
+          title: l.title,
+          views: l.viewsCount || 0,
+          favorites: l.favoritesCount || 0,
+          applications: l.applicationsCount || 0
+        }))
+      
+      setData({
+        totalViews,
+        viewsChange: 0, // Would need historical data to compute
+        totalFavorites,
+        favoritesChange: 0,
+        totalApplications,
+        applicationsChange: 0,
+        activeListings,
+        occupancyRate,
+        avgTimeToRent: 14, // Would need lease data to compute
+        topListings,
+        viewsByDay: []
       })
-      setData(response.data)
     } catch (err) {
       console.error("Failed to fetch analytics:", err)
-      // Mock data for demo
       setData({
-        totalViews: 1234,
-        viewsChange: 12.5,
-        totalFavorites: 89,
-        favoritesChange: -3.2,
-        totalApplications: 23,
-        applicationsChange: 8.7,
-        activeListings: 4,
-        occupancyRate: 75,
-        avgTimeToRent: 14,
+        totalViews: 0,
+        viewsChange: 0,
+        totalFavorites: 0,
+        favoritesChange: 0,
+        totalApplications: 0,
+        applicationsChange: 0,
+        activeListings: 0,
+        occupancyRate: 0,
+        avgTimeToRent: 0,
         topListings: [],
         viewsByDay: []
       })

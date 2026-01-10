@@ -7,7 +7,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Sparkles, TrendingUp, Clock, Filter } from "lucide-react"
+import { Sparkles, TrendingUp, Clock, Filter, ChevronLeft, ChevronRight, Flame, Eye, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import api from "@/lib/api"
@@ -32,6 +32,8 @@ interface RecommendedListing {
   viewsCount: number
   verified: boolean
   featured: boolean
+  averageRating?: number
+  reviewCount?: number
 }
 
 type FeedTab = "forYou" | "trending" | "recent"
@@ -41,79 +43,117 @@ export default function ForYouPage() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<FeedTab>("forYou")
   const [listings, setListings] = useState<RecommendedListing[]>([])
+  const [trendingListings, setTrendingListings] = useState<RecommendedListing[]>([])
+  const [recentListings, setRecentListings] = useState<RecommendedListing[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const PAGE_SIZE = 10
 
-  const fetchRecommendations = useCallback(async () => {
+  const normalizeListing = (l: any): RecommendedListing => ({
+    listingId: l.id || l.listingId,
+    title: l.title,
+    description: l.description || "",
+    rentAmount: l.rentAmount,
+    city: l.city,
+    neighborhood: l.neighborhood,
+    propertyType: l.propertyType || "",
+    primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
+    bedrooms: l.bedrooms,
+    bathrooms: l.bathrooms,
+    matchScore: l.matchScore || 0,
+    preferenceScore: l.preferenceScore || 0,
+    behaviorScore: l.behaviorScore || 0,
+    reasons: l.reasons || [],
+    isViewed: l.isViewed || false,
+    isFavorited: l.isFavorited || false,
+    viewsCount: l.viewsCount || 0,
+    verified: l.verified,
+    featured: l.featured,
+    averageRating: l.averageRating || 0,
+    reviewCount: l.reviewCount || 0,
+  })
+
+  // Fetch all sections on initial load
+  const fetchAllSections = useCallback(async () => {
     if (!user?.id) return
     
     setIsLoading(true)
     setError(null)
     
     try {
-      let endpoint = "/listings/active"
-      let useRecommendations = false
+      // Fetch all three sections in parallel
+      const [recResponse, trendingResponse, recentResponse] = await Promise.allSettled([
+        api.get("/recommendations/listings"),
+        api.get("/listings/active", { params: { sortBy: "viewsCount", sortDir: "DESC", size: 15 } }),
+        api.get("/listings/active", { params: { sortBy: "createdAt", sortDir: "DESC", size: 15, page: 0 } }),
+      ])
       
-      if (activeTab === "forYou") {
-        // Try recommendations first, fallback to active listings
-        endpoint = "/recommendations/listings"
-        useRecommendations = true
-      } else if (activeTab === "trending") {
-        endpoint = "/listings/featured"
-      } else if (activeTab === "recent") {
-        endpoint = "/listings?sortBy=createdAt&sortDir=DESC&size=20"
-      }
-      
-      let response
-      try {
-        response = await api.get(endpoint)
-      } catch (recErr) {
-        // Fallback to active listings if recommendations fail
-        if (useRecommendations) {
-          console.log("Recommendations unavailable, falling back to active listings")
-          response = await api.get("/listings/active", { params: { size: 20 } })
-          useRecommendations = false
+      // Process recommendations
+      if (recResponse.status === "fulfilled") {
+        const recData = recResponse.value.data || []
+        if (recData.length > 0) {
+          setListings(recData)
         } else {
-          throw recErr
+          // Fallback to active listings
+          const fallback = await api.get("/listings/active", { params: { size: 20 } })
+          const content = fallback.data?.content || fallback.data || []
+          setListings(content.map(normalizeListing))
         }
+      } else {
+        // Fallback on error
+        const fallback = await api.get("/listings/active", { params: { size: 20 } })
+        const content = fallback.data?.content || fallback.data || []
+        setListings(content.map(normalizeListing))
       }
       
-      // Normalize response based on endpoint
-      if (useRecommendations) {
-        // Recommendations endpoint returns properly formatted data
-        setListings(response.data || [])
-      } else {
-        // All other endpoints need normalization (paginated or array)
-        const content = response.data?.content || response.data || []
-        setListings(content.map((l: any) => ({
-          listingId: l.id || l.listingId,
-          title: l.title,
-          rentAmount: l.rentAmount,
-          city: l.city,
-          neighborhood: l.neighborhood,
-          primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
-          bedrooms: l.bedrooms,
-          bathrooms: l.bathrooms,
-          verified: l.verified,
-          featured: l.featured,
-          isFavorited: l.isFavorited || false,
-          matchScore: l.matchScore || 0,
-        })))
+      // Process trending
+      if (trendingResponse.status === "fulfilled") {
+        const content = trendingResponse.value.data?.content || trendingResponse.value.data || []
+        setTrendingListings(content.map(normalizeListing))
+      }
+      
+      // Process recent with pagination info
+      if (recentResponse.status === "fulfilled") {
+        const data = recentResponse.value.data
+        const content = data?.content || data || []
+        setRecentListings(content.map(normalizeListing))
+        setTotalPages(data?.totalPages || 1)
+        setCurrentPage(data?.number || 0)
       }
     } catch (err: any) {
-      console.error("Failed to fetch recommendations:", err)
-      setError(err.message || "Failed to load recommendations")
+      console.error("Failed to fetch listings:", err)
+      setError(err.message || "Failed to load listings")
     } finally {
       setIsLoading(false)
     }
-  }, [user?.id, activeTab])
+  }, [user?.id])
+
+  // Fetch more recent listings (pagination)
+  const fetchMoreRecent = useCallback(async (page: number) => {
+    if (!user?.id) return
+    
+    try {
+      const response = await api.get("/listings/active", { 
+        params: { sortBy: "createdAt", sortDir: "DESC", size: PAGE_SIZE, page } 
+      })
+      const data = response.data
+      const content = data?.content || data || []
+      setRecentListings(content.map(normalizeListing))
+      setTotalPages(data?.totalPages || 1)
+      setCurrentPage(data?.number || 0)
+    } catch (err) {
+      console.error("Failed to fetch more listings:", err)
+    }
+  }, [user?.id])
 
   useEffect(() => {
-    fetchRecommendations()
-  }, [fetchRecommendations])
+    fetchAllSections()
+  }, [fetchAllSections])
 
   const { containerRef, isRefreshing, pullProgress } = usePullToRefresh({
-    onRefresh: fetchRecommendations,
+    onRefresh: fetchAllSections,
   })
 
   const handleFavoriteToggle = async (listingId: string) => {
@@ -174,29 +214,23 @@ export default function ForYouPage() {
           isRefreshing={isRefreshing} 
         />
 
-        <div className="p-4 space-y-4">
-          {/* AI Insight Banner (only for "For You" tab) */}
-          {activeTab === "forYou" && !isLoading && listings.length > 0 && (
-            <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-4 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-5 w-5" />
-                <span className="font-semibold">AI Recommendations</span>
-              </div>
-              <p className="text-sm text-blue-100">
-                Based on your preferences and browsing history, we found {listings.length} listings that match your style.
-              </p>
-            </div>
-          )}
-
+        <div className="py-4 space-y-6">
           {/* Loading State */}
           {isLoading && (
-            <div className="grid gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="rounded-2xl bg-white p-3 shadow-sm">
-                  <Skeleton className="aspect-[4/3] rounded-xl mb-3" />
-                  <Skeleton className="h-5 w-24 mb-2" />
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-32" />
+            <div className="px-4 space-y-6">
+              {[1, 2].map((section) => (
+                <div key={section}>
+                  <Skeleton className="h-6 w-40 mb-3" />
+                  <div className="flex gap-4 overflow-hidden">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex-shrink-0 w-72 rounded-2xl bg-white p-3 shadow-sm">
+                        <Skeleton className="aspect-[4/3] rounded-xl mb-3" />
+                        <Skeleton className="h-5 w-24 mb-2" />
+                        <Skeleton className="h-4 w-full mb-2" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -204,49 +238,233 @@ export default function ForYouPage() {
 
           {/* Error State */}
           {error && !isLoading && (
-            <div className="text-center py-12">
+            <div className="text-center py-12 px-4">
               <p className="text-slate-500 mb-4">{error}</p>
-              <Button onClick={fetchRecommendations}>
+              <Button onClick={fetchAllSections}>
                 {t.common.retry}
               </Button>
             </div>
           )}
 
-          {/* Empty State */}
-          {!isLoading && !error && listings.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🏠</div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                No recommendations yet
-              </h3>
-              <p className="text-slate-500 text-sm">
-                Complete your profile and preferences to get personalized recommendations
-              </p>
-            </div>
-          )}
+          {/* Main Content - Show all sections */}
+          {!isLoading && !error && (
+            <>
+              {/* ===== FOR YOU SECTION ===== */}
+              {activeTab === "forYou" && (
+                <>
+                  {/* AI Banner */}
+                  {listings.length > 0 && (
+                    <div className="px-4">
+                      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 rounded-2xl p-4 text-white shadow-lg">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="p-2 bg-white/20 rounded-full">
+                            <Sparkles className="h-5 w-5" />
+                          </div>
+                          <span className="font-bold text-lg">Picked For You</span>
+                        </div>
+                        <p className="text-sm text-white/90">
+                          {listings.length} personalized recommendations based on your preferences, browsing history, and what students like you love.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-          {/* Listings Grid */}
-          {!isLoading && !error && listings.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {listings.map((listing) => (
-                <ListingCard
-                  key={listing.listingId}
-                  id={listing.listingId}
-                  title={listing.title}
-                  price={listing.rentAmount}
-                  city={listing.city}
-                  neighborhood={listing.neighborhood}
-                  bedrooms={listing.bedrooms}
-                  bathrooms={listing.bathrooms}
-                  imageUrl={listing.primaryPhotoUrl || undefined}
-                  isVerified={listing.verified}
-                  isFeatured={listing.featured}
-                  isFavorited={listing.isFavorited}
-                  matchScore={listing.matchScore}
-                  onFavoriteToggle={handleFavoriteToggle}
-                />
-              ))}
-            </div>
+                  {/* Recommended Listings */}
+                  {listings.length > 0 ? (
+                    <div>
+                      <div className="flex items-center justify-between px-4 mb-3">
+                        <div className="flex items-center gap-2">
+                          <Star className="h-5 w-5 text-amber-500" />
+                          <h2 className="text-lg font-bold text-slate-900">Top Matches</h2>
+                        </div>
+                        <span className="text-sm text-slate-500">{listings.length} found</span>
+                      </div>
+                      <div className="px-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {listings.slice(0, 6).map((listing) => (
+                            <ListingCard
+                              key={listing.listingId}
+                              id={listing.listingId}
+                              title={listing.title}
+                              price={listing.rentAmount}
+                              city={listing.city}
+                              neighborhood={listing.neighborhood}
+                              bedrooms={listing.bedrooms}
+                              bathrooms={listing.bathrooms}
+                              imageUrl={listing.primaryPhotoUrl || undefined}
+                              isVerified={listing.verified}
+                              isFeatured={listing.featured}
+                              isFavorited={listing.isFavorited}
+                              matchScore={listing.matchScore}
+                              rating={listing.averageRating}
+                              onFavoriteToggle={handleFavoriteToggle}
+                            />
+                          ))}
+                        </div>
+                        {listings.length > 6 && (
+                          <Button variant="outline" className="w-full mt-4 rounded-xl" onClick={() => setActiveTab("recent")}>
+                            View All Listings
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 px-4">
+                      <div className="text-6xl mb-4">🏠</div>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                        No recommendations yet
+                      </h3>
+                      <p className="text-slate-500 text-sm mb-4">
+                        Complete your profile and preferences to get personalized recommendations
+                      </p>
+                      <Button onClick={() => window.location.href = "/preferences"}>
+                        Set Preferences
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ===== TRENDING SECTION ===== */}
+              {activeTab === "trending" && (
+                <div>
+                  {/* Section Header */}
+                  <div className="flex items-center justify-between px-4 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-orange-100 rounded-lg">
+                        <Flame className="h-5 w-5 text-orange-500" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900">Hot Right Now</h2>
+                        <p className="text-xs text-slate-500">Most viewed by students this week</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 text-sm text-slate-500">
+                      <Eye className="h-4 w-4" />
+                      <span>Popular</span>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Scroll */}
+                  {trendingListings.length > 0 ? (
+                    <div className="relative">
+                      <div className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x snap-mandatory">
+                        {trendingListings.map((listing, index) => (
+                          <div key={listing.listingId} className="flex-shrink-0 w-72 snap-start relative">
+                            {index < 3 && (
+                              <div className="absolute -top-2 -left-2 z-10 w-8 h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                                {index + 1}
+                              </div>
+                            )}
+                            <ListingCard
+                              id={listing.listingId}
+                              title={listing.title}
+                              price={listing.rentAmount}
+                              city={listing.city}
+                              neighborhood={listing.neighborhood}
+                              bedrooms={listing.bedrooms}
+                              bathrooms={listing.bathrooms}
+                              imageUrl={listing.primaryPhotoUrl || undefined}
+                              isVerified={listing.verified}
+                              isFeatured={listing.featured}
+                              isFavorited={listing.isFavorited}
+                              rating={listing.averageRating}
+                              onFavoriteToggle={handleFavoriteToggle}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 px-4">
+                      <p className="text-slate-500">No trending listings yet</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ===== RECENT SECTION ===== */}
+              {activeTab === "recent" && (
+                <div>
+                  {/* Section Header */}
+                  <div className="flex items-center justify-between px-4 mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-green-100 rounded-lg">
+                        <Clock className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900">Just Listed</h2>
+                        <p className="text-xs text-slate-500">Fresh listings added recently</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Scroll for Recent */}
+                  {recentListings.length > 0 ? (
+                    <>
+                      <div className="relative">
+                        <div className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x snap-mandatory">
+                          {recentListings.map((listing) => (
+                            <div key={listing.listingId} className="flex-shrink-0 w-72 snap-start">
+                              <ListingCard
+                                id={listing.listingId}
+                                title={listing.title}
+                                price={listing.rentAmount}
+                                city={listing.city}
+                                neighborhood={listing.neighborhood}
+                                bedrooms={listing.bedrooms}
+                                bathrooms={listing.bathrooms}
+                                imageUrl={listing.primaryPhotoUrl || undefined}
+                                isVerified={listing.verified}
+                                isFeatured={listing.featured}
+                                isFavorited={listing.isFavorited}
+                                rating={listing.averageRating}
+                                onFavoriteToggle={handleFavoriteToggle}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Pagination Controls */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-center gap-4 px-4 py-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            disabled={currentPage === 0}
+                            onClick={() => fetchMoreRecent(currentPage - 1)}
+                          >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                          </Button>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-700">
+                              Page {currentPage + 1} of {totalPages}
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full"
+                            disabled={currentPage >= totalPages - 1}
+                            onClick={() => fetchMoreRecent(currentPage + 1)}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8 px-4">
+                      <p className="text-slate-500">No recent listings</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

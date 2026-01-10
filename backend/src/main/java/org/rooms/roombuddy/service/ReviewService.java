@@ -10,7 +10,9 @@ import org.rooms.roombuddy.entity.Review;
 import org.rooms.roombuddy.entity.User;
 import org.rooms.roombuddy.exception.BadRequestException;
 import org.rooms.roombuddy.exception.ResourceNotFoundException;
+import org.rooms.roombuddy.entity.PropertyListing;
 import org.rooms.roombuddy.repository.LeaseRepository;
+import org.rooms.roombuddy.repository.PropertyListingRepository;
 import org.rooms.roombuddy.repository.ReviewRepository;
 import org.rooms.roombuddy.repository.UserRepository;
 import org.springframework.data.domain.Page;
@@ -34,6 +36,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final LeaseRepository leaseRepository;
     private final UserRepository userRepository;
+    private final PropertyListingRepository listingRepository;
     private final NotificationService notificationService;
     
     public ReviewResponse createReview(UUID reviewerId, ReviewRequest request) {
@@ -98,6 +101,11 @@ public class ReviewService {
         Review saved = reviewRepository.save(review);
         log.info("Review created: {}", saved.getId());
         
+        // Update listing average rating if this is a listing review
+        if (request.getReviewType() == Review.ReviewType.STUDENT_TO_LISTING) {
+            updateListingRating(lease.getListing().getId());
+        }
+        
         // Notify the reviewee about the new review
         notificationService.notifyReviewReceived(
                 reviewee.getId(),
@@ -155,6 +163,28 @@ public class ReviewService {
     @Transactional(readOnly = true)
     public Double getAverageRatingForListing(UUID listingId) {
         return reviewRepository.getAverageRatingForListing(listingId);
+    }
+    
+    /**
+     * Update the average rating on a listing based on all its reviews
+     */
+    private void updateListingRating(UUID listingId) {
+        PropertyListing listing = listingRepository.findById(listingId)
+                .orElse(null);
+        
+        if (listing == null) {
+            log.warn("Cannot update rating for non-existent listing: {}", listingId);
+            return;
+        }
+        
+        Double avgRating = reviewRepository.getAverageRatingForListing(listingId);
+        long reviewCount = reviewRepository.countReviewsForListing(listingId);
+        
+        listing.setAverageRating(avgRating != null ? avgRating : 0.0);
+        listing.setReviewCount((int) reviewCount);
+        
+        listingRepository.save(listing);
+        log.info("Updated listing {} rating to {} ({} reviews)", listingId, avgRating, reviewCount);
     }
     
     public ReviewResponse respondToReview(UUID reviewId, UUID userId, String response) {

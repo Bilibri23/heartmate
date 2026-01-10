@@ -83,11 +83,11 @@ export default function MessagesLayout({
                 >
                   <Avatar>
                     <AvatarImage src={conversation.userAvatar} />
-                    <AvatarFallback>{conversation.userName.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{(conversation.userName || "U").substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-1">
-                      <span className="font-medium truncate">{conversation.userName}</span>
+                      <span className="font-medium truncate">{conversation.userName || "Unknown User"}</span>
                       <span className="text-xs text-muted-foreground flex-shrink-0">
                         {formatTime(conversation.lastMessageTime)}
                       </span>

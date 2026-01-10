@@ -14,7 +14,8 @@ import {
   XCircle,
   ChevronRight,
   MapPin,
-  CreditCard
+  CreditCard,
+  Download
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -35,20 +36,32 @@ interface Lease {
   depositAmount: number
   startDate: string
   endDate: string
-  status: "PENDING_ACCEPTANCE" | "ACTIVE" | "COMPLETED" | "TERMINATED"
+  status: "PENDING_ACCEPTANCE" | "PENDING_PAYMENT" | "PENDING_SIGNATURES" | "ACTIVE" | "COMPLETED" | "TERMINATED"
   studentAccepted: boolean
   landlordAccepted: boolean
   createdAt: string
 }
 
-type StatusFilter = "all" | "ACTIVE" | "PENDING_ACCEPTANCE" | "COMPLETED"
+type StatusFilter = "all" | "ACTIVE" | "PENDING_ACCEPTANCE" | "PENDING_PAYMENT" | "COMPLETED"
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { icon: typeof Clock; color: string; bg: string; label: string }> = {
   PENDING_ACCEPTANCE: { 
     icon: Clock, 
     color: "text-amber-600", 
     bg: "bg-amber-50",
-    label: "Pending"
+    label: "Pending Acceptance"
+  },
+  PENDING_PAYMENT: { 
+    icon: CreditCard, 
+    color: "text-orange-600", 
+    bg: "bg-orange-50",
+    label: "Pending Payment"
+  },
+  PENDING_SIGNATURES: { 
+    icon: FileText, 
+    color: "text-purple-600", 
+    bg: "bg-purple-50",
+    label: "Pending Signatures"
   },
   ACTIVE: { 
     icon: CheckCircle, 
@@ -100,18 +113,28 @@ export default function LeasesPage() {
     onRefresh: fetchLeases,
   })
 
+  const [acceptingLeaseId, setAcceptingLeaseId] = useState<string | null>(null)
+  const [acceptError, setAcceptError] = useState<string | null>(null)
+
   const handleAcceptTerms = async (leaseId: string) => {
+    setAcceptingLeaseId(leaseId)
+    setAcceptError(null)
     try {
       await api.post(`/leases/${leaseId}/accept-terms`)
       fetchLeases()
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to accept terms:", err)
+      const message = err.response?.data?.message || "Failed to accept terms"
+      setAcceptError(message)
+    } finally {
+      setAcceptingLeaseId(null)
     }
   }
 
   const filters: { id: StatusFilter; label: string }[] = [
     { id: "all", label: t.common.all },
     { id: "ACTIVE", label: t.leases.active },
+    { id: "PENDING_PAYMENT", label: "Pending Payment" },
     { id: "PENDING_ACCEPTANCE", label: t.leases.pending },
     { id: "COMPLETED", label: t.leases.completed },
   ]
@@ -199,9 +222,14 @@ export default function LeasesPage() {
 
           {/* Leases List */}
           {!isLoading && filteredLeases.map((lease) => {
-            const statusConfig = STATUS_CONFIG[lease.status]
+            const statusConfig = STATUS_CONFIG[lease.status] || { 
+              icon: Clock, 
+              color: "text-slate-600", 
+              bg: "bg-slate-50", 
+              label: lease.status 
+            }
             const StatusIcon = statusConfig.icon
-            const needsAcceptance = lease.status === "PENDING_ACCEPTANCE" && !lease.studentAccepted
+            const needsAcceptance = (lease.status === "PENDING_ACCEPTANCE" || lease.status === "PENDING_PAYMENT") && !lease.studentAccepted
 
             return (
               <div 
@@ -274,22 +302,79 @@ export default function LeasesPage() {
 
                 {/* Actions */}
                 <div className="px-4 pb-4 space-y-2">
-                  {needsAcceptance && (
-                    <Button 
-                      className="w-full rounded-xl"
-                      onClick={() => handleAcceptTerms(lease.id)}
-                    >
-                      {t.leases.acceptTerms}
-                    </Button>
+                  {lease.status === "PENDING_PAYMENT" && (
+                    <Link href={`/payments?leaseId=${lease.id}`}>
+                      <Button className="w-full rounded-xl bg-orange-600 hover:bg-orange-700">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Pay Deposit & First Month
+                      </Button>
+                    </Link>
+                  )}
+
+                  {lease.status === "PENDING_SIGNATURES" && !lease.studentAccepted && (
+                    <>
+                      <Button 
+                        className="w-full rounded-xl"
+                        onClick={() => handleAcceptTerms(lease.id)}
+                        disabled={acceptingLeaseId === lease.id}
+                      >
+                        {acceptingLeaseId === lease.id ? "Accepting..." : t.leases.acceptTerms}
+                      </Button>
+                      {acceptError && acceptingLeaseId === null && (
+                        <p className="text-xs text-red-500 text-center mt-1">{acceptError}</p>
+                      )}
+                    </>
+                  )}
+
+                  {lease.status === "PENDING_SIGNATURES" && lease.studentAccepted && (
+                    <div className="text-center text-sm text-slate-500 py-2">
+                      Waiting for landlord to sign...
+                    </div>
                   )}
                   
                   {lease.status === "ACTIVE" && (
-                    <Link href={`/payments?leaseId=${lease.id}`}>
-                      <Button className="w-full rounded-xl">
-                        <CreditCard className="h-4 w-4 mr-2" />
-                        {t.payments.payNow}
+                    <div className="flex gap-2">
+                      <Link href={`/payments?leaseId=${lease.id}`} className="flex-1">
+                        <Button className="w-full rounded-xl">
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          {t.payments.payNow}
+                        </Button>
+                      </Link>
+                      <Button 
+                        variant="outline" 
+                        className="rounded-xl"
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem('token')
+                            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080/api'
+                            const response = await fetch(`${backendUrl}/leases/${lease.id}/document`, {
+                              method: 'GET',
+                              headers: {
+                                'Authorization': `Bearer ${token}`
+                              }
+                            })
+                            
+                            if (!response.ok) {
+                              throw new Error('Failed to download document')
+                            }
+                            
+                            const blob = await response.blob()
+                            const url = window.URL.createObjectURL(blob)
+                            const link = document.createElement('a')
+                            link.href = url
+                            link.download = `lease-${lease.referenceCode}.pdf`
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                            window.URL.revokeObjectURL(url)
+                          } catch (err) {
+                            console.error('Failed to download lease document:', err)
+                          }
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
                       </Button>
-                    </Link>
+                    </div>
                   )}
 
                   {lease.status === "COMPLETED" && (

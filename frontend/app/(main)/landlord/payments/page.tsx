@@ -31,18 +31,26 @@ import api from "@/lib/api"
 interface Payment {
   id: string
   amount: number
-  status: "COMPLETED" | "PENDING" | "FAILED"
-  paymentDate: string
+  status: string
   paymentMethod: string
-  tenant: {
+  payerName?: string
+  payerId?: string
+  recipientName?: string
+  leaseId?: string
+  leaseReferenceCode?: string
+  momoTransactionId?: string
+  createdAt: string
+  // Legacy nested fields (for backwards compatibility)
+  tenant?: {
     id: string
     firstName: string
     lastName: string
   }
-  listing: {
+  listing?: {
     id: string
     title: string
   }
+  paymentDate?: string
   transactionId?: string
 }
 
@@ -78,9 +86,9 @@ export default function LandlordPaymentsPage() {
       const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
       
-      const thisMonthPayments = completed.filter((p: Payment) => new Date(p.paymentDate) >= thisMonthStart)
+      const thisMonthPayments = completed.filter((p: Payment) => new Date(p.createdAt || p.paymentDate || Date.now()) >= thisMonthStart)
       const lastMonthPayments = completed.filter((p: Payment) => {
-        const date = new Date(p.paymentDate)
+        const date = new Date(p.createdAt || p.paymentDate || Date.now())
         return date >= lastMonthStart && date < thisMonthStart
       })
       
@@ -227,13 +235,13 @@ export default function LandlordPaymentsPage() {
                       </div>
                       <div>
                         <p className="font-medium text-slate-900">
-                          {payment.tenant.firstName} {payment.tenant.lastName}
+                          {payment.payerName || (payment.tenant ? `${payment.tenant.firstName} ${payment.tenant.lastName}` : "Unknown")}
                         </p>
                         <p className="text-xs text-slate-500 line-clamp-1">
-                          {payment.listing.title}
+                          {payment.leaseReferenceCode || payment.listing?.title || "Lease Payment"}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
-                          {new Date(payment.paymentDate).toLocaleDateString()}
+                          {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString()}
                         </p>
                       </div>
                     </div>

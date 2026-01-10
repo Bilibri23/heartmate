@@ -112,6 +112,15 @@ public class PropertyListing {
     @Builder.Default
     private Integer favoritesCount = 0;
     
+    // Ratings
+    @Column(name = "average_rating")
+    @Builder.Default
+    private Double averageRating = 0.0;
+    
+    @Column(name = "review_count")
+    @Builder.Default
+    private Integer reviewCount = 0;
+    
     // Admin
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "verified_by")

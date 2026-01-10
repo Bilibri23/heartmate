@@ -24,6 +24,8 @@ public interface LeaseRepository extends JpaRepository<Lease, UUID> {
     
     Page<Lease> findByStatus(Lease.LeaseStatus status, Pageable pageable);
     
+    List<Lease> findByStatus(Lease.LeaseStatus status);
+    
     List<Lease> findByStudentIdAndStatus(UUID studentId, Lease.LeaseStatus status);
     
     List<Lease> findByLandlordIdAndStatus(UUID landlordId, Lease.LeaseStatus status);
@@ -53,4 +55,11 @@ public interface LeaseRepository extends JpaRepository<Lease, UUID> {
     
     @Query("SELECT SUM(l.monthlyRent) FROM Lease l WHERE l.status = 'ACTIVE'")
     Long sumActiveMonthlyRent();
+    
+    @Query("SELECT l FROM Lease l " +
+           "LEFT JOIN FETCH l.landlord " +
+           "LEFT JOIN FETCH l.student " +
+           "LEFT JOIN FETCH l.listing " +
+           "WHERE l.id = :leaseId")
+    Optional<Lease> findByIdWithDetails(@Param("leaseId") UUID leaseId);
 }

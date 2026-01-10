@@ -92,10 +92,10 @@ export default function ReviewsPage() {
       setReviews(myRes.data?.content || myRes.data || [])
       setReceivedReviews(receivedRes.data?.content || receivedRes.data || [])
       
-      // Filter leases that are completed and can be reviewed
+      // Filter leases that can be reviewed (active, completed, or terminated)
       const leases = leasesRes.data?.content || leasesRes.data || []
       setCompletedLeases(leases.filter((l: Lease) => 
-        l.status === "COMPLETED" || l.status === "TERMINATED"
+        l.status === "ACTIVE" || l.status === "COMPLETED" || l.status === "TERMINATED"
       ))
     } catch (err) {
       console.error("Failed to fetch reviews:", err)

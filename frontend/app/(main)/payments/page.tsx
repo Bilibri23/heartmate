@@ -90,7 +90,10 @@ function PaymentsContent() {
   const [paymentInstructions, setPaymentInstructions] = useState<PaymentInstructions | null>(null)
   const [selectedMethod, setSelectedMethod] = useState<"mtn" | "orange" | "card">("mtn")
   const [transactionId, setTransactionId] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [currentLeaseId, setCurrentLeaseId] = useState<string | null>(null)
+  const [cancelPaymentId, setCancelPaymentId] = useState<string | null>(null)
 
   const fetchPayments = useCallback(async () => {
     if (!user?.id) return
@@ -113,6 +116,7 @@ function PaymentsContent() {
 
   useEffect(() => {
     if (leaseIdParam) {
+      setCurrentLeaseId(leaseIdParam)
       initiatePayment(leaseIdParam)
     }
   }, [leaseIdParam])
@@ -121,13 +125,39 @@ function PaymentsContent() {
     onRefresh: fetchPayments,
   })
 
+  const [paymentError, setPaymentError] = useState<string | null>(null)
+
   const initiatePayment = async (leaseId: string) => {
+    setPaymentError(null)
     try {
       const response = await api.post(`/payments/initiate/${leaseId}`)
       setPaymentInstructions(response.data)
       setIsPaySheetOpen(true)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to initiate payment:", err)
+      const errorMessage = err.response?.data?.message || "Failed to initiate payment"
+      if (errorMessage.includes("already pending")) {
+        // A payment is already pending - fetch existing payment and show it
+        setPaymentError("You have a pending payment for this lease. Please complete it or wait for confirmation.")
+        // Try to get existing pending payment
+        try {
+          const existingPayment = payments.find(p => p.leaseId === leaseId && p.status === "PENDING")
+          if (existingPayment) {
+            setPaymentInstructions({
+              amount: existingPayment.amount,
+              mtnNumber: "677000000",
+              orangeNumber: "699000000",
+              recipientName: "RoomBuddy",
+              reference: existingPayment.id,
+            })
+            setIsPaySheetOpen(true)
+          }
+        } catch (e) {
+          // Ignore
+        }
+      } else {
+        setPaymentError(errorMessage)
+      }
     }
   }
 
@@ -136,18 +166,36 @@ function PaymentsContent() {
 
     setIsSubmitting(true)
     try {
+      // Map frontend method names to backend enum values
+      const methodMap: Record<string, string> = {
+        mtn: "MTN_MOMO",
+        orange: "ORANGE_MONEY",
+        card: "BANK_TRANSFER",
+      }
       await api.post("/payments/submit", {
-        leaseId: leaseIdParam,
-        transactionId,
-        paymentMethod: selectedMethod.toUpperCase(),
+        leaseId: currentLeaseId || leaseIdParam,
+        momoTransactionId: transactionId,
+        momoPhoneNumber: phoneNumber,
+        paymentMethod: methodMap[selectedMethod] || selectedMethod.toUpperCase(),
       })
       setIsPaySheetOpen(false)
       setTransactionId("")
+      setPhoneNumber("")
       fetchPayments()
     } catch (err) {
       console.error("Failed to submit payment:", err)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleCancelPayment = async (paymentId: string) => {
+    try {
+      await api.delete(`/payments/${paymentId}`)
+      setCancelPaymentId(null)
+      fetchPayments()
+    } catch (err) {
+      console.error("Failed to cancel payment:", err)
     }
   }
 
@@ -248,6 +296,36 @@ function PaymentsContent() {
                     Retry Payment
                   </Button>
                 )}
+
+                {payment.status === "PENDING" && (
+                  <div className="flex gap-2 mt-3">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 rounded-xl"
+                      onClick={() => {
+                        setCurrentLeaseId(payment.leaseId)
+                        setPaymentInstructions({
+                          amount: payment.amount,
+                          mtnNumber: "677000000",
+                          orangeNumber: "699000000",
+                          recipientName: "RoomBuddy",
+                          reference: payment.id,
+                        })
+                        setIsPaySheetOpen(true)
+                      }}
+                    >
+                      Complete Payment
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="rounded-xl text-red-600 border-red-200 hover:bg-red-50"
+                      onClick={() => setCancelPaymentId(payment.id)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -256,13 +334,13 @@ function PaymentsContent() {
 
       {/* Payment Sheet */}
       <Sheet open={isPaySheetOpen} onOpenChange={setIsPaySheetOpen}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
-          <SheetHeader>
+        <SheetContent side="bottom" className="max-h-[90vh] rounded-t-3xl overflow-hidden flex flex-col">
+          <SheetHeader className="flex-shrink-0">
             <SheetTitle>{t.payments.selectMethod}</SheetTitle>
           </SheetHeader>
 
           {paymentInstructions && (
-            <div className="mt-6 space-y-6">
+            <div className="mt-4 space-y-4 overflow-y-auto flex-1 pb-4">
               {/* Amount */}
               <div className="text-center py-4 bg-blue-50 rounded-2xl">
                 <p className="text-sm text-blue-600 mb-1">{t.payments.amount}</p>
@@ -362,6 +440,19 @@ function PaymentsContent() {
 
                   <div>
                     <Label className="text-slate-700 mb-2 block">
+                      Your Phone Number
+                    </Label>
+                    <Input
+                      placeholder="e.g., 677123456"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="h-12 rounded-xl"
+                      type="tel"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-slate-700 mb-2 block">
                       {t.payments.transactionId}
                     </Label>
                     <Input
@@ -375,25 +466,98 @@ function PaymentsContent() {
                   <Button
                     className="w-full h-12 rounded-xl"
                     onClick={submitPaymentProof}
-                    disabled={isSubmitting || !transactionId}
+                    disabled={isSubmitting || !transactionId || !phoneNumber}
                   >
                     {isSubmitting ? t.common.loading : t.common.submit}
                   </Button>
                 </div>
               )}
 
-              {/* Card Payment (placeholder) */}
+              {/* Card Payment (manual verification for now) */}
               {selectedMethod === "card" && (
-                <div className="text-center py-8">
-                  <p className="text-slate-500">
-                    Card payment integration coming soon.
-                  </p>
+                <div className="space-y-4">
+                  <div className="bg-blue-50 rounded-2xl p-4">
+                    <p className="text-sm text-slate-600 mb-2">
+                      <strong>Card Payment Instructions:</strong>
+                    </p>
+                    <ol className="text-sm text-slate-600 space-y-1 list-decimal list-inside">
+                      <li>Make a bank transfer to our account</li>
+                      <li>Use reference: {paymentInstructions.reference}</li>
+                      <li>Amount: {formatCurrency(paymentInstructions.amount)}</li>
+                      <li>Enter your transaction/reference number below</li>
+                    </ol>
+                    <div className="mt-3 p-3 bg-white rounded-xl">
+                      <p className="text-xs text-slate-500">Bank Details:</p>
+                      <p className="text-sm font-medium">RoomBuddy SARL</p>
+                      <p className="text-sm text-slate-600">Account: XXXX-XXXX-XXXX</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-slate-700 mb-2 block">
+                      Your Phone Number
+                    </Label>
+                    <Input
+                      placeholder="e.g., 677123456"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="h-12 rounded-xl"
+                      type="tel"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-slate-700 mb-2 block">
+                      Transaction Reference
+                    </Label>
+                    <Input
+                      placeholder="e.g., REF123456789"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full h-12 rounded-xl"
+                    onClick={submitPaymentProof}
+                    disabled={isSubmitting || !transactionId || !phoneNumber}
+                  >
+                    {isSubmitting ? t.common.loading : t.common.submit}
+                  </Button>
                 </div>
               )}
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Cancel Confirmation Dialog */}
+      {cancelPaymentId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Cancel Payment?</h3>
+            <p className="text-sm text-slate-600 mb-6">
+              Are you sure you want to cancel this payment? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl"
+                onClick={() => setCancelPaymentId(null)}
+              >
+                Keep Payment
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-red-600 hover:bg-red-700"
+                onClick={() => handleCancelPayment(cancelPaymentId)}
+              >
+                Cancel Payment
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

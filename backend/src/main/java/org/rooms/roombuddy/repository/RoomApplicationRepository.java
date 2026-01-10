@@ -129,6 +129,11 @@ public interface RoomApplicationRepository extends JpaRepository<RoomApplication
     long countApprovedApplications();
     
     /**
+     * Find applications by status
+     */
+    List<RoomApplication> findByStatus(RoomApplication.Status status);
+    
+    /**
      * Count distinct users with applications
      */
     @Query("SELECT COUNT(DISTINCT a.student.id) FROM RoomApplication a")

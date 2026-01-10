@@ -49,7 +49,7 @@ interface Listing {
   city: string
   neighborhood: string
   rentAmount: number
-  status: "ACTIVE" | "RENTED" | "INACTIVE"
+  status: "ACTIVE" | "RENTED" | "INACTIVE" | "DRAFT" | "PENDING"
   viewsCount: number
   favoritesCount: number
   applicationsCount: number
@@ -269,9 +269,17 @@ export default function LandlordListingsPage() {
                               <DropdownMenuItem onClick={() => handleMarkRented(listing.id)}>
                                 Mark as Rented
                               </DropdownMenuItem>
+                            ) : listing.status === "DRAFT" ? (
+                              <DropdownMenuItem onClick={() => handleMarkAvailable(listing.id)}>
+                                Submit for Approval
+                              </DropdownMenuItem>
+                            ) : listing.status === "PENDING" ? (
+                              <DropdownMenuItem disabled className="text-amber-600">
+                                Awaiting Admin Approval
+                              </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem onClick={() => handleMarkAvailable(listing.id)}>
-                                Mark as Available
+                                Re-list Property
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />

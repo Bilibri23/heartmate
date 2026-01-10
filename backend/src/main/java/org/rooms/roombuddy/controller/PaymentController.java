@@ -85,4 +85,13 @@ public class PaymentController {
         Page<PaymentResponse> payments = paymentService.getPaymentsForLease(leaseId, userId, pageable);
         return ResponseEntity.ok(payments);
     }
+    
+    @DeleteMapping("/{paymentId}")
+    @Operation(summary = "Cancel pending payment", description = "Cancel a pending payment that hasn't been submitted yet")
+    public ResponseEntity<Void> cancelPayment(@PathVariable UUID paymentId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        log.info("User {} cancelling payment {}", userId, paymentId);
+        paymentService.cancelPayment(paymentId, userId);
+        return ResponseEntity.noContent().build();
+    }
 }
