@@ -108,6 +108,11 @@ public class Notification {
         
         // System notifications
         SYSTEM_ANNOUNCEMENT,
-        ACCOUNT_UPDATE
+        ACCOUNT_UPDATE,
+        
+        // Co-Application notifications
+        CO_APPLICATION_INVITE,
+        CO_APPLICATION_ACCEPTED,
+        CO_APPLICATION_DECLINED
     }
 }

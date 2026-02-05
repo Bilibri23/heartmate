@@ -1,5 +1,14 @@
 import api from '../lib/api';
 
+export interface SharedListingInfo {
+  id: string;
+  title: string;
+  address: string;
+  rentAmount: number;
+  primaryPhotoUrl?: string;
+  status: string;
+}
+
 export interface Message {
   id: string;
   senderId: string;
@@ -7,6 +16,8 @@ export interface Message {
   content: string;
   createdAt: string;
   isRead: boolean;
+  messageType?: 'TEXT' | 'LISTING_SHARE';
+  sharedListing?: SharedListingInfo;
 }
 
 export interface Conversation {
@@ -55,8 +66,18 @@ export const messageService = {
     return { messages };
   },
 
-  sendMessage: async (receiverId: string, content: string) => {
-    const response = await api.post('/messages', { receiverId, content });
+  sendMessage: async (receiverId: string, content: string, sharedListingId?: string) => {
+    const payload: { receiverId: string; content: string; messageType?: string; sharedListingId?: string } = {
+      receiverId,
+      content,
+    };
+    
+    if (sharedListingId) {
+      payload.messageType = 'LISTING_SHARE';
+      payload.sharedListingId = sharedListingId;
+    }
+    
+    const response = await api.post('/messages', payload);
     return response.data;
   },
 

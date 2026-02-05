@@ -4,7 +4,8 @@ export interface Listing {
   id: string;
   title: string;
   description: string;
-  price: number;
+  price: number; // frontend alias
+  rentAmount?: number; // backend field name
   address: string;
   city: string;
   propertyType: string;
@@ -13,6 +14,7 @@ export interface Listing {
   area: number;
   availableFrom: string;
   images: string[];
+  primaryPhotoUrl?: string;
   landlordId: string;
   createdAt: string;
   status: 'ACTIVE' | 'RENTED' | 'UNAVAILABLE';

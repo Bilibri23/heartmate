@@ -224,7 +224,7 @@ public class MatchingService {
         
         // Update match status
         if (match.isMutualMatch()) {
-            match.setStatus(Match.Status.ACCEPTED);
+            match.setStatus(Match.Status.MUTUAL);
             
             // Send mutual match notification if it just became mutual
             if (!wasMutualBefore) {
@@ -240,7 +240,6 @@ public class MatchingService {
                     log.error("Failed to send mutual match notification: {}", e.getMessage());
                 }
             }
-            match.setStatus(Match.Status.ACCEPTED);
             // Send notification emails
             emailService.sendMatchAcceptedEmail(match.getUser1().getEmail(), match.getUser2().getFirstName() + " " + match.getUser2().getLastName());
             emailService.sendMatchAcceptedEmail(match.getUser2().getEmail(), match.getUser1().getFirstName() + " " + match.getUser1().getLastName());

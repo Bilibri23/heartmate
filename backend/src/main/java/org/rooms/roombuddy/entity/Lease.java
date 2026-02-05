@@ -34,7 +34,11 @@ public class Lease {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
-    private User student;
+    private User student; // Primary tenant
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "co_tenant_id")
+    private User coTenant; // Co-tenant/roommate (optional)
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "landlord_id", nullable = false)
@@ -43,6 +47,11 @@ public class Lease {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "application_id")
     private RoomApplication application;
+    
+    // Co-tenant support
+    @Column(name = "is_shared_lease")
+    @Builder.Default
+    private Boolean isSharedLease = false;
     
     // Lease Terms
     @Column(name = "start_date", nullable = false)
@@ -91,11 +100,24 @@ public class Lease {
     @Column(name = "landlord_signature", columnDefinition = "TEXT")
     private String landlordSignature;
     
+    @Column(name = "co_tenant_signature", columnDefinition = "TEXT")
+    private String coTenantSignature;
+    
     @Column(name = "student_signature_type")
     private String studentSignatureType; // "drawn" or "typed"
     
     @Column(name = "landlord_signature_type")
     private String landlordSignatureType; // "drawn" or "typed"
+    
+    @Column(name = "co_tenant_signature_type")
+    private String coTenantSignatureType; // "drawn" or "typed"
+    
+    @Column(name = "co_tenant_accepted_terms")
+    @Builder.Default
+    private Boolean coTenantAcceptedTerms = false;
+    
+    @Column(name = "co_tenant_accepted_at")
+    private LocalDateTime coTenantAcceptedAt;
     
     // Terms document (HTML or plain text)
     @Column(name = "terms_content", columnDefinition = "TEXT")
@@ -165,7 +187,16 @@ public class Lease {
     }
     
     public boolean isBothPartiesAccepted() {
-        return Boolean.TRUE.equals(studentAcceptedTerms) && Boolean.TRUE.equals(landlordAcceptedTerms);
+        boolean baseAccepted = Boolean.TRUE.equals(studentAcceptedTerms) && Boolean.TRUE.equals(landlordAcceptedTerms);
+        // For shared leases, co-tenant must also accept
+        if (Boolean.TRUE.equals(isSharedLease) && coTenant != null) {
+            return baseAccepted && Boolean.TRUE.equals(coTenantAcceptedTerms);
+        }
+        return baseAccepted;
+    }
+    
+    public boolean hasCoTenant() {
+        return Boolean.TRUE.equals(isSharedLease) && coTenant != null;
     }
     
     public boolean isActive() {

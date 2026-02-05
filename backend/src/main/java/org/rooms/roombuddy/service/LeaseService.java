@@ -35,6 +35,14 @@ public class LeaseService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     
+    // Lazy injection to avoid circular dependency
+    private HouseholdService householdService;
+    
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setHouseholdService(@org.springframework.context.annotation.Lazy HouseholdService householdService) {
+        this.householdService = householdService;
+    }
+    
     private static final String DEFAULT_TERMS_TEMPLATE = """
         RENTAL AGREEMENT
         
@@ -84,7 +92,8 @@ public class LeaseService {
         int monthlyRent = request.getMonthlyRent() != null ? request.getMonthlyRent() : listing.getRentAmount();
         int totalInitial = deposit + monthlyRent + agencyFees;
         
-        Lease lease = Lease.builder()
+        // Build the lease
+        Lease.LeaseBuilder leaseBuilder = Lease.builder()
                 .listing(listing)
                 .student(student)
                 .landlord(landlord)
@@ -96,8 +105,16 @@ public class LeaseService {
                 .agencyFees(agencyFees)
                 .totalInitialPayment(totalInitial)
                 .status(Lease.LeaseStatus.PENDING_PAYMENT)
-                .termsContent(request.getTermsContent() != null ? request.getTermsContent() : DEFAULT_TERMS_TEMPLATE)
-                .build();
+                .termsContent(request.getTermsContent() != null ? request.getTermsContent() : DEFAULT_TERMS_TEMPLATE);
+        
+        // Add co-tenant if this is a co-application
+        if (application.hasCoApplicant() && application.isCoApplicationConfirmed()) {
+            leaseBuilder.coTenant(application.getCoApplicant())
+                       .isSharedLease(true);
+            log.info("Creating shared lease with co-tenant: {}", application.getCoApplicant().getId());
+        }
+        
+        Lease lease = leaseBuilder.build();
         
         Lease saved = leaseRepository.save(lease);
         log.info("Lease created: {} with reference: {}", saved.getId(), saved.getReferenceCode());
@@ -117,8 +134,12 @@ public class LeaseService {
         Lease lease = leaseRepository.findById(leaseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lease not found"));
         
-        // Verify user is part of this lease
-        if (!lease.getStudent().getId().equals(userId) && !lease.getLandlord().getId().equals(userId)) {
+        // Verify user is part of this lease (student, landlord, or co-tenant)
+        boolean isParticipant = lease.getStudent().getId().equals(userId) || 
+                               lease.getLandlord().getId().equals(userId) ||
+                               (lease.hasCoTenant() && lease.getCoTenant().getId().equals(userId));
+        
+        if (!isParticipant) {
             throw new BadRequestException("You don't have access to this lease");
         }
         
@@ -161,8 +182,6 @@ public class LeaseService {
         }
         
         if (lease.getStudent().getId().equals(userId)) {
-            // Verify signer name matches
-            String expectedName = lease.getStudent().getFirstName() + " " + lease.getStudent().getLastName();
             lease.setStudentSignature(request.getSignatureData());
             lease.setStudentSignatureType(request.getSignatureType());
             log.info("Student {} submitted signature for lease {}", userId, leaseId);
@@ -170,6 +189,10 @@ public class LeaseService {
             lease.setLandlordSignature(request.getSignatureData());
             lease.setLandlordSignatureType(request.getSignatureType());
             log.info("Landlord {} submitted signature for lease {}", userId, leaseId);
+        } else if (lease.hasCoTenant() && lease.getCoTenant().getId().equals(userId)) {
+            lease.setCoTenantSignature(request.getSignatureData());
+            lease.setCoTenantSignatureType(request.getSignatureType());
+            log.info("Co-tenant {} submitted signature for lease {}", userId, leaseId);
         } else {
             throw new BadRequestException("You are not part of this lease");
         }
@@ -201,6 +224,14 @@ public class LeaseService {
             lease.setLandlordAcceptedTerms(true);
             lease.setLandlordAcceptedAt(LocalDateTime.now());
             log.info("Landlord {} accepted lease terms for lease {}", userId, leaseId);
+        } else if (lease.hasCoTenant() && lease.getCoTenant().getId().equals(userId)) {
+            // Co-tenant accepting terms
+            if (lease.getCoTenantSignature() == null || lease.getCoTenantSignature().isEmpty()) {
+                throw new BadRequestException("Please submit your signature before accepting the terms");
+            }
+            lease.setCoTenantAcceptedTerms(true);
+            lease.setCoTenantAcceptedAt(LocalDateTime.now());
+            log.info("Co-tenant {} accepted lease terms for lease {}", userId, leaseId);
         } else {
             throw new BadRequestException("You are not part of this lease");
         }
@@ -213,6 +244,31 @@ public class LeaseService {
             listing.setStatus(PropertyListing.Status.RENTED);
             listingRepository.save(listing);
             log.info("Lease {} is now ACTIVE", leaseId);
+            
+            // Auto-create household for the tenant
+            try {
+                householdService.createHouseholdFromLease(leaseId);
+                log.info("Household auto-created for lease {}", leaseId);
+            } catch (Exception e) {
+                log.warn("Failed to auto-create household for lease {}: {}", leaseId, e.getMessage());
+                // Don't fail the lease activation if household creation fails
+            }
+            
+            // Notify both parties
+            notificationService.createNotification(
+                    lease.getStudent().getId(),
+                    Notification.NotificationType.LEASE_ACTIVE,
+                    "Lease Activated!",
+                    "Your lease for " + listing.getTitle() + " is now active. A household has been created for you to manage shared expenses and tasks.",
+                    lease.getId(), "LEASE", "/leases"
+            );
+            notificationService.createNotification(
+                    lease.getLandlord().getId(),
+                    Notification.NotificationType.LEASE_ACTIVE,
+                    "Lease Activated!",
+                    "The lease for " + listing.getTitle() + " with " + lease.getStudent().getFirstName() + " is now active.",
+                    lease.getId(), "LEASE", "/landlord/leases"
+            );
         }
         
         return mapToResponse(leaseRepository.save(lease));
@@ -286,7 +342,7 @@ public class LeaseService {
     private LeaseResponse mapToResponse(Lease lease) {
         long months = ChronoUnit.MONTHS.between(lease.getStartDate(), lease.getEndDate());
         
-        return LeaseResponse.builder()
+        LeaseResponse.LeaseResponseBuilder builder = LeaseResponse.builder()
                 .id(lease.getId())
                 .referenceCode(lease.getReferenceCode())
                 .listingId(lease.getListing().getId())
@@ -321,7 +377,20 @@ public class LeaseService {
                 .durationMonths((int) months)
                 .canBeReviewed(lease.canBeReviewed())
                 .isActive(lease.isActive())
-                .build();
+                .isSharedLease(Boolean.TRUE.equals(lease.getIsSharedLease()));
+        
+        // Add co-tenant info if present
+        if (lease.hasCoTenant()) {
+            User coTenant = lease.getCoTenant();
+            builder.coTenantId(coTenant.getId())
+                   .coTenantName(coTenant.getFirstName() + " " + coTenant.getLastName())
+                   .coTenantEmail(coTenant.getEmail())
+                   .coTenantPhone(coTenant.getPhone())
+                   .coTenantAcceptedTerms(lease.getCoTenantAcceptedTerms())
+                   .coTenantAcceptedAt(lease.getCoTenantAcceptedAt());
+        }
+        
+        return builder.build();
     }
     
     /**

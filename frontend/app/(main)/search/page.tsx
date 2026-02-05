@@ -332,21 +332,21 @@ export default function SearchPage() {
           <div className="flex bg-slate-100 rounded-lg p-0.5 flex-shrink-0">
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-md transition-colors ${
+              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 text-xs font-medium ${
                 viewMode === "list" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"
               }`}
-              title="List view"
             >
               <List className="h-4 w-4" />
+              List
             </button>
             <button
               onClick={() => setViewMode("map")}
-              className={`p-2 rounded-md transition-colors ${
+              className={`px-3 py-1.5 rounded-md transition-colors flex items-center gap-1 text-xs font-medium ${
                 viewMode === "map" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"
               }`}
-              title="Map view"
             >
               <Map className="h-4 w-4" />
+              Map
             </button>
           </div>
         </div>

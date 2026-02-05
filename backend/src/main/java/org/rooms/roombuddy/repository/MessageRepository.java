@@ -16,7 +16,7 @@ import java.util.UUID;
 public interface MessageRepository extends JpaRepository<Message, UUID> {
     
     /**
-     * Get conversation between two users
+     * Get conversation between two users (ordered oldest first for chat display)
      */
     @Query("""
         SELECT m FROM Message m
@@ -24,7 +24,7 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
            OR m.sender.id = :userId2 AND m.receiver.id = :userId1)
         AND ((m.sender.id = :userId1 AND m.isDeletedBySender = false)
            OR (m.receiver.id = :userId1 AND m.isDeletedByReceiver = false))
-        ORDER BY m.createdAt DESC
+        ORDER BY m.createdAt ASC
     """)
     Page<Message> findConversation(
         @Param("userId1") UUID userId1, 

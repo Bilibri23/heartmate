@@ -10,12 +10,17 @@ import org.rooms.roombuddy.entity.RoomApplication;
 import org.rooms.roombuddy.entity.User;
 import org.rooms.roombuddy.exception.BadRequestException;
 import org.rooms.roombuddy.exception.ResourceNotFoundException;
+import org.rooms.roombuddy.repository.CoApplicationInvitationRepository;
 import org.rooms.roombuddy.repository.ListingPhotoRepository;
+import org.rooms.roombuddy.repository.MatchRepository;
 import org.rooms.roombuddy.repository.ProfileRepository;
 import org.rooms.roombuddy.repository.PropertyListingRepository;
 import org.rooms.roombuddy.repository.RoomApplicationRepository;
 import org.rooms.roombuddy.repository.StudentVerificationRepository;
 import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombuddy.entity.CoApplicationInvitation;
+import org.rooms.roombuddy.entity.Match;
+import org.rooms.roombuddy.entity.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,6 +45,8 @@ public class ApplicationService {
     private final StudentVerificationRepository verificationRepository;
     private final ProfileRepository profileRepository;
     private final NotificationService notificationService;
+    private final CoApplicationInvitationRepository coInvitationRepository;
+    private final MatchRepository matchRepository;
     private final org.springframework.context.ApplicationContext applicationContext;
     
     private static final int APPLICATION_EXPIRY_DAYS = 30;
@@ -99,6 +106,142 @@ public class ApplicationService {
                 listing.getTitle()
         );
         
+        return enrichApplicationResponse(RoomApplicationResponse.fromEntity(application));
+    }
+    
+    /**
+     * Create a co-application (joint application) from an accepted invitation
+     */
+    @Transactional
+    public RoomApplicationResponse createCoApplication(UUID invitationId, UUID applicantId, RoomApplicationRequest request) {
+        log.info("Creating co-application from invitation {} by user {}", invitationId, applicantId);
+        
+        // Get the accepted invitation
+        CoApplicationInvitation invitation = coInvitationRepository.findById(invitationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
+        
+        // Validate invitation is accepted
+        if (invitation.getStatus() != CoApplicationInvitation.Status.ACCEPTED) {
+            throw new BadRequestException("Invitation must be accepted before applying together");
+        }
+        
+        // Validate user is part of the invitation
+        UUID inviterId = invitation.getInviter().getId();
+        UUID inviteeId = invitation.getInvitee().getId();
+        
+        if (!applicantId.equals(inviterId) && !applicantId.equals(inviteeId)) {
+            throw new BadRequestException("You are not part of this invitation");
+        }
+        
+        // Determine who is the primary applicant and who is the co-applicant
+        User primaryApplicant = userRepository.findById(applicantId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        UUID coApplicantId = applicantId.equals(inviterId) ? inviteeId : inviterId;
+        User coApplicant = userRepository.findById(coApplicantId)
+                .orElseThrow(() -> new ResourceNotFoundException("Co-applicant not found"));
+        
+        PropertyListing listing = invitation.getListing();
+        Match match = invitation.getMatch();
+        
+        // Validate listing is still active
+        if (listing.getStatus() != PropertyListing.Status.ACTIVE) {
+            throw new BadRequestException("This listing is no longer available");
+        }
+        
+        // Check if either user already has an application for this listing
+        if (applicationRepository.existsByStudentIdAndListingId(applicantId, listing.getId())) {
+            throw new BadRequestException("You have already applied to this listing");
+        }
+        if (applicationRepository.existsByStudentIdAndListingId(coApplicantId, listing.getId())) {
+            throw new BadRequestException("Your roommate has already applied to this listing");
+        }
+        
+        // Create co-application
+        RoomApplication application = RoomApplication.builder()
+                .listing(listing)
+                .student(primaryApplicant)
+                .coApplicant(coApplicant)
+                .match(match)
+                .isCoApplication(true)
+                .coApplicantConfirmed(false)
+                .message(request.getMessage())
+                .moveInDate(request.getMoveInDate())
+                .leaseDurationMonths(request.getLeaseDurationMonths())
+                .status(RoomApplication.Status.PENDING)
+                .expiresAt(LocalDateTime.now().plusDays(APPLICATION_EXPIRY_DAYS))
+                .build();
+        
+        application = applicationRepository.save(application);
+        log.info("Co-application created successfully with ID: {}", application.getId());
+        
+        // Mark the invitation as used (change status to reflect it's been acted upon)
+        invitation.setStatus(CoApplicationInvitation.Status.APPLIED);
+        coInvitationRepository.save(invitation);
+        
+        // Notify co-applicant to confirm
+        notificationService.createNotification(
+                coApplicantId,
+                Notification.NotificationType.APPLICATION_RECEIVED,
+                "Confirm Co-Application",
+                primaryApplicant.getFirstName() + " submitted a joint application for " + listing.getTitle() + ". Please confirm.",
+                application.getId(),
+                "CO_APPLICATION",
+                "/applications/" + application.getId()
+        );
+        
+        // Notify landlord
+        String applicantsName = primaryApplicant.getFirstName() + " & " + coApplicant.getFirstName();
+        notificationService.createNotification(
+                listing.getLandlord().getId(),
+                Notification.NotificationType.APPLICATION_RECEIVED,
+                "New Joint Application",
+                applicantsName + " applied together for " + listing.getTitle(),
+                application.getId(),
+                "APPLICATION",
+                "/landlord/applications/" + application.getId()
+        );
+        
+        return enrichApplicationResponse(RoomApplicationResponse.fromEntity(application));
+    }
+    
+    /**
+     * Confirm co-application (by co-applicant)
+     */
+    @Transactional
+    public RoomApplicationResponse confirmCoApplication(UUID applicationId, UUID coApplicantId) {
+        log.info("Co-applicant {} confirming application {}", coApplicantId, applicationId);
+        
+        RoomApplication application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
+        
+        if (!application.getIsCoApplication()) {
+            throw new BadRequestException("This is not a co-application");
+        }
+        
+        if (application.getCoApplicant() == null || !application.getCoApplicant().getId().equals(coApplicantId)) {
+            throw new BadRequestException("You are not the co-applicant for this application");
+        }
+        
+        if (application.getCoApplicantConfirmed()) {
+            throw new BadRequestException("You have already confirmed this application");
+        }
+        
+        application.setCoApplicantConfirmed(true);
+        application.setCoApplicantConfirmedAt(LocalDateTime.now());
+        application = applicationRepository.save(application);
+        
+        // Notify primary applicant
+        notificationService.createNotification(
+                application.getStudent().getId(),
+                Notification.NotificationType.APPLICATION_RECEIVED,
+                "Co-Application Confirmed",
+                application.getCoApplicant().getFirstName() + " confirmed your joint application!",
+                application.getId(),
+                "APPLICATION",
+                "/applications/" + application.getId()
+        );
+        
+        log.info("Co-application {} confirmed by co-applicant", applicationId);
         return enrichApplicationResponse(RoomApplicationResponse.fromEntity(application));
     }
     

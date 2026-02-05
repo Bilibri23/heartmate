@@ -80,7 +80,7 @@ public class Match {
     private LocalDateTime expiresAt;
     
     public enum Status {
-        PENDING, ACCEPTED, REJECTED, EXPIRED
+        PENDING, ACCEPTED, REJECTED, EXPIRED, MUTUAL
     }
     
     public enum UserAction {

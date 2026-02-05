@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -37,14 +39,16 @@ public class ListingPreferences {
     private Integer maxBudget; // in XAF
     
     // Location Preferences
-    @Column(name = "preferred_locations", columnDefinition = "TEXT[]")
+    @Column(name = "preferred_locations", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private List<String> preferredLocations;
     
     @Column(name = "max_distance_from_campus", precision = 10, scale = 2)
     private BigDecimal maxDistanceFromCampus; // in kilometers
 
     // Property type preferences
-    @Column(name = "property_types", columnDefinition = "TEXT[]")
+    @Column(name = "property_types", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private List<String> propertyTypes;
     
     @CreationTimestamp

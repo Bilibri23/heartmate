@@ -35,6 +35,15 @@ public class LeaseResponse {
     private String landlordEmail;
     private String landlordPhone;
     
+    // Co-tenant (for shared leases)
+    private UUID coTenantId;
+    private String coTenantName;
+    private String coTenantEmail;
+    private String coTenantPhone;
+    private Boolean coTenantAcceptedTerms;
+    private LocalDateTime coTenantAcceptedAt;
+    private Boolean isSharedLease;
+    
     // Terms
     private LocalDate startDate;
     private LocalDate endDate;

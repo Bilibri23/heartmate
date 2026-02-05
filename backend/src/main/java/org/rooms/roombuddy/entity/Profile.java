@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,7 +36,8 @@ public class Profile {
     @Column(name = "profile_photo_url")
     private String profilePhotoUrl;
 
-    @Column(name = "languages", columnDefinition = "TEXT[]")
+    @Column(name = "languages", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private List<String> languages; // English, French, Pidgin
 
     @Column(name = "whatsapp_number")

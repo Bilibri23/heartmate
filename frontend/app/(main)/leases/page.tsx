@@ -15,7 +15,8 @@ import {
   ChevronRight,
   MapPin,
   CreditCard,
-  Download
+  Download,
+  Home
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -327,6 +328,12 @@ export default function LeasesPage() {
                   
                   {lease.status === "ACTIVE" && (
                     <div className="flex gap-2">
+                      <Link href="/household" className="flex-1">
+                        <Button className="w-full rounded-xl">
+                          <Home className="h-4 w-4 mr-2" />
+                          Manage Household
+                        </Button>
+                      </Link>
                       <Button 
                         variant="outline" 
                         className="rounded-xl"

@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Entity representing a student's application to a property listing
+ * Entity representing a student's application to a property listing.
+ * Supports both individual and co-tenant (with matched roommate) applications.
  */
 @Entity
 @Table(name = "room_applications", uniqueConstraints = {
@@ -35,7 +36,27 @@ public class RoomApplication {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
-    private User student;
+    private User student; // Primary applicant
+    
+    // Co-tenant support
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "co_applicant_id")
+    private User coApplicant; // Matched roommate applying together (optional)
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "match_id")
+    private Match match; // The roommate match (if co-application)
+    
+    @Column(name = "is_co_application")
+    @Builder.Default
+    private Boolean isCoApplication = false;
+    
+    @Column(name = "co_applicant_confirmed")
+    @Builder.Default
+    private Boolean coApplicantConfirmed = false; // Co-applicant has confirmed
+    
+    @Column(name = "co_applicant_confirmed_at")
+    private LocalDateTime coApplicantConfirmedAt;
     
     @Column(name = "message", columnDefinition = "TEXT")
     private String message; // Student's message to landlord
@@ -109,6 +130,30 @@ public class RoomApplication {
         if (this.status == Status.PENDING) {
             this.status = Status.VIEWED;
             this.landlordViewedAt = LocalDateTime.now();
+        }
+    }
+    
+    /**
+     * Check if this is a co-application with a roommate
+     */
+    public boolean hasCoApplicant() {
+        return Boolean.TRUE.equals(isCoApplication) && coApplicant != null;
+    }
+    
+    /**
+     * Check if co-application is fully confirmed by both parties
+     */
+    public boolean isCoApplicationConfirmed() {
+        return hasCoApplicant() && Boolean.TRUE.equals(coApplicantConfirmed);
+    }
+    
+    /**
+     * Confirm co-applicant participation
+     */
+    public void confirmCoApplicant() {
+        if (hasCoApplicant()) {
+            this.coApplicantConfirmed = true;
+            this.coApplicantConfirmedAt = LocalDateTime.now();
         }
     }
 }

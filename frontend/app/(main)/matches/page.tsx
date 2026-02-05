@@ -41,7 +41,9 @@ import {
   ChevronDown,
   RotateCcw,
   Star,
-  Info
+  Info,
+  FileText,
+  Home
 } from "lucide-react"
 
 interface MatchResponse {
@@ -96,12 +98,12 @@ const STATUS_STYLES = {
   PENDING: "bg-amber-100 text-amber-700",
   ACCEPTED: "bg-green-100 text-green-700",
   REJECTED: "bg-red-100 text-red-700",
-  MUTUAL: "bg-blue-100 text-blue-700",
+  MUTUAL: "bg-green-100 text-green-700",
 }
 
 const STATUS_LABELS = {
   PENDING: "Pending",
-  ACCEPTED: "Accepted",
+  ACCEPTED: "Matched!",
   REJECTED: "Declined",
   MUTUAL: "Matched!",
 }
@@ -113,6 +115,7 @@ export default function MatchesPage() {
   const [pendingMatches, setPendingMatches] = useState<Match[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFinding, setIsFinding] = useState(false)
+  const [pendingCoAppInvitations, setPendingCoAppInvitations] = useState(0)
   const [activeTab, setActiveTab] = useState<"discover" | "pending" | "matched">("discover")
   const [viewMode, setViewMode] = useState<"grid" | "swipe">("grid")
   const [currentSwipeIndex, setCurrentSwipeIndex] = useState(0)
@@ -199,6 +202,13 @@ export default function MatchesPage() {
       if (!existingMatches || existingMatches.length === 0) {
         await findNewMatches()
       }
+      // Fetch pending co-application invitations count
+      try {
+        const invRes = await api.get("/co-applications/invitations/count")
+        setPendingCoAppInvitations(invRes.data?.count || 0)
+      } catch (err) {
+        // Ignore errors for invitation count
+      }
     }
     initMatches()
   }, [fetchMatches, findNewMatches])
@@ -222,7 +232,7 @@ export default function MatchesPage() {
   // Sent: matches where we initiated and waiting for response
   // Use userAction to determine who initiated
   const discoveredMatches = matches.filter(m => m.status === "PENDING" && !m.userAction)
-  const mutualMatches = matches.filter(m => m.status === "MUTUAL" || m.isMutualMatch)
+  const mutualMatches = matches.filter(m => m.status === "MUTUAL" || m.status === "ACCEPTED" || m.isMutualMatch)
   const sentRequests = matches.filter(m => m.status === "PENDING" && m.userAction === "ACCEPT")
 
   // Swipe handlers
@@ -333,7 +343,7 @@ export default function MatchesPage() {
           </div>
         )}
 
-        {match.status === "MUTUAL" && (
+        {(match.status === "MUTUAL" || match.status === "ACCEPTED" || match.isMutualMatch) && (
           <Link href={`/messages/${match.matchedUser?.id}`} onClick={(e) => e.stopPropagation()}>
             <Button size="sm" className="w-full rounded-xl bg-green-600 hover:bg-green-700 h-9">
               <MessageCircle className="h-4 w-4 mr-1" />
@@ -505,7 +515,7 @@ export default function MatchesPage() {
         </div>
       )}
 
-      {match.status === "MUTUAL" && (
+      {(match.status === "MUTUAL" || match.status === "ACCEPTED" || match.isMutualMatch) && (
         <div className="mt-4">
           <Link href={`/messages/${match.matchedUser?.id}`}>
             <Button className="w-full rounded-xl bg-blue-600 hover:bg-blue-700">
@@ -522,6 +532,28 @@ export default function MatchesPage() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       <MobileHeader title="Roommate Matching" />
+
+      {/* Co-Application Invitations Banner */}
+      {pendingCoAppInvitations > 0 && (
+        <Link href="/applications/invitations">
+          <div className="mx-4 mt-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-3 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+                  <Home className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-medium text-sm">
+                    {pendingCoAppInvitations} Co-Application Invitation{pendingCoAppInvitations > 1 ? "s" : ""}
+                  </p>
+                  <p className="text-xs text-white/80">Apply together for a listing</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5" />
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Setup Preferences Banner */}
       <Link href="/preferences">
@@ -765,9 +797,44 @@ export default function MatchesPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      {mutualMatches.map(match => renderGridCard(match))}
-                    </div>
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        {mutualMatches.map(match => renderGridCard(match))}
+                      </div>
+                      
+                      {/* Co-Application Quick Links */}
+                      <div className="mt-6 space-y-3">
+                        <Link href="/applications/invitations">
+                          <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-300 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                <Home className="h-5 w-5 text-green-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-900">Co-Application Invitations</p>
+                                <p className="text-sm text-slate-500">View & manage joint applications</p>
+                              </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                          </div>
+                        </Link>
+                        
+                        <Link href="/applications">
+                          <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-300 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <FileText className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-slate-900">My Applications</p>
+                                <p className="text-sm text-slate-500">View your rental applications</p>
+                              </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                          </div>
+                        </Link>
+                      </div>
+                    </>
                   )}
                 </>
               )}
@@ -873,7 +940,7 @@ export default function MatchesPage() {
                   </div>
                 )}
                 
-                {selectedMatch.status === "MUTUAL" && (
+                {(selectedMatch.status === "MUTUAL" || selectedMatch.status === "ACCEPTED" || selectedMatch.isMutualMatch) && (
                   <Link href={`/messages/${selectedMatch.matchedUser?.id}`}>
                     <Button className="w-full h-12 rounded-xl bg-green-600 hover:bg-green-700">
                       <MessageCircle className="h-5 w-5 mr-2" />
