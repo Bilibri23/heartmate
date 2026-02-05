@@ -28,7 +28,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import api from "@/lib/api"
+import { uploadApi } from "@/lib/api"
 
 interface Payment {
   id: string
@@ -100,7 +100,7 @@ function PaymentsContent() {
     
     setIsLoading(true)
     try {
-      const response = await api.get("/payments/my")
+      const response = await uploadApi.get("/payments/my")
       const content = response.data?.content || response.data || []
       setPayments(content)
     } catch (err) {
@@ -114,12 +114,35 @@ function PaymentsContent() {
     fetchPayments()
   }, [fetchPayments])
 
+  // Handle leaseId param - wait for payments to load first
   useEffect(() => {
-    if (leaseIdParam) {
-      setCurrentLeaseId(leaseIdParam)
-      initiatePayment(leaseIdParam)
+    if (leaseIdParam && !isLoading && payments.length >= 0) {
+      // Check if we already have a pending/submitted payment for this lease
+      const existingPayment = payments.find(
+        (p) => p.leaseId === leaseIdParam && 
+               (p.status === "PENDING" || p.status === "SUBMITTED")
+      )
+      
+      if (existingPayment) {
+        // Show existing payment instead of creating new one
+        setCurrentLeaseId(leaseIdParam)
+        if (existingPayment.status === "PENDING") {
+          setPaymentInstructions({
+            amount: existingPayment.amount,
+            mtnNumber: "677000000",
+            orangeNumber: "699000000",
+            recipientName: "RoomBuddy",
+            reference: existingPayment.id,
+          })
+          setIsPaySheetOpen(true)
+        }
+      } else if (!isPaySheetOpen) {
+        // No existing payment, initiate new one
+        setCurrentLeaseId(leaseIdParam)
+        initiatePayment(leaseIdParam)
+      }
     }
-  }, [leaseIdParam])
+  }, [leaseIdParam, isLoading, payments])
 
   const { containerRef, isRefreshing, pullProgress } = usePullToRefresh({
     onRefresh: fetchPayments,
@@ -129,8 +152,48 @@ function PaymentsContent() {
 
   const initiatePayment = async (leaseId: string) => {
     setPaymentError(null)
+    setCurrentLeaseId(leaseId)
+
+    const existingPayment = payments.find(
+      (payment) =>
+        payment.leaseId === leaseId &&
+        (payment.status === "PENDING" || payment.status === "SUBMITTED")
+    )
+    if (existingPayment) {
+      if (existingPayment.status === "PENDING") {
+        setPaymentInstructions({
+          amount: existingPayment.amount,
+          mtnNumber: "677000000",
+          orangeNumber: "699000000",
+          recipientName: "RoomBuddy",
+          reference: existingPayment.id,
+        })
+        setIsPaySheetOpen(true)
+      } else {
+        setPaymentError("Payment already submitted. Please wait for verification.")
+      }
+      return
+    }
+
     try {
-      const response = await api.post(`/payments/initiate/${leaseId}`)
+      const response = await uploadApi.post(`/payments/initiate/${leaseId}`, null, {
+        validateStatus: (status) => status < 500,
+      })
+
+      if (response.status >= 400) {
+        const errorMessage = response.data?.message || "Failed to initiate payment"
+        if (errorMessage.toLowerCase().includes("not awaiting payment")) {
+          setPaymentError("This lease is not awaiting payment.")
+        } else if (errorMessage.toLowerCase().includes("already submitted")) {
+          setPaymentError("Payment already submitted. Please wait for verification.")
+        } else if (errorMessage.toLowerCase().includes("already pending")) {
+          setPaymentError("You have a pending payment for this lease.")
+        } else {
+          setPaymentError(errorMessage)
+        }
+        return
+      }
+
       setPaymentInstructions(response.data)
       setIsPaySheetOpen(true)
     } catch (err: any) {
@@ -172,7 +235,7 @@ function PaymentsContent() {
         orange: "ORANGE_MONEY",
         card: "BANK_TRANSFER",
       }
-      await api.post("/payments/submit", {
+      await uploadApi.post("/payments/submit", {
         leaseId: currentLeaseId || leaseIdParam,
         momoTransactionId: transactionId,
         momoPhoneNumber: phoneNumber,
@@ -191,7 +254,7 @@ function PaymentsContent() {
 
   const handleCancelPayment = async (paymentId: string) => {
     try {
-      await api.delete(`/payments/${paymentId}`)
+      await uploadApi.delete(`/payments/${paymentId}`)
       setCancelPaymentId(null)
       fetchPayments()
     } catch (err) {
@@ -366,15 +429,24 @@ function PaymentsContent() {
                     <p className="font-semibold text-slate-900">{t.payments.mtn}</p>
                     <p className="text-sm text-slate-500">{paymentInstructions.mtnNumber}</p>
                   </div>
-                  <button 
+                  <span
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation()
                       copyToClipboard(paymentInstructions.mtnNumber)
                     }}
-                    className="p-2"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        copyToClipboard(paymentInstructions.mtnNumber)
+                      }
+                    }}
+                    className="p-2 cursor-pointer"
                   >
                     <Copy className="h-4 w-4 text-slate-400" />
-                  </button>
+                  </span>
                 </button>
 
                 <button
@@ -392,15 +464,24 @@ function PaymentsContent() {
                     <p className="font-semibold text-slate-900">{t.payments.orange}</p>
                     <p className="text-sm text-slate-500">{paymentInstructions.orangeNumber}</p>
                   </div>
-                  <button 
+                  <span
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => {
                       e.stopPropagation()
                       copyToClipboard(paymentInstructions.orangeNumber)
                     }}
-                    className="p-2"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        copyToClipboard(paymentInstructions.orangeNumber)
+                      }
+                    }}
+                    className="p-2 cursor-pointer"
                   >
                     <Copy className="h-4 w-4 text-slate-400" />
-                  </button>
+                  </span>
                 </button>
 
                 <button

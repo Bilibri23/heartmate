@@ -80,6 +80,11 @@ interface ListingDetail {
   createdAt: string
 }
 
+interface ExistingApplication {
+  id: string
+  status: string
+}
+
 export default function ListingDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -99,6 +104,8 @@ export default function ListingDetailPage() {
   const [viewingTime, setViewingTime] = useState("")
   const [viewingMessage, setViewingMessage] = useState("")
   const [isScheduling, setIsScheduling] = useState(false)
+  const [existingApplication, setExistingApplication] = useState<ExistingApplication | null>(null)
+  const [isCheckingApplication, setIsCheckingApplication] = useState(false)
 
   useEffect(() => {
     const fetchListing = async () => {
@@ -133,6 +140,33 @@ export default function ListingDetailPage() {
     }
   }, [params.id, user?.id])
 
+  useEffect(() => {
+    const fetchExistingApplication = async () => {
+      if (!user?.id || !params.id) {
+        setExistingApplication(null)
+        return
+      }
+
+      setIsCheckingApplication(true)
+      try {
+        const response = await api.get(`/applications/my/listing/${params.id}`, {
+          validateStatus: (status) => status < 500,
+        })
+        if (response.status === 200) {
+          setExistingApplication(response.data)
+        } else {
+          setExistingApplication(null)
+        }
+      } catch (err) {
+        setExistingApplication(null)
+      } finally {
+        setIsCheckingApplication(false)
+      }
+    }
+
+    fetchExistingApplication()
+  }, [params.id, user?.id])
+
   const handleFavorite = async () => {
     if (!user?.id) {
       router.push("/login")
@@ -154,6 +188,16 @@ export default function ListingDetailPage() {
   const handleApply = async () => {
     if (!user?.id) {
       router.push("/login")
+      return
+    }
+
+    if (existingApplication) {
+      setApplicationError("You have already applied to this listing. Check your applications page to view the status.")
+      return
+    }
+
+    if (listing?.status && listing.status !== "ACTIVE") {
+      setApplicationError("This listing is not available for applications.")
       return
     }
 
@@ -208,6 +252,14 @@ export default function ListingDetailPage() {
   const handleScheduleViewing = async () => {
     if (!user?.id) {
       router.push("/login")
+      return
+    }
+
+    if (existingApplication) {
+      return
+    }
+
+    if (listing?.status && listing.status !== "ACTIVE") {
       return
     }
     
@@ -536,9 +588,16 @@ export default function ListingDetailPage() {
           </div>
           
           {/* Schedule Viewing Button */}
-          <Sheet open={isScheduleOpen} onOpenChange={setIsScheduleOpen}>
+          <Sheet
+            open={isScheduleOpen}
+            onOpenChange={(open) => setIsScheduleOpen(open && !existingApplication && listing?.status === "ACTIVE")}
+          >
             <SheetTrigger asChild>
-              <Button variant="outline" className="h-12 rounded-xl px-4">
+              <Button
+                variant="outline"
+                className="h-12 rounded-xl px-4"
+                disabled={Boolean(existingApplication) || listing?.status !== "ACTIVE"}
+              >
                 <CalendarDays className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -597,7 +656,7 @@ export default function ListingDetailPage() {
                 <Button 
                   className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700"
                   onClick={handleScheduleViewing}
-                  disabled={isScheduling || !viewingDate || !viewingTime}
+                  disabled={isScheduling || !viewingDate || !viewingTime || Boolean(existingApplication) || listing?.status !== "ACTIVE"}
                 >
                   {isScheduling ? "Sending Request..." : "Request Viewing"}
                 </Button>
@@ -606,10 +665,16 @@ export default function ListingDetailPage() {
           </Sheet>
           
           {/* Apply Now Button */}
-          <Sheet open={isApplyOpen} onOpenChange={setIsApplyOpen}>
+          <Sheet
+            open={isApplyOpen}
+            onOpenChange={(open) => setIsApplyOpen(open && !existingApplication && listing?.status === "ACTIVE")}
+          >
             <SheetTrigger asChild>
-              <Button className="flex-1 h-12 rounded-xl text-base">
-                {t.listings.applyNow}
+              <Button
+                className="flex-1 h-12 rounded-xl text-base"
+                disabled={Boolean(existingApplication) || listing?.status !== "ACTIVE" || isCheckingApplication}
+              >
+                {existingApplication ? "Applied" : t.listings.applyNow}
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl overflow-y-auto">
@@ -678,11 +743,32 @@ export default function ListingDetailPage() {
                     )}
                   </div>
                 )}
+
+                {existingApplication && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                    <p className="text-sm text-blue-700">
+                      You already applied to this listing. Track your application status from your applications page.
+                    </p>
+                    <Button
+                      variant="link"
+                      className="text-blue-700 p-0 h-auto mt-1"
+                      onClick={() => router.push("/applications")}
+                    >
+                      View my applications →
+                    </Button>
+                  </div>
+                )}
                 
                 <Button 
                   className="w-full h-12 rounded-xl"
                   onClick={handleApply}
-                  disabled={isSubmitting || !moveInDate || applicationMessage.length < 50}
+                  disabled={
+                    isSubmitting ||
+                    !moveInDate ||
+                    applicationMessage.length < 50 ||
+                    Boolean(existingApplication) ||
+                    listing?.status !== "ACTIVE"
+                  }
                 >
                   {isSubmitting ? t.common.loading : t.applications.apply}
                 </Button>

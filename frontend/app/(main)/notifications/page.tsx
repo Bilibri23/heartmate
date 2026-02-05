@@ -13,7 +13,9 @@ import {
   CreditCard, 
   CheckCircle,
   Home,
-  Trash2
+  Trash2,
+  User,
+  MessageSquare
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -22,30 +24,37 @@ import api from "@/lib/api"
 
 interface Notification {
   id: string
-  type: "APPLICATION_UPDATE" | "NEW_MESSAGE" | "PAYMENT_REMINDER" | "LEASE_UPDATE" | "LISTING_UPDATE" | "GENERAL"
+  type: string // Backend uses enum, can be any notification type
   title: string
-  message: string
+  message: string | null
   read: boolean
   actionUrl: string | null
   createdAt: string
+  referenceId?: string | null
+  referenceType?: string | null
 }
 
-const NOTIFICATION_ICONS = {
-  APPLICATION_UPDATE: FileText,
-  NEW_MESSAGE: MessageCircle,
-  PAYMENT_REMINDER: CreditCard,
-  LEASE_UPDATE: FileText,
-  LISTING_UPDATE: Home,
-  GENERAL: Bell,
+// Map backend notification types to icons and colors
+const getNotificationIcon = (type: string) => {
+  if (type?.includes("APPLICATION")) return FileText
+  if (type?.includes("MESSAGE")) return MessageCircle
+  if (type?.includes("PAYMENT")) return CreditCard
+  if (type?.includes("LEASE")) return FileText
+  if (type?.includes("LISTING")) return Home
+  if (type?.includes("MATCH")) return User
+  if (type?.includes("REVIEW")) return MessageSquare
+  return Bell
 }
 
-const NOTIFICATION_COLORS = {
-  APPLICATION_UPDATE: "bg-blue-100 text-blue-600",
-  NEW_MESSAGE: "bg-emerald-100 text-emerald-600",
-  PAYMENT_REMINDER: "bg-amber-100 text-amber-600",
-  LEASE_UPDATE: "bg-purple-100 text-purple-600",
-  LISTING_UPDATE: "bg-pink-100 text-pink-600",
-  GENERAL: "bg-slate-100 text-slate-600",
+const getNotificationColor = (type: string) => {
+  if (type?.includes("APPLICATION")) return "bg-blue-100 text-blue-600"
+  if (type?.includes("MESSAGE")) return "bg-emerald-100 text-emerald-600"
+  if (type?.includes("PAYMENT")) return "bg-amber-100 text-amber-600"
+  if (type?.includes("LEASE")) return "bg-purple-100 text-purple-600"
+  if (type?.includes("LISTING")) return "bg-pink-100 text-pink-600"
+  if (type?.includes("MATCH")) return "bg-indigo-100 text-indigo-600"
+  if (type?.includes("REVIEW")) return "bg-yellow-100 text-yellow-600"
+  return "bg-slate-100 text-slate-600"
 }
 
 export default function NotificationsPage() {
@@ -62,11 +71,33 @@ export default function NotificationsPage() {
     
     setIsLoading(true)
     try {
-      const response = await api.get("/notifications", { params: { size: 50 } })
-      const content = response.data?.content || response.data || []
-      setNotifications(Array.isArray(content) ? content : [])
+      const response = await api.get("/notifications", {
+        params: { page: 0, size: 50 },
+        validateStatus: (status) => status < 500,
+      })
+      if (response.status === 401 || response.status === 403) {
+        setNotifications([])
+        return
+      }
+      
+      // Backend returns Spring Page object: { content: [...], totalElements, totalPages, etc. }
+      let notifications: Notification[] = []
+      
+      if (response.data) {
+        // Check if it's a Page object with content array
+        if (response.data.content && Array.isArray(response.data.content)) {
+          notifications = response.data.content
+        } 
+        // Fallback: if it's already an array
+        else if (Array.isArray(response.data)) {
+          notifications = response.data
+        }
+      }
+      
+      setNotifications(notifications)
     } catch (err: any) {
       console.error("Failed to fetch notifications:", err)
+      console.error("Error details:", err.response?.data || err.message)
       // Set empty array on error to show empty state
       setNotifications([])
     } finally {
@@ -191,8 +222,8 @@ export default function NotificationsPage() {
         {!isLoading && notifications.length > 0 && (
           <div className="divide-y divide-slate-100">
             {notifications.map((notification) => {
-              const Icon = NOTIFICATION_ICONS[notification.type] || Bell
-              const colorClass = NOTIFICATION_COLORS[notification.type] || NOTIFICATION_COLORS.GENERAL
+              const Icon = getNotificationIcon(notification.type)
+              const colorClass = getNotificationColor(notification.type)
 
               const content = (
                 <div 

@@ -25,12 +25,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useState, Suspense } from "react"
+import { countries, getDefaultCountry, type Country } from "@/lib/countries"
 
 const registerSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters" }),
   lastName: z.string().min(2, { message: "Last name must be at least 2 characters" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
-  phone: z.string().regex(/^\+237[0-9]{9}$/, { message: "Phone must be in format +237XXXXXXXXX" }),
+  countryCode: z.string().min(1, { message: "Please select a country" }),
+  phone: z.string().min(8, { message: "Phone number is required" }),
   gender: z.enum(["MALE", "FEMALE"], { message: "Please select your gender" }),
   password: z.string().min(8, { message: "Password must be at least 8 characters" }),
   confirmPassword: z.string(),
@@ -49,6 +51,8 @@ function RegisterContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [selectedRole, setSelectedRole] = useState<"STUDENT" | "LANDLORD">(roleFromUrl || "STUDENT")
+  const defaultCountry = getDefaultCountry()
+  const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry)
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -56,7 +60,8 @@ function RegisterContent() {
       firstName: "",
       lastName: "",
       email: "",
-      phone: "+237",
+      countryCode: getDefaultCountry().dialCode, // Store dial code
+      phone: "",
       gender: undefined,
       password: "",
       confirmPassword: "",
@@ -67,11 +72,14 @@ function RegisterContent() {
     setIsLoading(true)
     setError(null)
     try {
+      // Combine country code with phone number
+      const fullPhone = `${data.countryCode}${data.phone.replace(/^\+/, '')}`
+      
       await registerUser({
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
-        phone: data.phone,
+        phone: fullPhone,
         password: data.password,
         role: selectedRole,
         gender: data.gender,
@@ -191,6 +199,44 @@ function RegisterContent() {
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="countryCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-slate-700">Country</FormLabel>
+                    <Select 
+                      value={selectedCountry.code}
+                      onValueChange={(value) => {
+                        const country = countries.find(c => c.code === value)
+                        if (country) {
+                          setSelectedCountry(country)
+                          field.onChange(country.dialCode) // Store dial code in form
+                        }
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-slate-50">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="max-h-[300px]">
+                        {countries.map((country) => (
+                          <SelectItem key={`country-${country.code}`} value={country.code}>
+                            <span className="flex items-center gap-2">
+                              <span>{country.flag}</span>
+                              <span>{country.name}</span>
+                              <span className="text-slate-500 ml-auto">{country.dialCode}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -199,11 +245,21 @@ function RegisterContent() {
                     <FormItem>
                       <FormLabel className="text-slate-700">Phone Number</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="+237683068251" 
-                          className="h-11 rounded-xl border-slate-200 bg-slate-50 focus:bg-white" 
-                          {...field} 
-                        />
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+                            {selectedCountry.dialCode}
+                          </span>
+                          <Input 
+                            placeholder="683068251" 
+                            className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-20 focus:bg-white" 
+                            {...field}
+                            onChange={(e) => {
+                              // Remove any non-digit characters
+                              const digits = e.target.value.replace(/\D/g, '')
+                              field.onChange(digits)
+                            }}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

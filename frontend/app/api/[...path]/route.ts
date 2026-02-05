@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+// Backend is on port 8082 (see application.properties server.port=8082)
+// Use NEXT_PUBLIC_BACKEND_URL if set, otherwise default to 8082
+const BACKEND_URL = process.env.BACKEND_URL || 
+  (process.env.NEXT_PUBLIC_BACKEND_URL?.replace('/api', '') || 'http://localhost:8082');
 
 async function handler(request: NextRequest) {
   const path = request.nextUrl.pathname.replace('/api', '');

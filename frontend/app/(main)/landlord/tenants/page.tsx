@@ -155,8 +155,8 @@ export default function LandlordTenantsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredTenants.map((tenant) => (
-                <div key={tenant.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+              {filteredTenants.map((tenant, index) => (
+                <div key={`${tenant.id}-${tenant.lease.id}-${index}`} className="bg-white rounded-2xl shadow-sm overflow-hidden">
                   <div className="p-4">
                     {/* Tenant Info */}
                     <div className="flex items-start gap-3">

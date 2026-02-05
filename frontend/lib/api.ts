@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080/api';
+// Backend is on port 8082 (see application.properties server.port=8082)
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8082/api';
 
 const api = axios.create({
   baseURL: API_URL,

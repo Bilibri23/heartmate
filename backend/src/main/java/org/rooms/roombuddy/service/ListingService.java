@@ -16,7 +16,7 @@ import org.rooms.roombuddy.repository.ListingFavoriteRepository;
 import org.rooms.roombuddy.repository.ListingPhotoRepository;
 import org.rooms.roombuddy.repository.PropertyListingRepository;
 import org.rooms.roombuddy.repository.ReviewRepository;
-import org.rooms.roombuddy.repository.RoommatePreferencesRepository;
+import org.rooms.roombuddy.repository.ListingPreferencesRepository;
 import org.rooms.roombuddy.repository.UserRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -43,7 +43,7 @@ public class ListingService {
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
     private final NotificationService notificationService;
-    private final RoommatePreferencesRepository preferencesRepository;
+    private final ListingPreferencesRepository preferencesRepository;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -642,22 +642,32 @@ public class ListingService {
                 factors++;
             }
             
-            // Distance to university (30% weight)
+            // Distance to university (20% weight)
             if (prefs.getMaxDistanceFromCampus() != null && listing.getDistanceToUniversity() != null) {
                 int comparisonResult = listing.getDistanceToUniversity().compareTo(prefs.getMaxDistanceFromCampus());
                 if (comparisonResult <= 0) {  // listing distance <= max preferred distance
-                    score += 30;
+                    score += 20;
                     reasons.add("close to campus");
                 } else {
                     score += 5;
                 }
                 factors++;
             }
+
+            // Property type (10% weight)
+            if (prefs.getPropertyTypes() != null && !prefs.getPropertyTypes().isEmpty() && listing.getPropertyType() != null) {
+                boolean matchesType = prefs.getPropertyTypes().stream()
+                    .anyMatch(type -> type.equalsIgnoreCase(listing.getPropertyType().name()));
+                if (matchesType) {
+                    score += 10;
+                    reasons.add("matches your preferred property type");
+                } else {
+                    score += 2;
+                }
+                factors++;
+            }
             
-            // Property type (removed - not in RoommatePreferences entity)
-            // Removed property type matching since RoommatePreferences does not contain property type preferences
-            
-            // Rebalancing: Budget=40, Location=30, Distance=30 (total=100)
+            // Rebalancing: Budget=40, Location=30, Distance=20, Type=10 (total=100)
             
             
             // Normalize score

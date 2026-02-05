@@ -91,6 +91,17 @@ public class PaymentService {
         if (!lease.getStudent().getId().equals(studentId)) {
             throw new BadRequestException("You can only submit payment for your own leases");
         }
+
+        if (lease.getStatus() != Lease.LeaseStatus.PENDING_PAYMENT) {
+            throw new BadRequestException("This lease is not awaiting payment. Status: " + lease.getStatus());
+        }
+
+        if (paymentRepository.existsByLeaseIdAndPaymentTypeAndStatusIn(
+                lease.getId(),
+                Payment.PaymentType.INITIAL_PAYMENT,
+                Arrays.asList(Payment.PaymentStatus.SUBMITTED, Payment.PaymentStatus.VERIFIED))) {
+            throw new BadRequestException("Payment already submitted for this lease");
+        }
         
         // Find pending payment or create new one
         Payment payment = paymentRepository.findByLeaseIdAndStatus(request.getLeaseId(), Payment.PaymentStatus.PENDING)

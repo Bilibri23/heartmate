@@ -23,15 +23,17 @@ import java.util.stream.Collectors;
 public class RecommendationService {
     
     private final PropertyListingRepository listingRepository;
-    private final RoommatePreferencesRepository preferencesRepository;
+    private final ListingPreferencesRepository listingPreferencesRepository;
     private final ListingViewRepository viewRepository;
     private final ListingFavoriteRepository favoriteRepository;
     private final ProfileRepository profileRepository;
     
     // Scoring weights
     private static final int MAX_RECOMMENDATIONS = 20;
-    private static final double PREFERENCE_WEIGHT = 0.60;  // 60% from preferences
-    private static final double BEHAVIOR_WEIGHT = 0.40;    // 40% from behavior
+    private static final double PREFERENCE_WEIGHT = 0.50;  // 50% from preferences
+    private static final double BEHAVIOR_WEIGHT = 0.30;    // 30% from behavior
+    private static final double SIMILAR_USER_WEIGHT = 0.15; // 15% from similar users
+    private static final double DIVERSITY_WEIGHT = 0.05;    // 5% for diversity
     
     /**
      * Get personalized listing recommendations for a student
@@ -42,13 +44,13 @@ public class RecommendationService {
         log.info("Generating recommendations for student: {}", studentId);
         
         // Get student's preferences
-        Optional<RoommatePreferences> prefsOpt = preferencesRepository.findByUserId(studentId);
+        Optional<ListingPreferences> prefsOpt = listingPreferencesRepository.findByUserId(studentId);
         if (prefsOpt.isEmpty()) {
             log.warn("No preferences found for student {}, returning popular listings", studentId);
             return getPopularListings(MAX_RECOMMENDATIONS);
         }
         
-        RoommatePreferences prefs = prefsOpt.get();
+        ListingPreferences prefs = prefsOpt.get();
         
         // Get all active verified listings
         List<PropertyListing> allListings = listingRepository.findByStatusAndVerified(
@@ -63,8 +65,14 @@ public class RecommendationService {
             .map(fav -> fav.getListing().getId())
             .collect(Collectors.toList());
         
+        // Find similar users (collaborative filtering)
+        List<UUID> similarUserIds = findSimilarUsers(studentId, recentViews, favoritedListingIds);
+        
         // Score each listing (LinkedIn-style: always show relevant content)
         List<ScoredListing> scoredListings = new ArrayList<>();
+        Set<String> usedNeighborhoods = new HashSet<>(); // For diversity
+        Set<PropertyListing.PropertyType> usedTypes = new HashSet<>(); // For diversity
+        
         for (PropertyListing listing : allListings) {
             // Skip if already favorited (they already saved it)
             if (favoritedListingIds.contains(listing.getId())) {
@@ -77,30 +85,55 @@ public class RecommendationService {
             // Calculate behavioral boost
             int behaviorBoost = calculateBehaviorBoost(listing, recentViews, favoritedListingIds);
             
+            // Calculate similar user boost (collaborative filtering)
+            int similarUserBoost = calculateSimilarUserBoost(listing, similarUserIds);
+            
             // Add engagement signals (like LinkedIn's engagement-based ranking)
             int engagementBoost = calculateEngagementBoost(listing);
             
-            // Combined score with engagement factor
-            int totalScore = (int) ((preferenceScore * PREFERENCE_WEIGHT) + 
-                                   (behaviorBoost * BEHAVIOR_WEIGHT * 0.7) +
-                                   (engagementBoost * 0.3));
+            // Diversity boost (encourage variety)
+            int diversityBoost = calculateDiversityBoost(listing, usedNeighborhoods, usedTypes);
+            
+            // Combined score with all factors
+            // Ensure we always have a base score from engagement (even if preferences are 0)
+            int baseScore = (int) (engagementBoost * 0.2); // At least engagement score
+            int totalScore = (int) (
+                (preferenceScore * PREFERENCE_WEIGHT) + 
+                (behaviorBoost * BEHAVIOR_WEIGHT) +
+                (similarUserBoost * SIMILAR_USER_WEIGHT) +
+                (diversityBoost * DIVERSITY_WEIGHT) +
+                baseScore
+            );
+            
+            // Ensure minimum score of 30 (so users see meaningful match percentages)
+            // This ensures listings always have a visible match score
+            totalScore = Math.max(totalScore, 30);
+            
+            // Track for diversity
+            if (listing.getNeighborhood() != null) {
+                usedNeighborhoods.add(listing.getNeighborhood());
+            }
+            if (listing.getPropertyType() != null) {
+                usedTypes.add(listing.getPropertyType());
+            }
             
             // Always include listings, let sorting handle relevance (LinkedIn approach)
             scoredListings.add(ScoredListing.builder()
                 .listing(listing)
-                .totalScore(Math.max(totalScore, 10)) // Minimum score of 10
+                .totalScore(totalScore)
                 .preferenceScore(preferenceScore)
                 .behaviorScore(behaviorBoost)
-                .reasons(generateReasons(prefs, listing, preferenceScore, behaviorBoost))
+                .reasons(generateReasons(prefs, listing, preferenceScore, behaviorBoost, similarUserBoost))
                 .build());
         }
         
-        // Sort by score and return top N
+        // Sort by score and return top N with diversity
         scoredListings.sort((a, b) -> Integer.compare(b.getTotalScore(), a.getTotalScore()));
         
-        List<ScoredListing> topRecommendations = scoredListings.stream()
-            .limit(MAX_RECOMMENDATIONS)
-            .collect(Collectors.toList());
+        // Apply diversity filter: ensure we don't show too many from same area/type
+        List<ScoredListing> topRecommendations = applyDiversityFilter(
+            scoredListings, MAX_RECOMMENDATIONS
+        );
         
         // If no recommendations, fall back to popular listings
         if (topRecommendations.isEmpty()) {
@@ -115,7 +148,7 @@ public class RecommendationService {
     /**
      * Calculate score based on user preferences
      */
-    private int calculatePreferenceScore(RoommatePreferences prefs, PropertyListing listing) {
+    private int calculatePreferenceScore(ListingPreferences prefs, PropertyListing listing) {
         int score = 0;
         int factors = 0;
         
@@ -163,11 +196,10 @@ public class RecommendationService {
         }
         
         // Property type preference (10%)
-        // TODO: Add property type preference to RoommatePreferences
-        // For now, give slight bonus to studios and private rooms for students
-        if (listing.getPropertyType() == PropertyListing.PropertyType.STUDIO ||
-            listing.getPropertyType() == PropertyListing.PropertyType.PRIVATE_ROOM) {
-            score += 70;
+        if (prefs.getPropertyTypes() != null && !prefs.getPropertyTypes().isEmpty() && listing.getPropertyType() != null) {
+            boolean matchesType = prefs.getPropertyTypes().stream()
+                .anyMatch(type -> type.equalsIgnoreCase(listing.getPropertyType().name()));
+            score += matchesType ? 100 : 40;
             factors++;
         }
         
@@ -294,12 +326,188 @@ public class RecommendationService {
     }
     
     /**
+     * Find similar users based on viewing and favoriting behavior (collaborative filtering)
+     */
+    private List<UUID> findSimilarUsers(UUID studentId, 
+                                        List<ListingView> recentViews,
+                                        List<UUID> favoritedListingIds) {
+        if (recentViews.isEmpty() && favoritedListingIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // Build user's interest profile
+        Set<UUID> userInterestedListings = new HashSet<>();
+        recentViews.forEach(view -> userInterestedListings.add(view.getListing().getId()));
+        userInterestedListings.addAll(favoritedListingIds);
+        
+        if (userInterestedListings.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // Find users who viewed the same listings (collaborative filtering)
+        List<UUID> candidateUserIds = viewRepository.findUsersWhoViewedListings(
+            new ArrayList<>(userInterestedListings), studentId
+        );
+        
+        // Also check favorites - find users who favorited same listings
+        for (UUID listingId : favoritedListingIds) {
+            // Get all favorites for this listing
+            List<ListingFavorite> allFavorites = favoriteRepository.findAll().stream()
+                .filter(f -> f.getListing().getId().equals(listingId) 
+                          && !f.getUser().getId().equals(studentId))
+                .collect(Collectors.toList());
+            
+            for (ListingFavorite fav : allFavorites) {
+                UUID otherUserId = fav.getUser().getId();
+                if (!candidateUserIds.contains(otherUserId)) {
+                    candidateUserIds.add(otherUserId);
+                }
+            }
+        }
+        
+        // Score users by how many listings they have in common
+        Map<UUID, Integer> userSimilarityScores = new HashMap<>();
+        for (UUID candidateId : candidateUserIds) {
+            List<ListingView> candidateViews = viewRepository.findRecentByUserId(
+                candidateId, LocalDateTime.now().minusDays(60)
+            );
+            List<UUID> candidateFavorites = favoriteRepository.findByUserId(candidateId).stream()
+                .map(fav -> fav.getListing().getId())
+                .collect(Collectors.toList());
+            
+            int commonListings = 0;
+            for (UUID listingId : userInterestedListings) {
+                boolean candidateViewed = candidateViews.stream()
+                    .anyMatch(v -> v.getListing().getId().equals(listingId));
+                boolean candidateFavorited = candidateFavorites.contains(listingId);
+                
+                if (candidateViewed || candidateFavorited) {
+                    commonListings++;
+                }
+            }
+            
+            if (commonListings > 0) {
+                userSimilarityScores.put(candidateId, commonListings);
+            }
+        }
+        
+        // Get top 10 similar users
+        return userSimilarityScores.entrySet().stream()
+            .sorted(Map.Entry.<UUID, Integer>comparingByValue().reversed())
+            .limit(10)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+    }
+    
+    /**
+     * Calculate boost based on similar users' preferences (collaborative filtering)
+     */
+    private int calculateSimilarUserBoost(PropertyListing listing, List<UUID> similarUserIds) {
+        if (similarUserIds.isEmpty()) {
+            return 0;
+        }
+        
+        int boost = 0;
+        int matches = 0;
+        
+        // Check if similar users viewed/favorited this listing
+        for (UUID similarUserId : similarUserIds) {
+            boolean hasViewed = viewRepository.hasUserViewedListing(similarUserId, listing.getId());
+            boolean hasFavorited = favoriteRepository.existsByUserIdAndListingId(similarUserId, listing.getId());
+            
+            if (hasViewed || hasFavorited) {
+                matches++;
+            }
+        }
+        
+        // Boost based on how many similar users liked it
+        if (matches > 0) {
+            double similarityRatio = (double) matches / similarUserIds.size();
+            boost = (int) (similarityRatio * 100); // Up to 100 points
+        }
+        
+        return Math.min(100, boost);
+    }
+    
+    /**
+     * Calculate diversity boost to encourage variety in recommendations
+     */
+    private int calculateDiversityBoost(PropertyListing listing,
+                                       Set<String> usedNeighborhoods,
+                                       Set<PropertyListing.PropertyType> usedTypes) {
+        int boost = 0;
+        
+        // Boost if this is a new neighborhood we haven't shown yet
+        if (listing.getNeighborhood() != null && !usedNeighborhoods.contains(listing.getNeighborhood())) {
+            boost += 15;
+        }
+        
+        // Boost if this is a new property type we haven't shown yet
+        if (listing.getPropertyType() != null && !usedTypes.contains(listing.getPropertyType())) {
+            boost += 10;
+        }
+        
+        return boost;
+    }
+    
+    /**
+     * Apply diversity filter to ensure variety in recommendations
+     */
+    private List<ScoredListing> applyDiversityFilter(List<ScoredListing> scoredListings, int limit) {
+        List<ScoredListing> diverseList = new ArrayList<>();
+        Set<String> usedNeighborhoods = new HashSet<>();
+        Set<PropertyListing.PropertyType> usedTypes = new HashSet<>();
+        Map<String, Integer> neighborhoodCount = new HashMap<>();
+        Map<PropertyListing.PropertyType, Integer> typeCount = new HashMap<>();
+        
+        // First pass: Add top scoring listings with diversity consideration
+        for (ScoredListing scored : scoredListings) {
+            PropertyListing listing = scored.getListing();
+            String neighborhood = listing.getNeighborhood();
+            PropertyListing.PropertyType type = listing.getPropertyType();
+            
+            // Allow max 3 listings per neighborhood, 4 per type
+            int neighborhoodUsage = neighborhoodCount.getOrDefault(neighborhood, 0);
+            int typeUsage = typeCount.getOrDefault(type, 0);
+            
+            if (neighborhoodUsage < 3 && typeUsage < 4) {
+                diverseList.add(scored);
+                if (neighborhood != null) {
+                    neighborhoodCount.put(neighborhood, neighborhoodUsage + 1);
+                }
+                if (type != null) {
+                    typeCount.put(type, typeUsage + 1);
+                }
+                
+                if (diverseList.size() >= limit) {
+                    break;
+                }
+            }
+        }
+        
+        // If we don't have enough, fill with remaining top scores
+        if (diverseList.size() < limit) {
+            for (ScoredListing scored : scoredListings) {
+                if (!diverseList.contains(scored)) {
+                    diverseList.add(scored);
+                    if (diverseList.size() >= limit) {
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return diverseList;
+    }
+    
+    /**
      * Generate human-readable reasons for recommendation
      */
-    private List<String> generateReasons(RoommatePreferences prefs, 
+    private List<String> generateReasons(ListingPreferences prefs, 
                                          PropertyListing listing,
                                          int preferenceScore,
-                                         int behaviorScore) {
+                                         int behaviorScore,
+                                         int similarUserBoost) {
         List<String> reasons = new ArrayList<>();
         
         // Budget match
@@ -325,10 +533,26 @@ public class RecommendationService {
         if (listing.getDistanceToUniversity() != null) {
             reasons.add("Only " + listing.getDistanceToUniversity() + " km from university");
         }
+
+        // Property type match
+        if (prefs.getPropertyTypes() != null && !prefs.getPropertyTypes().isEmpty() && listing.getPropertyType() != null) {
+            boolean matchesType = prefs.getPropertyTypes().stream()
+                .anyMatch(type -> type.equalsIgnoreCase(listing.getPropertyType().name()));
+            if (matchesType) {
+                reasons.add("Matches your preferred property type");
+            }
+        }
         
         // Behavioral signals
         if (behaviorScore > 60) {
             reasons.add("Similar to listings you've viewed");
+        }
+        
+        // Similar user signals (collaborative filtering)
+        if (similarUserBoost > 50) {
+            reasons.add("Loved by students like you");
+        } else if (similarUserBoost > 20) {
+            reasons.add("Popular with similar students");
         }
         
         // Amenities

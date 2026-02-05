@@ -21,6 +21,8 @@ interface ListingCardProps {
   isFavorited?: boolean
   rating?: number
   matchScore?: number
+  status?: string | null
+  isAvailable?: boolean | null
   onFavoriteToggle?: (id: string) => void
 }
 
@@ -38,10 +40,23 @@ export function ListingCard({
   isFavorited = false,
   rating,
   matchScore,
+  status,
+  isAvailable,
   onFavoriteToggle,
 }: ListingCardProps) {
   const { formatCurrency, t } = useLanguage()
   const [favorited, setFavorited] = useState(isFavorited)
+
+  const normalizedStatus = status?.toUpperCase?.()
+  const availabilityLabel =
+    normalizedStatus === "ACTIVE" ? "Available" :
+    normalizedStatus === "RENTED" ? "Rented" :
+    status ? "Unavailable" : null
+  const isUnavailable =
+    typeof isAvailable === "boolean"
+      ? !isAvailable
+      : Boolean(normalizedStatus && normalizedStatus !== "ACTIVE")
+  const showAvailability = availabilityLabel !== null || typeof isAvailable === "boolean"
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -71,6 +86,15 @@ export function ListingCard({
 
           {/* Badges */}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+            {showAvailability && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${
+                  isUnavailable ? "bg-rose-500" : "bg-emerald-500"
+                }`}
+              >
+                {availabilityLabel || (isUnavailable ? "Unavailable" : "Available")}
+              </span>
+            )}
             {isFeatured && (
               <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
                 {t.listings.featured}
@@ -136,12 +160,12 @@ export function ListingCard({
               <Bath className="h-3.5 w-3.5" />
               <span>{bathrooms}</span>
             </div>
-            {rating && (
+            {rating && rating > 0 ? (
               <div className="ml-auto flex items-center gap-1">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                <span>{rating.toFixed(1)}</span>
+                <span className="font-medium">{rating.toFixed(1)}</span>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

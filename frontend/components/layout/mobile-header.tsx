@@ -3,8 +3,13 @@
 import { Bell, Globe, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useEffect, useState, useCallback } from "react"
 import { useLanguage } from "@/context/language-context"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/context/auth-context"
+import api from "@/lib/api"
+import { useWebSocketNotifications } from "@/hooks/use-websocket-notifications"
+import { toast } from "sonner"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +32,41 @@ export function MobileHeader({
 }: MobileHeaderProps) {
   const { language, setLanguage, t } = useLanguage()
   const router = useRouter()
+  const { user } = useAuth()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (!user?.id || !showNotifications) return
+      try {
+        const response = await api.get("/notifications/unread-count")
+        const count = response.data?.count ?? 0
+        setUnreadCount(Number.isFinite(count) ? count : 0)
+      } catch (err) {
+        console.error("Failed to fetch unread notifications:", err)
+      }
+    }
+
+    fetchUnreadCount()
+  }, [user?.id, showNotifications])
+
+  const handleNotification = useCallback((notification: { title: string; message?: string; actionUrl?: string }) => {
+    setUnreadCount((prev) => prev + 1)
+    
+    // Show toast notification
+    toast(notification.title, {
+      description: notification.message,
+      action: notification.actionUrl ? {
+        label: "View",
+        onClick: () => router.push(notification.actionUrl!),
+      } : undefined,
+    })
+  }, [router])
+
+  useWebSocketNotifications({
+    enabled: Boolean(user?.id) && showNotifications,
+    onNotification: handleNotification,
+  })
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-lg safe-area-top">
@@ -75,7 +115,11 @@ export function MobileHeader({
               <Button variant="ghost" size="icon" className="relative h-9 w-9">
                 <Bell className="h-5 w-5 text-slate-600" />
                 {/* Notification badge - will be dynamic */}
-                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+                {unreadCount > 0 && (
+                  <span className="absolute right-1 top-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
               </Button>
             </Link>
           )}

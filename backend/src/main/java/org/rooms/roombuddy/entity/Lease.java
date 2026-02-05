@@ -84,6 +84,19 @@ public class Lease {
     @Builder.Default
     private Boolean landlordAcceptedTerms = false;
     
+    // Digital signatures (Base64 encoded image data)
+    @Column(name = "student_signature", columnDefinition = "TEXT")
+    private String studentSignature;
+    
+    @Column(name = "landlord_signature", columnDefinition = "TEXT")
+    private String landlordSignature;
+    
+    @Column(name = "student_signature_type")
+    private String studentSignatureType; // "drawn" or "typed"
+    
+    @Column(name = "landlord_signature_type")
+    private String landlordSignatureType; // "drawn" or "typed"
+    
     // Terms document (HTML or plain text)
     @Column(name = "terms_content", columnDefinition = "TEXT")
     private String termsContent;

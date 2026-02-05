@@ -17,10 +17,12 @@ import {
   Home,
   Phone,
   Mail,
-  Download
+  Download,
+  PenTool
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import Link from "next/link"
 import api from "@/lib/api"
 
 interface Lease {
@@ -276,17 +278,12 @@ export default function LandlordLeasesPage() {
                     {/* Actions */}
                     {needsLandlordSignature && (
                       <div className="px-4 pb-4">
-                        <Button 
-                          className="w-full rounded-xl bg-green-600 hover:bg-green-700"
-                          onClick={() => handleAcceptTerms(lease.id)}
-                          disabled={acceptingLeaseId === lease.id}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          {acceptingLeaseId === lease.id ? "Signing..." : "Sign & Accept Lease"}
-                        </Button>
-                        {acceptError && acceptingLeaseId === null && (
-                          <p className="text-xs text-red-500 text-center mt-2">{acceptError}</p>
-                        )}
+                        <Link href={`/leases/${lease.id}/sign`}>
+                          <Button className="w-full rounded-xl bg-green-600 hover:bg-green-700">
+                            <PenTool className="h-4 w-4 mr-2" />
+                            Sign Lease Agreement
+                          </Button>
+                        </Link>
                       </div>
                     )}
 
@@ -307,7 +304,7 @@ export default function LandlordLeasesPage() {
                           onClick={async () => {
                             try {
                               const token = localStorage.getItem('token')
-                              const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080/api'
+                              const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8082/api'
                               const response = await fetch(`${backendUrl}/leases/${lease.id}/document`, {
                                 method: 'GET',
                                 headers: {

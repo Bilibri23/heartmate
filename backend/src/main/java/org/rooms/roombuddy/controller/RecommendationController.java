@@ -9,6 +9,7 @@ import org.rooms.roombuddy.entity.PropertyListing;
 import org.rooms.roombuddy.repository.ListingFavoriteRepository;
 import org.rooms.roombuddy.repository.ListingPhotoRepository;
 import org.rooms.roombuddy.repository.ListingViewRepository;
+import org.rooms.roombuddy.repository.ReviewRepository;
 import org.rooms.roombuddy.service.MatchingService;
 import org.rooms.roombuddy.service.RecommendationService;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,7 @@ public class RecommendationController {
     private final ListingPhotoRepository photoRepository;
     private final ListingViewRepository viewRepository;
     private final ListingFavoriteRepository favoriteRepository;
+    private final ReviewRepository reviewRepository;
     
     /**
      * GET /api/recommendations/listings
@@ -127,6 +129,10 @@ public class RecommendationController {
         boolean isViewed = viewRepository.hasUserViewedListing(userId, listing.getId());
         boolean isFavorited = favoriteRepository.existsByUserIdAndListingId(userId, listing.getId());
         
+        // Get rating information
+        Double averageRating = reviewRepository.getAverageRatingForListing(listing.getId());
+        long reviewCount = reviewRepository.countReviewsForListing(listing.getId());
+        
         return ListingRecommendationResponse.builder()
             .listingId(listing.getId())
             .title(listing.getTitle())
@@ -139,15 +145,26 @@ public class RecommendationController {
             .bedrooms(listing.getBedrooms())
             .bathrooms(listing.getBathrooms())
             .amenities(listing.getAmenities())
+            // Availability / Status
+            .status(listing.getStatus() != null ? listing.getStatus().name() : null)
+            .availableFrom(listing.getAvailableFrom())
+            .availableTo(listing.getAvailableTo())
+            .isAvailable(listing.getStatus() != null && listing.getStatus() == PropertyListing.Status.ACTIVE)
+            // Recommendation metadata
             .matchScore(scored.getTotalScore())
             .preferenceScore(scored.getPreferenceScore())
             .behaviorScore(scored.getBehaviorScore())
             .reasons(scored.getReasons())
+            // Engagement signals
             .isViewed(isViewed)
             .isFavorited(isFavorited)
             .viewsCount(listing.getViewsCount())
+            // Verification
             .verified(listing.getVerified())
             .featured(listing.getFeatured())
+            // Ratings
+            .averageRating(averageRating)
+            .reviewCount((int) reviewCount)
             .build();
     }
 }

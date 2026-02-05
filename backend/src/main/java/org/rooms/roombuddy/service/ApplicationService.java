@@ -122,6 +122,17 @@ public class ApplicationService {
         
         return enrichApplicationResponse(RoomApplicationResponse.fromEntity(application));
     }
+
+    /**
+     * Get current student's application for a listing
+     */
+    @Transactional(readOnly = true)
+    public RoomApplicationResponse getStudentApplicationForListing(UUID studentId, UUID listingId) {
+        RoomApplication application = applicationRepository.findByStudentIdAndListingId(studentId, listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found"));
+
+        return enrichApplicationResponse(RoomApplicationResponse.fromEntity(application));
+    }
     
     /**
      * Get all applications for a student

@@ -312,41 +312,28 @@ export default function LeasesPage() {
                   )}
 
                   {lease.status === "PENDING_SIGNATURES" && !lease.studentAccepted && (
-                    <>
-                      <Button 
-                        className="w-full rounded-xl"
-                        onClick={() => handleAcceptTerms(lease.id)}
-                        disabled={acceptingLeaseId === lease.id}
-                      >
-                        {acceptingLeaseId === lease.id ? "Accepting..." : t.leases.acceptTerms}
+                    <Link href={`/leases/${lease.id}/sign`}>
+                      <Button className="w-full rounded-xl">
+                        Sign Lease Agreement
                       </Button>
-                      {acceptError && acceptingLeaseId === null && (
-                        <p className="text-xs text-red-500 text-center mt-1">{acceptError}</p>
-                      )}
-                    </>
+                    </Link>
                   )}
 
                   {lease.status === "PENDING_SIGNATURES" && lease.studentAccepted && (
                     <div className="text-center text-sm text-slate-500 py-2">
-                      Waiting for landlord to sign...
+                      ✓ You signed • Waiting for landlord...
                     </div>
                   )}
                   
                   {lease.status === "ACTIVE" && (
                     <div className="flex gap-2">
-                      <Link href={`/payments?leaseId=${lease.id}`} className="flex-1">
-                        <Button className="w-full rounded-xl">
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          {t.payments.payNow}
-                        </Button>
-                      </Link>
                       <Button 
                         variant="outline" 
                         className="rounded-xl"
                         onClick={async () => {
                           try {
                             const token = localStorage.getItem('token')
-                            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080/api'
+                            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8082/api'
                             const response = await fetch(`${backendUrl}/leases/${lease.id}/document`, {
                               method: 'GET',
                               headers: {

@@ -52,8 +52,11 @@ export default function EditProfilePage() {
           emergencyContact: profile.emergencyContact || "",
         })
         setPhotoPreview(profile.profilePhotoUrl)
-      } catch (err) {
-        console.error("Failed to fetch profile:", err)
+      } catch (err: any) {
+        // 404 means no profile exists yet - that's okay, user can create one
+        if (err.response?.status !== 404) {
+          console.error("Failed to fetch profile:", err)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -78,23 +81,47 @@ export default function EditProfilePage() {
       // If there's a new photo, use multipart form
       if (photoFile) {
         const formDataObj = new FormData()
-        formDataObj.append("photo", photoFile)
+        formDataObj.append("file", photoFile)
         formDataObj.append("bio", formData.bio)
         formDataObj.append("languages", formData.languages)
         formDataObj.append("whatsappNumber", formData.whatsappNumber)
         formDataObj.append("emergencyContact", formData.emergencyContact)
+        formDataObj.append("userId", user.id)
 
-        await api.put(`/profiles/${user.id}`, formDataObj, {
-          headers: { "Content-Type": "multipart/form-data" }
-        })
+        // Try update first, if 404 then create
+        try {
+          await api.put(`/profiles/${user.id}`, formDataObj, {
+            headers: { "Content-Type": "multipart/form-data" }
+          })
+        } catch (err: any) {
+          if (err.response?.status === 404) {
+            // Profile doesn't exist, create it
+            await api.post(`/profiles`, formDataObj, {
+              headers: { "Content-Type": "multipart/form-data" }
+            })
+          } else {
+            throw err
+          }
+        }
       } else {
-        // JSON update
-        await api.put(`/profiles/${user.id}`, {
+        // JSON update/create
+        const profileData = {
           bio: formData.bio,
           languages: formData.languages.split(",").map(l => l.trim()).filter(Boolean),
           whatsappNumber: formData.whatsappNumber,
           emergencyContact: formData.emergencyContact,
-        })
+        }
+        
+        try {
+          await api.put(`/profiles/${user.id}`, profileData)
+        } catch (err: any) {
+          if (err.response?.status === 404) {
+            // Profile doesn't exist, create it
+            await api.post(`/profiles?userId=${user.id}`, profileData)
+          } else {
+            throw err
+          }
+        }
       }
 
       router.push("/profile")

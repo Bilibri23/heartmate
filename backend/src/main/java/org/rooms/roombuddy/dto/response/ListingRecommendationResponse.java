@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +27,12 @@ public class ListingRecommendationResponse {
     private Integer bathrooms;
     private List<String> amenities;
     
+    // Availability / Status
+    private String status; // e.g., ACTIVE, RENTED, INACTIVE
+    private Boolean isAvailable; // derived convenience flag
+    private LocalDate availableFrom;
+    private LocalDate availableTo;
+    
     // Recommendation metadata
     private Integer matchScore; // 0-100
     private Integer preferenceScore;
@@ -40,4 +47,8 @@ public class ListingRecommendationResponse {
     // Verification
     private Boolean verified;
     private Boolean featured;
+    
+    // Ratings
+    private Double averageRating;
+    private Integer reviewCount;
 }

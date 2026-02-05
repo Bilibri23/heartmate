@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombuddy.dto.request.LeaseRequest;
+import org.rooms.roombuddy.dto.request.SignatureRequest;
 import org.rooms.roombuddy.dto.response.LeaseResponse;
 import org.rooms.roombuddy.entity.Lease;
 import org.rooms.roombuddy.security.SecurityUtils;
@@ -100,6 +101,17 @@ public class LeaseController {
         
         Page<LeaseResponse> leases = leaseService.getLeasesAsLandlord(userId, pageable);
         return ResponseEntity.ok(leases);
+    }
+    
+    @PostMapping("/{leaseId}/signature")
+    @Operation(summary = "Submit digital signature", description = "Student or landlord submits their digital signature")
+    public ResponseEntity<LeaseResponse> submitSignature(
+            @PathVariable UUID leaseId,
+            @Valid @RequestBody SignatureRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        log.info("User {} submitting signature for lease {}", userId, leaseId);
+        LeaseResponse lease = leaseService.submitSignature(leaseId, userId, request);
+        return ResponseEntity.ok(lease);
     }
     
     @PostMapping("/{leaseId}/accept-terms")

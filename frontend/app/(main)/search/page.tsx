@@ -1,16 +1,31 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { ListingCard } from "@/components/cards/listing-card"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Search, SlidersHorizontal, MapPin, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, SlidersHorizontal, MapPin, X, ChevronLeft, ChevronRight, List, Map } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import dynamic from "next/dynamic"
+
+// Dynamically import map to avoid SSR issues
+const ListingsMap = dynamic(
+  () => import("@/components/ui/listings-map").then((mod) => mod.ListingsMap),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-[calc(100vh-220px)] bg-slate-100 rounded-xl flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+      </div>
+    )
+  }
+)
 import {
   Sheet,
   SheetContent,
@@ -69,13 +84,14 @@ const PROPERTY_TYPES = [
   { value: "STUDIO", label: "Studio" },
   { value: "APARTMENT", label: "Apartment" },
   { value: "HOUSE", label: "House" },
-  { value: "ROOM", label: "Room" },
-  { value: "SHARED", label: "Shared" },
+  { value: "PRIVATE_ROOM", label: "Private Room" },
+  { value: "SHARED_ROOM", label: "Shared Room" },
 ]
 
 export default function SearchPage() {
   const { t, formatCurrency } = useLanguage()
   const { user } = useAuth()
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -89,6 +105,7 @@ export default function SearchPage() {
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
+  const [viewMode, setViewMode] = useState<"list" | "map">("list")
   const PAGE_SIZE = 12
 
   const fetchListings = useCallback(async (page: number = 0) => {
@@ -292,22 +309,46 @@ export default function SearchPage() {
           </Sheet>
         </div>
 
-        {/* Quick City Filters */}
-        <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
-          {CAMEROON_CITIES.slice(0, 5).map((city) => (
+        {/* Quick City Filters + View Toggle */}
+        <div className="flex items-center gap-2 mt-3">
+          <div className="flex gap-2 flex-1 overflow-x-auto scrollbar-hide pb-1">
+            {CAMEROON_CITIES.slice(0, 5).map((city) => (
+              <button
+                key={city}
+                onClick={() => setFilters({ ...filters, city: filters.city === city ? "" : city })}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  filters.city === city
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                <MapPin className="h-3 w-3" />
+                {city}
+              </button>
+            ))}
+          </div>
+          
+          {/* View Toggle */}
+          <div className="flex bg-slate-100 rounded-lg p-0.5 flex-shrink-0">
             <button
-              key={city}
-              onClick={() => setFilters({ ...filters, city: filters.city === city ? "" : city })}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                filters.city === city
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 text-slate-600"
+              onClick={() => setViewMode("list")}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === "list" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"
               }`}
+              title="List view"
             >
-              <MapPin className="h-3 w-3" />
-              {city}
+              <List className="h-4 w-4" />
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode("map")}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === "map" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"
+              }`}
+              title="Map view"
+            >
+              <Map className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -321,6 +362,28 @@ export default function SearchPage() {
           isRefreshing={isRefreshing} 
         />
 
+        {/* Map View */}
+        {viewMode === "map" && !isLoading && (
+          <div className="p-4">
+            <ListingsMap
+              listings={filteredListings.map(l => ({
+                id: l.id,
+                title: l.title,
+                neighborhood: l.neighborhood,
+                city: l.city,
+                rentAmount: l.rentAmount,
+                photoUrl: l.photos?.find(p => p.isPrimary)?.photoUrl || l.photos?.[0]?.photoUrl,
+              }))}
+              selectedCity={filters.city || "Douala"}
+              onListingClick={(id) => router.push(`/listings/${id}`)}
+              className="h-[calc(100vh-220px)]"
+              formatCurrency={formatCurrency}
+            />
+          </div>
+        )}
+
+        {/* List View */}
+        {viewMode === "list" && (
         <div className="p-4">
           {/* Results count */}
           {!isLoading && (
@@ -438,6 +501,7 @@ export default function SearchPage() {
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   )

@@ -3,6 +3,7 @@ package org.rooms.roombuddy.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombuddy.dto.request.LeaseRequest;
+import org.rooms.roombuddy.dto.request.SignatureRequest;
 import org.rooms.roombuddy.dto.response.LeaseResponse;
 import org.rooms.roombuddy.entity.*;
 import org.rooms.roombuddy.exception.BadRequestException;
@@ -151,6 +152,31 @@ public class LeaseService {
         return leaseRepository.findByLandlordId(landlordId, pageable).map(this::mapToResponse);
     }
     
+    public LeaseResponse submitSignature(UUID leaseId, UUID userId, SignatureRequest request) {
+        Lease lease = leaseRepository.findById(leaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Lease not found"));
+        
+        if (lease.getStatus() != Lease.LeaseStatus.PENDING_SIGNATURES) {
+            throw new BadRequestException("Lease is not ready for signatures. Current status: " + lease.getStatus());
+        }
+        
+        if (lease.getStudent().getId().equals(userId)) {
+            // Verify signer name matches
+            String expectedName = lease.getStudent().getFirstName() + " " + lease.getStudent().getLastName();
+            lease.setStudentSignature(request.getSignatureData());
+            lease.setStudentSignatureType(request.getSignatureType());
+            log.info("Student {} submitted signature for lease {}", userId, leaseId);
+        } else if (lease.getLandlord().getId().equals(userId)) {
+            lease.setLandlordSignature(request.getSignatureData());
+            lease.setLandlordSignatureType(request.getSignatureType());
+            log.info("Landlord {} submitted signature for lease {}", userId, leaseId);
+        } else {
+            throw new BadRequestException("You are not part of this lease");
+        }
+        
+        return mapToResponse(leaseRepository.save(lease));
+    }
+    
     public LeaseResponse acceptTerms(UUID leaseId, UUID userId) {
         Lease lease = leaseRepository.findById(leaseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Lease not found"));
@@ -160,10 +186,18 @@ public class LeaseService {
         }
         
         if (lease.getStudent().getId().equals(userId)) {
+            // Verify signature exists before accepting
+            if (lease.getStudentSignature() == null || lease.getStudentSignature().isEmpty()) {
+                throw new BadRequestException("Please submit your signature before accepting the terms");
+            }
             lease.setStudentAcceptedTerms(true);
             lease.setStudentAcceptedAt(LocalDateTime.now());
             log.info("Student {} accepted lease terms for lease {}", userId, leaseId);
         } else if (lease.getLandlord().getId().equals(userId)) {
+            // Verify signature exists before accepting
+            if (lease.getLandlordSignature() == null || lease.getLandlordSignature().isEmpty()) {
+                throw new BadRequestException("Please submit your signature before accepting the terms");
+            }
             lease.setLandlordAcceptedTerms(true);
             lease.setLandlordAcceptedAt(LocalDateTime.now());
             log.info("Landlord {} accepted lease terms for lease {}", userId, leaseId);

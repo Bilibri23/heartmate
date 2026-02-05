@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -14,7 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import api from "@/lib/api"
 
 const CAMEROON_CITIES = ["Douala", "Yaounde", "Bamenda", "Bafoussam", "Garoua", "Maroua", "Ngaoundere", "Bertoua", "Limbe", "Buea", "Kribi", "Ebolowa"]
-const PROPERTY_TYPES = [{ value: "STUDIO", label: "Studio" }, { value: "APARTMENT", label: "Apartment" }, { value: "HOUSE", label: "House" }, { value: "ROOM", label: "Room" }, { value: "SHARED", label: "Shared Room" }]
+const PROPERTY_TYPES = [
+  { value: "STUDIO", label: "Studio" },
+  { value: "APARTMENT", label: "Apartment" },
+  { value: "HOUSE", label: "House" },
+  { value: "PRIVATE_ROOM", label: "Private Room" },
+  { value: "SHARED_ROOM", label: "Shared Room" },
+]
 const AMENITIES = ["WiFi", "Air Conditioning", "Furnished", "Kitchen", "Parking", "Security", "Water Tank", "Generator", "Balcony", "Laundry"]
 const STEPS = [{ id: 1, title: "Photos", icon: ImageIcon }, { id: 2, title: "Details", icon: FileText }, { id: 3, title: "Pricing", icon: DollarSign }, { id: 4, title: "Amenities", icon: Sparkles }]
 
@@ -44,7 +50,20 @@ export default function NewListingPage() {
     if (!user?.id) return
     setIsSubmitting(true)
     try {
-      const listingData = { title: formData.title, description: formData.description, propertyType: formData.propertyType, city: formData.city, neighborhood: formData.neighborhood, address: formData.address, rentAmount: parseInt(formData.rentAmount), depositAmount: parseInt(formData.depositAmount) || parseInt(formData.rentAmount), bedrooms: parseInt(formData.bedrooms), bathrooms: parseInt(formData.bathrooms), size: formData.size ? parseInt(formData.size) : null, amenities: formData.amenities }
+      const listingData = {
+        title: formData.title,
+        description: formData.description,
+        propertyType: formData.propertyType,
+        city: formData.city,
+        neighborhood: formData.neighborhood,
+        address: formData.address,
+        rentAmount: parseInt(formData.rentAmount),
+        depositAmount: parseInt(formData.depositAmount) || parseInt(formData.rentAmount),
+        bedrooms: parseInt(formData.bedrooms),
+        bathrooms: parseInt(formData.bathrooms),
+        size: formData.size ? parseInt(formData.size) : null,
+        amenities: formData.amenities
+      }
       const response = await api.post("/listings", listingData, { params: { landlordId: user.id } })
       const listingId = response.data.id
       for (let i = 0; i < photos.length; i++) {
@@ -128,6 +147,7 @@ export default function NewListingPage() {
                       <div><Label className="text-slate-700 mb-2 block">City *</Label><Select value={formData.city} onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select city" /></SelectTrigger><SelectContent>{CAMEROON_CITIES.map((city) => (<SelectItem key={city} value={city}>{city}</SelectItem>))}</SelectContent></Select></div>
                       <div><Label className="text-slate-700 mb-2 block">Neighborhood *</Label><Input placeholder="e.g., Bonapriso" value={formData.neighborhood} onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))} className="h-12 rounded-xl" /></div>
                     </div>
+                    <div><Label className="text-slate-700 mb-2 block">Address</Label><Input placeholder="Street address" value={formData.address} onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))} className="h-12 rounded-xl" /></div>
                     <div><Label className="text-slate-700 mb-2 block">Description</Label><Textarea placeholder="Describe your property..." value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} className="min-h-[100px] rounded-xl resize-none" /></div>
                   </div>
                 </div>

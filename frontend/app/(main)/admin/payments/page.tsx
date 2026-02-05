@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import api from "@/lib/api"
+import api, { uploadApi } from "@/lib/api"
 import { Search, DollarSign, CheckCircle, XCircle, Clock, User, Calendar, CreditCard, Building } from "lucide-react"
 
 interface Payment {
@@ -59,7 +59,7 @@ export default function AdminPaymentsPage() {
   const fetchData = async () => {
     setIsLoading(true)
     try {
-      const res = await api.get("/admin/payments/pending")
+      const res = await uploadApi.get("/admin/payments/pending")
       setPayments(res.data?.content || res.data || [])
     } catch (err) { console.error(err) }
     finally { setIsLoading(false) }
@@ -67,7 +67,7 @@ export default function AdminPaymentsPage() {
 
   const handleApprove = async (id: string) => {
     try {
-      await api.post(`/admin/payments/${id}/verify`)
+      await uploadApi.post(`/admin/payments/${id}/verify`)
       fetchData()
       setIsDetailOpen(false)
     } catch (err) { console.error(err) }
@@ -77,7 +77,7 @@ export default function AdminPaymentsPage() {
     const reason = prompt("Enter rejection reason:")
     if (!reason) return
     try {
-      await api.post(`/admin/payments/${id}/reject?reason=${encodeURIComponent(reason)}`)
+      await uploadApi.post(`/admin/payments/${id}/reject?reason=${encodeURIComponent(reason)}`)
       fetchData()
       setIsDetailOpen(false)
     } catch (err) { console.error(err) }

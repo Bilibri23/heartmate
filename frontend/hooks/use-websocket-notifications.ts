@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useCallback, useState } from "react"
+import { Client } from "@stomp/stompjs"
+import SockJS from "sockjs-client"
 import { useAuth } from "@/context/auth-context"
 
 interface Notification {
@@ -25,102 +27,105 @@ interface UseWebSocketNotificationsOptions {
 export function useWebSocketNotifications(options: UseWebSocketNotificationsOptions = {}) {
   const { onNotification, enabled = true } = options
   const { user } = useAuth()
-  const wsRef = useRef<WebSocket | null>(null)
+  const clientRef = useRef<Client | null>(null)
+  const isDisconnectingRef = useRef(false)
+  const onNotificationRef = useRef(onNotification)
   const [isConnected, setIsConnected] = useState(false)
   const [lastNotification, setLastNotification] = useState<Notification | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Keep the callback ref up to date
+  useEffect(() => {
+    onNotificationRef.current = onNotification
+  }, [onNotification])
 
   const getToken = () => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("accessToken")
+      return localStorage.getItem("token")
     }
     return null
   }
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!user?.id || !enabled) return
 
     const token = getToken()
     if (!token) return
 
-    // Close existing connection
-    if (wsRef.current) {
-      wsRef.current.close()
-    }
-
     try {
-      // Connect to WebSocket endpoint
-      const wsUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('http', 'ws').replace('/api', '')}/ws/websocket`
-      const ws = new WebSocket(wsUrl)
+      const rawBase =
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        "http://localhost:8082"
+      const httpBase = rawBase.replace("/api", "").replace(/\/$/, "")
+      const wsUrl = `${httpBase}/ws`
 
-      ws.onopen = () => {
-        console.log("[WebSocket] Connected")
-        setIsConnected(true)
-        
-        // Send CONNECT frame
-        ws.send(`CONNECT\naccept-version:1.2\nhost:localhost\nAuthorization:Bearer ${token}\n\n\0`)
+      // Probe the SockJS endpoint before connecting to avoid noisy errors
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 3000)
+        const probe = await fetch(`${wsUrl}/info`, { signal: controller.signal })
+        clearTimeout(timeoutId)
+        if (!probe.ok) {
+          console.warn("[WebSocket] SockJS not available:", probe.status)
+          return
+        }
+      } catch (err) {
+        console.warn("[WebSocket] SockJS probe failed:", err)
+        return
       }
 
-      ws.onmessage = (event) => {
-        const data = event.data
-        
-        // Parse STOMP frame
-        if (data.includes("CONNECTED")) {
-          console.log("[WebSocket] STOMP Connected")
-          // Subscribe to notifications
-          ws.send(`SUBSCRIBE\nid:sub-0\ndestination:/user/${user.id}/queue/notifications\n\n\0`)
-        } else if (data.includes("MESSAGE")) {
-          try {
-            // Extract body from STOMP message
-            const bodyStart = data.indexOf("\n\n") + 2
-            const bodyEnd = data.indexOf("\0")
-            const body = data.substring(bodyStart, bodyEnd)
-            
-            if (body) {
-              const notification: Notification = JSON.parse(body)
-              console.log("[WebSocket] Received notification:", notification)
+      if (clientRef.current) {
+        clientRef.current.deactivate()
+      }
+
+      isDisconnectingRef.current = false
+      const client = new Client({
+        webSocketFactory: () => new SockJS(wsUrl),
+        connectHeaders: {
+          Authorization: `Bearer ${token}`,
+        },
+        reconnectDelay: 5000,
+        onConnect: () => {
+          setIsConnected(true)
+          client.subscribe(`/user/queue/notifications`, (message) => {
+            if (!message.body) return
+            try {
+              const notification: Notification = JSON.parse(message.body)
               setLastNotification(notification)
-              onNotification?.(notification)
+              onNotificationRef.current?.(notification)
+            } catch (error) {
+              console.error("[WebSocket] Failed to parse message:", error)
             }
-          } catch (error) {
-            console.error("[WebSocket] Failed to parse message:", error)
-          }
-        }
-      }
+          })
+        },
+        onStompError: (frame) => {
+          console.error("[WebSocket] STOMP error:", frame.headers["message"])
+          setIsConnected(false)
+        },
+        onWebSocketError: () => {
+          setIsConnected(false)
+        },
+        onWebSocketClose: () => {
+          setIsConnected(false)
+        },
+      })
 
-      ws.onclose = () => {
-        console.log("[WebSocket] Disconnected")
-        setIsConnected(false)
-        
-        // Attempt to reconnect after 5 seconds
-        if (enabled && user?.id) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log("[WebSocket] Attempting to reconnect...")
-            connect()
-          }, 5000)
-        }
-      }
-
-      ws.onerror = (error) => {
-        console.error("[WebSocket] Error:", error)
-        setIsConnected(false)
-      }
-
-      wsRef.current = ws
+      client.activate()
+      clientRef.current = client
     } catch (error) {
       console.error("[WebSocket] Connection failed:", error)
     }
-  }, [user?.id, enabled, onNotification])
+  }, [user?.id, enabled])
 
   const disconnect = useCallback(() => {
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current)
+    if (clientRef.current) {
+      isDisconnectingRef.current = true
+      clientRef.current.deactivate()
+      clientRef.current = null
     }
-    if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
-      setIsConnected(false)
-    }
+    setIsConnected(false)
+    setTimeout(() => {
+      isDisconnectingRef.current = false
+    }, 500)
   }, [])
 
   useEffect(() => {

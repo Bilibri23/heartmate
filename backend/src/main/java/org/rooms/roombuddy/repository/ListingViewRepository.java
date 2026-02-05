@@ -41,4 +41,12 @@ public interface ListingViewRepository extends JpaRepository<ListingView, UUID> 
     @Query("SELECT COUNT(lv) > 0 FROM ListingView lv " +
            "WHERE lv.user.id = :userId AND lv.listing.id = :listingId")
     boolean hasUserViewedListing(@Param("userId") UUID userId, @Param("listingId") UUID listingId);
+    
+    /**
+     * Find users who viewed the same listings (for collaborative filtering)
+     */
+    @Query("SELECT DISTINCT lv.user.id FROM ListingView lv " +
+           "WHERE lv.listing.id IN :listingIds AND lv.user.id != :excludeUserId")
+    List<UUID> findUsersWhoViewedListings(@Param("listingIds") List<UUID> listingIds, 
+                                         @Param("excludeUserId") UUID excludeUserId);
 }

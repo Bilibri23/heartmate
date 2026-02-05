@@ -3,11 +3,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { messageService, Message } from "@/services/message.service";
-import { profileService, Profile } from "@/services/profile.service";
+import { profileService } from "@/services/profile.service";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area"; // I might need to add this
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
@@ -19,7 +18,7 @@ export default function ChatPage() {
   const router = useRouter();
   
   const [messages, setMessages] = useState<Message[]>([]);
-  const [otherUser, setOtherUser] = useState<any>(null); // Ideally we'd have a User type
+  const [otherUser, setOtherUser] = useState<{ name: string; avatarUrl?: string | null } | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -39,16 +38,24 @@ export default function ChatPage() {
         const conversationData = await messageService.getConversation(userId);
         setMessages(conversationData.messages || []); // Adjust based on actual API response structure
         
-        // If the API returns the other user details, use them. Otherwise fetch profile.
-        // Assuming conversationData might contain user info, or we fetch it separately.
-        // For now, let's assume we might need to fetch the profile if not in conversation data.
-        if (conversationData.otherUser) {
-           setOtherUser(conversationData.otherUser);
-        } else {
-           // Fallback or separate fetch
-           // const profile = await profileService.getProfile(userId);
-           // setOtherUser(profile);
-           // Note: Profile service might return profile data, we need name/avatar.
+        // Try to resolve participant name/avatar from conversation list
+        try {
+          const conversations = await messageService.getConversations();
+          const match = conversations.find((conv) => conv.userId === userId);
+          if (match) {
+            setOtherUser({ name: match.userName, avatarUrl: match.userAvatar });
+          }
+        } catch {
+          // Ignore and fallback to profile only
+        }
+
+        if (!otherUser) {
+          try {
+            const profile = await profileService.getProfile(userId);
+            setOtherUser({ name: "User", avatarUrl: profile.profilePhotoUrl || null });
+          } catch {
+            setOtherUser({ name: "User", avatarUrl: null });
+          }
         }
         
         // Mark as read
@@ -108,38 +115,50 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Chat Header */}
-      <div className="flex items-center gap-4 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push("/messages")}>
+      <div className="flex items-center gap-3 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push("/messages")} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <Avatar>
-          <AvatarImage src={otherUser?.avatarUrl} />
-          <AvatarFallback>{otherUser?.firstName?.substring(0, 1) || "?"}</AvatarFallback>
+          <AvatarImage src={otherUser?.avatarUrl || undefined} />
+          <AvatarFallback>{otherUser?.name?.substring(0, 1) || "?"}</AvatarFallback>
         </Avatar>
         <div>
-          <h2 className="font-semibold">{otherUser?.firstName || "User"} {otherUser?.lastName || ""}</h2>
-          <p className="text-xs text-muted-foreground">Online</p>
+          <h2 className="font-semibold">{otherUser?.name || "User"}</h2>
+          <p className="text-xs text-muted-foreground">Tap to start a conversation</p>
         </div>
       </div>
 
       {/* Messages List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="text-center text-sm text-muted-foreground py-10">
+            No messages yet. Say hello 👋
+          </div>
+        )}
         {messages.map((msg) => {
           const isMe = msg.senderId === currentUser?.id;
           return (
-            <div
-              key={msg.id}
-              className={cn(
-                "flex w-max max-w-[75%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
-                isMe
-                  ? "ml-auto bg-primary text-primary-foreground"
-                  : "bg-muted"
+            <div key={msg.id} className={cn("flex items-end gap-2", isMe ? "justify-end" : "justify-start")}>
+              {!isMe && (
+                <Avatar className="h-7 w-7">
+                  <AvatarImage src={otherUser?.avatarUrl || undefined} />
+                  <AvatarFallback>{otherUser?.name?.substring(0, 1) || "?"}</AvatarFallback>
+                </Avatar>
               )}
-            >
-              {msg.content}
-              <span className={cn("text-[10px]", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
+              <div
+                className={cn(
+                  "max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm",
+                  isMe
+                    ? "bg-primary text-primary-foreground rounded-br-md"
+                    : "bg-muted rounded-bl-md"
+                )}
+              >
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+                <span className={cn("mt-1 block text-[10px]", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
             </div>
           );
         })}
@@ -156,7 +175,7 @@ export default function ChatPage() {
             className="flex-1"
             disabled={isSending}
           />
-          <Button type="submit" size="icon" disabled={isSending || !newMessage.trim()}>
+          <Button type="submit" size="icon" disabled={isSending || !newMessage.trim()} aria-label="Send message">
             <Send className="h-4 w-4" />
           </Button>
         </form>

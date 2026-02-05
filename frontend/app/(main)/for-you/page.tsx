@@ -34,6 +34,8 @@ interface RecommendedListing {
   featured: boolean
   averageRating?: number
   reviewCount?: number
+  status?: string | null
+  isAvailable?: boolean | null
 }
 
 type FeedTab = "forYou" | "trending" | "recent"
@@ -62,17 +64,19 @@ export default function ForYouPage() {
     primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
     bedrooms: l.bedrooms,
     bathrooms: l.bathrooms,
-    matchScore: l.matchScore || 0,
-    preferenceScore: l.preferenceScore || 0,
-    behaviorScore: l.behaviorScore || 0,
+    matchScore: l.matchScore ?? l.totalScore ?? 0,
+    preferenceScore: l.preferenceScore ?? 0,
+    behaviorScore: l.behaviorScore ?? 0,
     reasons: l.reasons || [],
-    isViewed: l.isViewed || false,
-    isFavorited: l.isFavorited || false,
-    viewsCount: l.viewsCount || 0,
+    isViewed: l.isViewed ?? false,
+    isFavorited: l.isFavorited ?? false,
+    viewsCount: l.viewsCount ?? 0,
     verified: l.verified,
     featured: l.featured,
-    averageRating: l.averageRating || 0,
-    reviewCount: l.reviewCount || 0,
+    averageRating: l.averageRating ?? null,
+    reviewCount: l.reviewCount ?? 0,
+    status: l.status ?? null,
+    isAvailable: l.isAvailable ?? (l.status ? l.status === "ACTIVE" : null),
   })
 
   // Fetch all sections on initial load
@@ -84,43 +88,54 @@ export default function ForYouPage() {
     
     try {
       // Fetch all three sections in parallel
-      const [recResponse, trendingResponse, recentResponse] = await Promise.allSettled([
+      const [recResponse, activeListingsResponse] = await Promise.allSettled([
         api.get("/recommendations/listings"),
-        api.get("/listings/active", { params: { sortBy: "viewsCount", sortDir: "DESC", size: 15 } }),
-        api.get("/listings/active", { params: { sortBy: "createdAt", sortDir: "DESC", size: 15, page: 0 } }),
+        api.get("/listings/active", { params: user?.id ? { userId: user.id } : {} }),
       ])
       
       // Process recommendations
       if (recResponse.status === "fulfilled") {
-        const recData = recResponse.value.data || []
+        const recData = Array.isArray(recResponse.value.data) ? recResponse.value.data : []
         if (recData.length > 0) {
-          setListings(recData)
+          setListings(recData.map(normalizeListing))
         } else {
           // Fallback to active listings
-          const fallback = await api.get("/listings/active", { params: { size: 20 } })
-          const content = fallback.data?.content || fallback.data || []
-          setListings(content.map(normalizeListing))
+          if (activeListingsResponse.status === "fulfilled") {
+            const fallbackData = activeListingsResponse.value.data || []
+            setListings(fallbackData.slice(0, 20).map(normalizeListing))
+          }
         }
       } else {
         // Fallback on error
-        const fallback = await api.get("/listings/active", { params: { size: 20 } })
-        const content = fallback.data?.content || fallback.data || []
-        setListings(content.map(normalizeListing))
+        if (activeListingsResponse.status === "fulfilled") {
+          const fallbackData = activeListingsResponse.value.data || []
+          setListings(fallbackData.slice(0, 20).map(normalizeListing))
+        }
       }
       
-      // Process trending
-      if (trendingResponse.status === "fulfilled") {
-        const content = trendingResponse.value.data?.content || trendingResponse.value.data || []
-        setTrendingListings(content.map(normalizeListing))
-      }
-      
-      // Process recent with pagination info
-      if (recentResponse.status === "fulfilled") {
-        const data = recentResponse.value.data
-        const content = data?.content || data || []
-        setRecentListings(content.map(normalizeListing))
-        setTotalPages(data?.totalPages || 1)
-        setCurrentPage(data?.number || 0)
+      // Process trending and recent from active listings
+      if (activeListingsResponse.status === "fulfilled") {
+        const allListings = activeListingsResponse.value.data || []
+        
+        // Trending: Sort by views count, take top 15
+        const trending = [...allListings]
+          .sort((a, b) => (b.viewsCount || 0) - (a.viewsCount || 0))
+          .slice(0, 15)
+          .map(normalizeListing)
+        setTrendingListings(trending)
+        
+        // Recent: Sort by created date, take top 15
+        const recent = [...allListings]
+          .sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+            return dateB - dateA
+          })
+          .slice(0, 15)
+          .map(normalizeListing)
+        setRecentListings(recent)
+        setTotalPages(1)
+        setCurrentPage(0)
       }
     } catch (err: any) {
       console.error("Failed to fetch listings:", err)
@@ -130,19 +145,32 @@ export default function ForYouPage() {
     }
   }, [user?.id])
 
-  // Fetch more recent listings (pagination)
+  // Fetch more recent listings (client-side pagination)
   const fetchMoreRecent = useCallback(async (page: number) => {
     if (!user?.id) return
     
     try {
       const response = await api.get("/listings/active", { 
-        params: { sortBy: "createdAt", sortDir: "DESC", size: PAGE_SIZE, page } 
+        params: user?.id ? { userId: user.id } : {}
       })
-      const data = response.data
-      const content = data?.content || data || []
-      setRecentListings(content.map(normalizeListing))
-      setTotalPages(data?.totalPages || 1)
-      setCurrentPage(data?.number || 0)
+      const allListings = response.data || []
+      
+      // Client-side sorting and pagination
+      const sorted = [...allListings]
+        .sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return dateB - dateA
+        })
+      
+      const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
+      const start = page * PAGE_SIZE
+      const end = start + PAGE_SIZE
+      const paginated = sorted.slice(start, end).map(normalizeListing)
+      
+      setRecentListings(paginated)
+      setTotalPages(totalPages)
+      setCurrentPage(page)
     } catch (err) {
       console.error("Failed to fetch more listings:", err)
     }
@@ -281,24 +309,74 @@ export default function ForYouPage() {
                       </div>
                       <div className="px-4">
                         <div className="grid gap-4 sm:grid-cols-2">
-                          {listings.slice(0, 6).map((listing) => (
-                            <ListingCard
-                              key={listing.listingId}
-                              id={listing.listingId}
-                              title={listing.title}
-                              price={listing.rentAmount}
-                              city={listing.city}
-                              neighborhood={listing.neighborhood}
-                              bedrooms={listing.bedrooms}
-                              bathrooms={listing.bathrooms}
-                              imageUrl={listing.primaryPhotoUrl || undefined}
-                              isVerified={listing.verified}
-                              isFeatured={listing.featured}
-                              isFavorited={listing.isFavorited}
-                              matchScore={listing.matchScore}
-                              rating={listing.averageRating}
-                              onFavoriteToggle={handleFavoriteToggle}
-                            />
+                          {listings.slice(0, 6).map((listing, index) => (
+                            <div key={listing.listingId} className="relative">
+                              {/* Match Badge for Top 3 */}
+                              {index < 3 && listing.matchScore && listing.matchScore >= 60 && (
+                                <div className="absolute -top-2 -right-2 z-10 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
+                                  <Sparkles className="h-3 w-3" />
+                                  {index === 0 ? "Best Match" : `${listing.matchScore}% Match`}
+                                </div>
+                              )}
+                              
+                              {/* Match Reasons - Show if reasons exist */}
+                              {listing.reasons && listing.reasons.length > 0 && listing.reasons[0] && (
+                                <div className="absolute top-2 left-2 z-10 bg-white/95 backdrop-blur-sm rounded-lg px-2 py-1.5 text-xs text-slate-700 shadow-sm max-w-[calc(100%-1rem)]">
+                                  <div className="flex items-center gap-1 text-blue-600 font-medium mb-0.5">
+                                    <Sparkles className="h-3 w-3" />
+                                    Why this match:
+                                  </div>
+                                  <div className="text-slate-600 line-clamp-2">
+                                    {listing.reasons[0]}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <ListingCard
+                                id={listing.listingId}
+                                title={listing.title}
+                                price={listing.rentAmount}
+                                city={listing.city}
+                                neighborhood={listing.neighborhood}
+                                bedrooms={listing.bedrooms}
+                                bathrooms={listing.bathrooms}
+                                imageUrl={listing.primaryPhotoUrl || undefined}
+                                isVerified={listing.verified}
+                                isFeatured={listing.featured}
+                                isFavorited={listing.isFavorited}
+                                matchScore={listing.matchScore}
+                                status={listing.status}
+                                isAvailable={listing.isAvailable}
+                                rating={listing.averageRating}
+                                onFavoriteToggle={handleFavoriteToggle}
+                              />
+                              
+                              {/* Match Score Bar - Always show if matchScore exists */}
+                              {listing.matchScore !== undefined && listing.matchScore !== null && listing.matchScore > 0 && (
+                                <div className="mt-2 px-2">
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="text-slate-600">Match Score</span>
+                                    <span className={`font-semibold ${
+                                      listing.matchScore >= 80 ? "text-green-600" :
+                                      listing.matchScore >= 60 ? "text-blue-600" :
+                                      "text-amber-600"
+                                    }`}>
+                                      {listing.matchScore}%
+                                    </span>
+                                  </div>
+                                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                    <div 
+                                      className={`h-full rounded-full transition-all ${
+                                        listing.matchScore >= 80 ? "bg-gradient-to-r from-green-500 to-emerald-500" :
+                                        listing.matchScore >= 60 ? "bg-gradient-to-r from-blue-500 to-cyan-500" :
+                                        "bg-gradient-to-r from-amber-500 to-orange-500"
+                                      }`}
+                                      style={{ width: `${Math.min(100, listing.matchScore)}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           ))}
                         </div>
                         {listings.length > 6 && (
@@ -369,6 +447,8 @@ export default function ForYouPage() {
                               isFeatured={listing.featured}
                               isFavorited={listing.isFavorited}
                               rating={listing.averageRating}
+                              status={listing.status}
+                              isAvailable={listing.isAvailable}
                               onFavoriteToggle={handleFavoriteToggle}
                             />
                           </div>
@@ -419,6 +499,8 @@ export default function ForYouPage() {
                                 isFeatured={listing.featured}
                                 isFavorited={listing.isFavorited}
                                 rating={listing.averageRating}
+                                status={listing.status}
+                                isAvailable={listing.isAvailable}
                                 onFavoriteToggle={handleFavoriteToggle}
                               />
                             </div>

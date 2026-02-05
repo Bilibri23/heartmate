@@ -52,8 +52,8 @@ const PROPERTY_TYPES = [
   { value: "STUDIO", label: "Studio" },
   { value: "APARTMENT", label: "Apartment" },
   { value: "HOUSE", label: "House" },
-  { value: "ROOM", label: "Room" },
-  { value: "SHARED", label: "Shared Room" },
+  { value: "PRIVATE_ROOM", label: "Private Room" },
+  { value: "SHARED_ROOM", label: "Shared Room" },
 ]
 
 const AMENITIES = [
@@ -88,6 +88,7 @@ export default function EditListingPage() {
     city: "",
     neighborhood: "",
     address: "",
+    distanceToUniversity: "",
     rentAmount: "",
     depositAmount: "",
     bedrooms: "1",
@@ -111,6 +112,7 @@ export default function EditListingPage() {
         city: listing.city || "",
         neighborhood: listing.neighborhood || "",
         address: listing.address || "",
+        distanceToUniversity: listing.distanceToUniversity?.toString() || "",
         rentAmount: listing.rentAmount?.toString() || "",
         depositAmount: listing.depositAmount?.toString() || "",
         bedrooms: listing.bedrooms?.toString() || "1",
@@ -177,6 +179,7 @@ export default function EditListingPage() {
         city: formData.city,
         neighborhood: formData.neighborhood,
         address: formData.address,
+        distanceToUniversity: formData.distanceToUniversity ? parseFloat(formData.distanceToUniversity) : null,
         rentAmount: parseInt(formData.rentAmount),
         depositAmount: parseInt(formData.depositAmount) || parseInt(formData.rentAmount),
         bedrooms: parseInt(formData.bedrooms),
@@ -398,6 +401,17 @@ export default function EditListingPage() {
                 placeholder="Street address (optional)"
                 value={formData.address}
                 onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                className="h-12 rounded-xl"
+              />
+            </div>
+
+            <div>
+              <Label className="text-slate-700 mb-2 block">Distance to Campus (km)</Label>
+              <Input
+                type="number"
+                placeholder="e.g., 2.5"
+                value={formData.distanceToUniversity}
+                onChange={(e) => setFormData(prev => ({ ...prev, distanceToUniversity: e.target.value }))}
                 className="h-12 rounded-xl"
               />
             </div>

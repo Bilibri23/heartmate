@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/profiles/**").authenticated()
                         .requestMatchers("/api/verifications/**").authenticated()
                         .requestMatchers("/api/preferences/**").authenticated()
+                        .requestMatchers("/api/listing-preferences/**").authenticated()
                         .requestMatchers("/api/matches/**").authenticated()
                         .requestMatchers("/api/listings/**").authenticated()
                         .requestMatchers("/api/applications/**").authenticated()

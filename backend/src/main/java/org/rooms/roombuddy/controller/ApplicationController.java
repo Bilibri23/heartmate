@@ -10,6 +10,7 @@ import org.rooms.roombuddy.dto.request.ApplicationReviewRequest;
 import org.rooms.roombuddy.dto.request.RoomApplicationRequest;
 import org.rooms.roombuddy.dto.response.RoomApplicationResponse;
 import org.rooms.roombuddy.entity.RoomApplication;
+import org.rooms.roombuddy.exception.ResourceNotFoundException;
 import org.rooms.roombuddy.security.RequiresVerification;
 import org.rooms.roombuddy.security.SecurityUtils;
 import org.rooms.roombuddy.service.ApplicationService;
@@ -86,6 +87,23 @@ public class ApplicationController {
             studentId, status, pageable);
         
         return ResponseEntity.ok(applications);
+    }
+
+    /**
+     * Get my application for a listing (students only)
+     */
+    @GetMapping("/my/listing/{listingId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    @Operation(summary = "Get my application for a listing", description = "Get the current student's application for a listing")
+    public ResponseEntity<RoomApplicationResponse> getMyApplicationForListing(
+            @PathVariable UUID listingId) {
+        UUID studentId = SecurityUtils.getCurrentUserId();
+        try {
+            RoomApplicationResponse response = applicationService.getStudentApplicationForListing(studentId, listingId);
+            return ResponseEntity.ok(response);
+        } catch (ResourceNotFoundException ex) {
+            return ResponseEntity.noContent().build();
+        }
     }
     
     /**
