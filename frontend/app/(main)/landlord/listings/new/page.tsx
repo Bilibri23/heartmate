@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Camera, X, MapPin, Bed, Bath, Maximize, CheckCircle, ImageIcon, FileText, DollarSign, Sparkles, Check, ArrowLeft, ArrowRight } from "lucide-react"
+import { Camera, X, MapPin, Bed, Bath, Maximize, CheckCircle, ImageIcon, FileText, DollarSign, Sparkles, Check, ArrowLeft, ArrowRight, Video, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,9 +22,10 @@ const PROPERTY_TYPES = [
   { value: "SHARED_ROOM", label: "Shared Room" },
 ]
 const AMENITIES = ["WiFi", "Air Conditioning", "Furnished", "Kitchen", "Parking", "Security", "Water Tank", "Generator", "Balcony", "Laundry"]
-const STEPS = [{ id: 1, title: "Photos", icon: ImageIcon }, { id: 2, title: "Details", icon: FileText }, { id: 3, title: "Pricing", icon: DollarSign }, { id: 4, title: "Amenities", icon: Sparkles }]
+const STEPS = [{ id: 1, title: "Photos", icon: ImageIcon }, { id: 2, title: "Details", icon: FileText }, { id: 3, title: "Pricing", icon: DollarSign }, { id: 4, title: "Amenities", icon: Sparkles }, { id: 5, title: "Virtual Tour", icon: Video }]
 
 interface PhotoItem { file: File; preview: string }
+interface VideoItem { file: File; preview: string; duration?: number }
 
 export default function NewListingPage() {
   const { formatCurrency } = useLanguage()
@@ -34,6 +35,7 @@ export default function NewListingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0)
   const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [virtualTour, setVirtualTour] = useState<VideoItem | null>(null)
   const [formData, setFormData] = useState({ title: "", description: "", propertyType: "", city: "", neighborhood: "", address: "", rentAmount: "", depositAmount: "", bedrooms: "1", bathrooms: "1", size: "", amenities: [] as string[] })
 
   const handlePhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +46,43 @@ export default function NewListingPage() {
   }
 
   const handlePhotoRemove = (index: number) => setPhotos(prev => prev.filter((_, i) => i !== index))
+
+  const handleVideoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    // Check if file is a video
+    if (!file.type.startsWith('video/')) {
+      alert('Please select a video file')
+      return
+    }
+    
+    // Check file size (max 100MB)
+    if (file.size > 100 * 1024 * 1024) {
+      alert('Video file must be less than 100MB')
+      return
+    }
+    
+    // Create video element to get duration
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      setVirtualTour({
+        file,
+        preview: URL.createObjectURL(file),
+        duration: Math.round(video.duration)
+      })
+    }
+    video.src = URL.createObjectURL(file)
+  }
+
+  const handleVideoRemove = () => {
+    if (virtualTour) {
+      URL.revokeObjectURL(virtualTour.preview)
+      setVirtualTour(null)
+    }
+  }
+
   const toggleAmenity = (amenity: string) => setFormData(prev => ({ ...prev, amenities: prev.amenities.includes(amenity) ? prev.amenities.filter(a => a !== amenity) : [...prev.amenities, amenity] }))
 
   const handleSubmit = async () => {
@@ -69,8 +108,21 @@ export default function NewListingPage() {
       for (let i = 0; i < photos.length; i++) {
         const photoFormData = new FormData()
         photoFormData.append("file", photos[i].file)
-        await api.post(`/listings/${listingId}/photos`, photoFormData, { params: { landlordId: user.id, isPrimary: i === 0 }, headers: { "Content-Type": "multipart/form-data" } })
+        await api.post(`/listings/${listingId}/photos`, photoFormData, { 
+          params: { landlordId: user.id, isPrimary: i === 0 }
+          // Don't set Content-Type - let Axios handle it automatically for FormData
+        })
       }
+      
+      // TODO: Implement video tour upload - backend doesn't support video upload yet
+      // Virtual tour upload is disabled for now
+      /*
+      if (virtualTour) {
+        // Video upload functionality to be implemented when backend supports it
+        console.log("Virtual tour upload not yet supported by backend")
+      }
+      */
+      
       router.push("/landlord")
     } catch (err) { console.error("Failed to create listing:", err) } finally { setIsSubmitting(false) }
   }
@@ -81,11 +133,12 @@ export default function NewListingPage() {
       case 2: return formData.title && formData.propertyType && formData.city && formData.neighborhood
       case 3: return formData.rentAmount
       case 4: return true
+      case 5: return true // Virtual tour is optional
       default: return false
     }
   }
 
-  const nextStep = () => { if (currentStep < 4 && canProceed()) setCurrentStep(prev => prev + 1) }
+  const nextStep = () => { if (currentStep < 5 && canProceed()) setCurrentStep(prev => prev + 1) }
   const prevStep = () => { if (currentStep > 1) setCurrentStep(prev => prev - 1) }
 
   return (
@@ -183,12 +236,84 @@ export default function NewListingPage() {
                   </div>
                 </div>
               )}
+              {currentStep === 5 && (
+                <div className="space-y-4">
+                  <div><h2 className="text-lg font-semibold text-slate-900">Virtual Tour</h2><p className="text-sm text-slate-500">Add a video walkthrough (optional)</p></div>
+                  <div className="space-y-4">
+                    {virtualTour ? (
+                      <div className="space-y-4">
+                        <div className="relative rounded-xl overflow-hidden bg-black">
+                          <video 
+                            src={virtualTour.preview} 
+                            className="w-full h-64 object-contain"
+                            controls
+                          />
+                          <div className="absolute top-2 right-2">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={handleVideoRemove}
+                              className="h-8 w-8 rounded-full p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="bg-blue-50 rounded-xl p-4">
+                          <div className="flex items-center gap-2 text-blue-800">
+                            <Video className="h-5 w-5" />
+                            <span className="font-medium">Virtual Tour Added</span>
+                          </div>
+                          <p className="text-sm text-blue-600 mt-1">
+                            Duration: {Math.floor((virtualTour.duration || 0) / 60)}:{((virtualTour.duration || 0) % 60).toString().padStart(2, '0')}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center">
+                        <Video className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-slate-900 mb-2">Add Virtual Tour</h3>
+                        <p className="text-sm text-slate-500 mb-4">
+                          Upload a video walkthrough of your property (max 100MB)
+                        </p>
+                        <div className="space-y-2">
+                          <p className="text-xs text-slate-400">
+                            Supported formats: MP4, WebM, MOV
+                          </p>
+                          <label className="inline-block">
+                            <input
+                              type="file"
+                              accept="video/*"
+                              onChange={handleVideoAdd}
+                              className="hidden"
+                            />
+                            <Button className="h-12 rounded-xl">
+                              <Video className="h-5 w-5 mr-2" />
+                              Choose Video
+                            </Button>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <h3 className="font-semibold text-emerald-800 mb-2">Ready to publish?</h3>
+                    <ul className="text-sm text-emerald-700 space-y-1">
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {photos.length} photos</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.title || "No title"}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : "No price"}/month</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.amenities.length} amenities</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {virtualTour ? "Virtual tour added" : "No virtual tour"}</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="bg-white border-t p-4">
             <div className="max-w-lg mx-auto flex gap-3">
               {currentStep > 1 && <Button variant="outline" onClick={prevStep} className="flex-1 h-12 rounded-xl"><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>}
-              {currentStep < 4 ? (<Button onClick={nextStep} disabled={!canProceed()} className="flex-1 h-12 rounded-xl">Next<ArrowRight className="h-4 w-4 ml-2" /></Button>) : (<Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()} className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700">{isSubmitting ? "Publishing..." : "Publish Listing"}</Button>)}
+              {currentStep < 5 ? (<Button onClick={nextStep} disabled={!canProceed()} className="flex-1 h-12 rounded-xl">Next<ArrowRight className="h-4 w-4 ml-2" /></Button>) : (<Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()} className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700">{isSubmitting ? "Publishing..." : "Publish Listing"}</Button>)}
             </div>
           </div>
         </div>

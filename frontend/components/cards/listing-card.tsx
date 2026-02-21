@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, MapPin, Bed, Bath, CheckCircle, Star } from "lucide-react"
+import { Heart, MapPin, Bed, Bath, CheckCircle, Star, Sparkles } from "lucide-react"
 import { useLanguage } from "@/context/language-context"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
@@ -46,12 +46,20 @@ export function ListingCard({
 }: ListingCardProps) {
   const { formatCurrency, t } = useLanguage()
   const [favorited, setFavorited] = useState(isFavorited)
+  
+  // Debug logging for match score
+  console.log(`ListingCard "${title}":`, {
+    matchScore,
+    matchScoreType: typeof matchScore,
+    matchScoreNull: matchScore == null,
+    matchScoreZero: matchScore === 0
+  })
 
   const normalizedStatus = status?.toUpperCase?.()
   const availabilityLabel =
     normalizedStatus === "ACTIVE" ? "Available" :
-    normalizedStatus === "RENTED" ? "Rented" :
-    status ? "Unavailable" : null
+      normalizedStatus === "RENTED" ? "Rented" :
+        status ? "Unavailable" : null
   const isUnavailable =
     typeof isAvailable === "boolean"
       ? !isAvailable
@@ -84,13 +92,27 @@ export function ListingCard({
             </div>
           )}
 
-          {/* Badges */}
+          {/* Match Score Badge — prominent, top-right */}
+          {matchScore != null && (
+            <div className={cn(
+              "absolute right-2 top-2 z-10 flex items-center gap-1 rounded-xl px-2.5 py-1.5 shadow-lg",
+              matchScore >= 80
+                ? "bg-gradient-to-r from-emerald-500 to-green-500 animate-pulse"
+                : matchScore >= 60
+                  ? "bg-gradient-to-r from-blue-500 to-cyan-500"
+                  : "bg-gradient-to-r from-amber-500 to-orange-500"
+            )}>
+              <Sparkles className="h-3.5 w-3.5 text-white" />
+              <span className="text-sm font-bold text-white">{matchScore}%</span>
+            </div>
+          )}
+
+          {/* Status & Verification Badges — left side */}
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             {showAvailability && (
               <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${
-                  isUnavailable ? "bg-rose-500" : "bg-emerald-500"
-                }`}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${isUnavailable ? "bg-rose-500" : "bg-emerald-500"
+                  }`}
               >
                 {availabilityLabel || (isUnavailable ? "Unavailable" : "Available")}
               </span>
@@ -106,17 +128,15 @@ export function ListingCard({
                 {t.listings.verified}
               </span>
             )}
-            {matchScore && matchScore > 0 && (
-              <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                {matchScore}% match
-              </span>
-            )}
           </div>
 
-          {/* Favorite button */}
+          {/* Favorite button — below match score or top-right if no score */}
           <button
             onClick={handleFavorite}
-            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110 active:scale-95"
+            className={cn(
+              "absolute flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110 active:scale-95",
+              matchScore != null && matchScore > 0 ? "right-2 top-12" : "right-2 top-2"
+            )}
           >
             <Heart
               className={cn(

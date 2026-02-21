@@ -17,7 +17,7 @@ interface NavItem {
 const studentNavItems: NavItem[] = [
   { href: "/for-you", icon: Sparkles, label: "For You" },
   { href: "/search", icon: Search, label: "Search" },
-  { href: "/matches", icon: Users, label: "Matches" },
+  { href: "/applications", icon: FileText, label: "My Apps" },
   { href: "/messages", icon: MessageCircle, label: "Messages" },
   { href: "/profile", icon: User, label: "Profile" },
 ]

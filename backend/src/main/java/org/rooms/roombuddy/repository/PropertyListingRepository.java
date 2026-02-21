@@ -48,7 +48,7 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
     /**
      * Get top listings by views count (for popular recommendations)
      */
-    @Query(value = "SELECT * FROM property_listings WHERE status = 'ACTIVE' AND verified = true " +
+    @Query(value = "SELECT * FROM property_listings WHERE status = 'ACTIVE' " +
            "ORDER BY views_count DESC, created_at DESC LIMIT :limit", nativeQuery = true)
     List<PropertyListing> findTopByViewsCount(@Param("limit") int limit);
 }

@@ -88,7 +88,7 @@ export default function VerificationPage() {
       const uploadFormData = new FormData()
       uploadFormData.append("file", formData.documentFile)
       const token = localStorage.getItem("token")
-      const uploadResponse = await fetch("http://localhost:8080/api/upload/student-id", {
+      const uploadResponse = await fetch("http://localhost:8082/api/upload/student-id", {
         method: "POST",
         headers: token ? { "Authorization": `Bearer ${token}` } : {},
         body: uploadFormData

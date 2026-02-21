@@ -52,6 +52,10 @@ public class ListingResponse {
     private Integer reviewCount;
     private Integer compatibilityScore; // Match percentage for students viewing listings
     private String compatibilityReason; // Why this listing matches
+    // Virtual Tour
+    private String videoTourUrl;
+    private String videoTourThumbnail;
+    private Integer videoTourDuration;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

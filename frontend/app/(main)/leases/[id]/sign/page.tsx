@@ -29,6 +29,10 @@ interface Lease {
   studentName: string
   landlordId: string
   landlordName: string
+  // Co-tenant fields
+  coTenantId?: string
+  coTenantName?: string
+  isSharedLease: boolean
   startDate: string
   endDate: string
   monthlyRent: number
@@ -39,6 +43,9 @@ interface Lease {
   landlordAcceptedTerms: boolean
   studentAcceptedAt: string | null
   landlordAcceptedAt: string | null
+  // Co-tenant acceptance
+  coTenantAcceptedTerms?: boolean
+  coTenantAcceptedAt?: string | null
   termsContent?: string
 }
 
@@ -105,9 +112,14 @@ export default function LeaseSignPage({ params }: { params: Promise<{ id: string
   }
 
   const isStudent = user?.id === lease?.studentId
+  const isCoTenant = user?.id === lease?.coTenantId
   const isLandlord = user?.id === lease?.landlordId
-  const hasAlreadySigned = isStudent ? lease?.studentAcceptedTerms : lease?.landlordAcceptedTerms
-  const otherPartySigned = isStudent ? lease?.landlordAcceptedTerms : lease?.studentAcceptedTerms
+  const hasAlreadySigned = isStudent ? lease?.studentAcceptedTerms : 
+                             isCoTenant ? lease?.coTenantAcceptedTerms :
+                             lease?.landlordAcceptedTerms
+  const otherPartySigned = isStudent ? lease?.landlordAcceptedTerms : 
+                             isCoTenant ? lease?.landlordAcceptedTerms :
+                             lease?.studentAcceptedTerms
   const canSign = lease?.status === "PENDING_SIGNATURES" && !hasAlreadySigned
 
   if (isLoading) {
@@ -235,7 +247,7 @@ export default function LeaseSignPage({ params }: { params: Promise<{ id: string
                 </div>
                 <div>
                   <p className="font-medium text-slate-900">{lease.studentName}</p>
-                  <p className="text-xs text-slate-500">Tenant</p>
+                  <p className="text-xs text-slate-500">Primary Tenant</p>
                 </div>
               </div>
               {lease.studentAcceptedTerms ? (
@@ -250,6 +262,32 @@ export default function LeaseSignPage({ params }: { params: Promise<{ id: string
                 </div>
               )}
             </div>
+
+            {/* Co-tenant */}
+            {lease.isSharedLease && lease.coTenantName && (
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    <User className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">{lease.coTenantName}</p>
+                    <p className="text-xs text-slate-500">Co-tenant</p>
+                  </div>
+                </div>
+                {lease.coTenantAcceptedTerms ? (
+                  <div className="flex items-center gap-1 text-green-600">
+                    <CheckCircle className="h-5 w-5" />
+                    <span className="text-xs">Signed</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-amber-600">
+                    <Clock className="h-5 w-5" />
+                    <span className="text-xs">Pending</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -344,7 +382,9 @@ By signing this agreement, both parties acknowledge they have read, understood, 
             ) : (
               <SignaturePad
                 onSignatureComplete={handleSignatureComplete}
-                signerName={isStudent ? lease.studentName : lease.landlordName}
+                signerName={isStudent ? lease.studentName : 
+                           isCoTenant ? (lease.coTenantName || "Co-tenant") :
+                           lease.landlordName}
                 disabled={isSigning}
               />
             )}

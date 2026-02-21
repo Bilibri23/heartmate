@@ -34,6 +34,17 @@ public class RoomApplicationResponse {
     private String studentProfilePhotoUrl;
     private Boolean studentVerified;
     
+    // Co-application fields
+    private Boolean isCoApplication;
+    private UUID coApplicantId;
+    private String coApplicantName;
+    private String coApplicantEmail;
+    private String coApplicantPhone;
+    private String coApplicantProfilePhotoUrl;
+    private Boolean coApplicantVerified;
+    private Boolean coApplicantConfirmed;
+    private LocalDateTime coApplicantConfirmedAt;
+    
     private String message;
     private LocalDate moveInDate;
     private Integer leaseDurationMonths;
@@ -75,7 +86,10 @@ public class RoomApplicationResponse {
                 .updatedAt(application.getUpdatedAt())
                 .expiresAt(application.getExpiresAt())
                 .isActive(application.isActive())
-                .isReviewed(application.isReviewed());
+                .isReviewed(application.isReviewed())
+                .isCoApplication(application.getIsCoApplication())
+                .coApplicantConfirmed(application.getCoApplicantConfirmed())
+                .coApplicantConfirmedAt(application.getCoApplicantConfirmedAt());
         
         // Listing info
         if (application.getListing() != null) {
@@ -98,6 +112,16 @@ public class RoomApplicationResponse {
             
             // Note: Student verification status and profile photo will be set by the service layer
             // since these are separate entities without back-references
+        }
+        
+        // Co-applicant info
+        if (application.getCoApplicant() != null) {
+            builder.coApplicantId(application.getCoApplicant().getId())
+                   .coApplicantName(application.getCoApplicant().getFirstName() + " " + application.getCoApplicant().getLastName())
+                   .coApplicantEmail(application.getCoApplicant().getEmail())
+                   .coApplicantPhone(application.getCoApplicant().getPhone());
+            
+            // Note: Co-applicant verification status and profile photo will be set by the service layer
         }
         
         // Calculate days since application

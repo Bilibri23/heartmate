@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import api from "@/lib/api"
+import { toast } from "sonner"
 import { Settings, Bell, Shield, Database, Mail, Globe, Save, RefreshCw, LogOut, Users } from "lucide-react"
 import Link from "next/link"
 
@@ -49,9 +50,10 @@ export default function AdminSettingsPage() {
     try {
       // In a real app, this would save to backend
       await new Promise(resolve => setTimeout(resolve, 1000))
-      alert("Settings saved successfully!")
+      toast.success("Settings saved successfully!")
     } catch (err) {
       console.error(err)
+      toast.error("Failed to save settings")
     } finally {
       setIsSaving(false)
     }

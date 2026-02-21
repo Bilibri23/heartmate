@@ -326,7 +326,7 @@ export default function LeasesPage() {
                     </div>
                   )}
                   
-                  {lease.status === "ACTIVE" && (
+                  {lease.status === "ACTIVE" && user?.role === "STUDENT" && (
                     <div className="flex gap-2">
                       <Link href="/household" className="flex-1">
                         <Button className="w-full rounded-xl">

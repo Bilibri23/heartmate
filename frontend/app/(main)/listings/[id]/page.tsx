@@ -5,14 +5,14 @@ import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { 
-  ArrowLeft, 
-  Heart, 
-  Share2, 
-  MapPin, 
-  Bed, 
-  Bath, 
-  Maximize, 
+import {
+  ArrowLeft,
+  Heart,
+  Share2,
+  MapPin,
+  Bed,
+  Bath,
+  Maximize,
   CheckCircle,
   Star,
   MessageCircle,
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/sheet"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { VideoPlayer } from "@/components/ui/video-player"
 import api from "@/lib/api"
 import Link from "next/link"
 import { coApplicationService } from "@/services/co-application"
@@ -60,6 +61,12 @@ interface ListingDetail {
   squareMeters?: number
   amenities: string[]
   photos: { id: string; photoUrl: string; isPrimary: boolean }[]
+  videoTour?: {
+    id: string
+    videoUrl: string
+    thumbnailUrl?: string
+    duration?: number
+  }
   verified: boolean
   featured: boolean
   status: string
@@ -110,7 +117,23 @@ export default function ListingDetailPage() {
   const [isScheduling, setIsScheduling] = useState(false)
   const [existingApplication, setExistingApplication] = useState<ExistingApplication | null>(null)
   const [isCheckingApplication, setIsCheckingApplication] = useState(false)
-  
+  const [showVerifyPrompt, setShowVerifyPrompt] = useState(false)
+
+  const MESSAGE_TEMPLATES = [
+    {
+      label: "🎓 Student",
+      text: `Hi, I'm a student and I'm very interested in this property. I'm looking for a comfortable place near my university. When would it be possible to schedule a visit? I'm reliable and respectful of shared spaces. Thank you!`,
+    },
+    {
+      label: "💼 Professional",
+      text: `Hello, I'm a young professional looking for quality accommodation. I'm interested in this listing and would love to discuss the details. I have a stable income and can provide references. Is the property still available?`,
+    },
+    {
+      label: "🏠 Quick Move-in",
+      text: `Hi there! I'm looking to move in as soon as possible and this property caught my eye. I have all my documents ready and I can meet at your earliest convenience. Could we arrange a viewing soon? Thank you!`,
+    },
+  ]
+
   // Co-application state
   const [isCoApplyOpen, setIsCoApplyOpen] = useState(false)
   const [mutualMatches, setMutualMatches] = useState<any[]>([])
@@ -129,11 +152,11 @@ export default function ListingDetailPage() {
         })
         setListing(response.data)
         setIsFavorited(response.data?.isFavorited || response.data?.isFavorite || false)
-        
+
         // Track view (don't await, fire and forget)
         api.post(`/listings/${params.id}/view`, null, {
           params: user?.id ? { userId: user.id } : undefined
-        }).catch(() => {})
+        }).catch(() => { })
       } catch (err: any) {
         console.error("Failed to fetch listing:", err)
         // Handle specific error cases
@@ -185,7 +208,7 @@ export default function ListingDetailPage() {
   useEffect(() => {
     const checkAcceptedInvitation = async () => {
       if (!user?.id || !params.id) return
-      
+
       try {
         const invitation = await coApplicationService.getAcceptedInvitationForListing(params.id as string)
         setAcceptedInvitation(invitation)
@@ -193,25 +216,25 @@ export default function ListingDetailPage() {
         console.error("Failed to check for accepted invitation:", err)
       }
     }
-    
+
     checkAcceptedInvitation()
   }, [params.id, user?.id])
 
   // Submit joint application
   const handleSubmitCoApplication = async () => {
     if (!acceptedInvitation || !params.id) return
-    
+
     setIsSubmittingCoApp(true)
     try {
       await coApplicationService.submitCoApplication(acceptedInvitation.id, {
         listingId: params.id as string,
         message: `Joint application with ${acceptedInvitation.isInviter ? acceptedInvitation.inviteeName : acceptedInvitation.inviterName}`,
       })
-      
+
       toast.success("Joint application submitted!", {
         description: "You and your roommate have applied together."
       })
-      
+
       setAcceptedInvitation(null)
       router.push("/applications")
     } catch (err: any) {
@@ -227,7 +250,7 @@ export default function ListingDetailPage() {
       router.push("/login")
       return
     }
-    
+
     try {
       await api.post(`/listings/${params.id}/favorite`, null, {
         params: { userId: user.id }
@@ -256,14 +279,14 @@ export default function ListingDetailPage() {
   // Fetch mutual matches for co-application
   const fetchMutualMatches = async () => {
     if (!user?.id) return
-    
+
     setIsLoadingMatches(true)
     try {
       const response = await api.get(`/matches/${user.id}`)
       const matches = response.data || []
       // Filter to only mutual matches (MUTUAL or ACCEPTED status with isMutualMatch)
       const mutual = matches
-        .filter((m: any) => 
+        .filter((m: any) =>
           m.status === "MUTUAL" || m.status === "ACCEPTED" || m.isMutualMatch
         )
         .map(normalizeMatch)
@@ -284,7 +307,7 @@ export default function ListingDetailPage() {
 
   const handleInviteRoommate = async () => {
     if (!selectedRoommate || !params.id) return
-    
+
     setIsInviting(true)
     try {
       await coApplicationService.inviteRoommate({
@@ -293,11 +316,11 @@ export default function ListingDetailPage() {
         matchId: selectedRoommate.id,
         message: coApplyMessage || `Hey! I found this great place. What do you think about applying together?`,
       })
-      
+
       toast.success("Invitation sent!", {
         description: `${selectedRoommate.matchedUser?.firstName} will be notified to apply together.`
       })
-      
+
       setIsCoApplyOpen(false)
       setSelectedRoommate(null)
       setCoApplyMessage("")
@@ -343,8 +366,26 @@ export default function ListingDetailPage() {
         leaseDurationMonths: leaseDuration,
       })
       setIsApplyOpen(false)
-      // Show success toast or redirect
+
+      // Check if user is verified — if not, show verification nudge
+      // PAUSED FOR DEVELOPMENT - always redirect to applications
       router.push("/applications")
+      
+      // TODO: Re-enable verification prompt after development
+      /*
+      try {
+        const verRes = await api.get(`/verifications/${user?.id}`)
+        const status = verRes.data?.status
+        if (status === "VERIFIED" || status === "APPROVED") {
+          router.push("/applications")
+        } else {
+          setShowVerifyPrompt(true)
+        }
+      } catch {
+        // If verification check fails (e.g. 404 = no verification), show nudge
+        setShowVerifyPrompt(true)
+      }
+      */
     } catch (err: any) {
       console.error("Failed to apply:", err)
       const errorMessage = err.response?.data?.message || ""
@@ -358,6 +399,31 @@ export default function ListingDetailPage() {
       }
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleFlagContent = async (listingId: string) => {
+    if (!user?.id) return
+
+    // Show flag dialog
+    const reason = prompt("Why are you reporting this content? (Inappropriate, Violence, Fraud, Spam, Copyright, Illegal, Other)")
+    if (!reason) return
+
+    const description = prompt("Please provide more details (optional):")
+
+    try {
+      await api.post(`/content-moderation/flag/${listingId}`, null, {
+        params: {
+          reporterId: user.id,
+          reason: reason.toUpperCase(),
+          description: description || ""
+        }
+      })
+
+      toast.success("Content reported. Thank you for helping keep our platform safe.")
+    } catch (error: any) {
+      console.error("Failed to flag content:", error)
+      toast.error(error.response?.data?.message || "Failed to report content")
     }
   }
 
@@ -388,7 +454,7 @@ export default function ListingDetailPage() {
     if (listing?.status && listing.status !== "ACTIVE") {
       return
     }
-    
+
     // Get landlord ID from either nested object or flat field
     const landlordId = listing?.landlord?.id || listing?.landlordId
     if (!landlordId) {
@@ -407,19 +473,19 @@ export default function ListingDetailPage() {
         month: "long",
         year: "numeric"
       })
-      
+
       const message = `📅 **Viewing Request**\n\nI would like to schedule a viewing for:\n\n🏠 Property: ${listing.title}\n📍 Location: ${listing.neighborhood}, ${listing.city}\n📆 Date: ${formattedDate}\n⏰ Time: ${viewingTime}\n\n${viewingMessage ? `Message: ${viewingMessage}` : ""}`
-      
+
       await api.post("/messages", {
         receiverId: landlordId,
         content: message,
       })
-      
+
       setIsScheduleOpen(false)
       setViewingDate("")
       setViewingTime("")
       setViewingMessage("")
-      
+
       // Redirect to messages
       router.push(`/messages/${landlordId}`)
     } catch (err) {
@@ -431,7 +497,7 @@ export default function ListingDetailPage() {
 
   const nextPhoto = () => {
     if (listing?.photos) {
-      setCurrentPhotoIndex((prev) => 
+      setCurrentPhotoIndex((prev) =>
         prev === listing.photos.length - 1 ? 0 : prev + 1
       )
     }
@@ -439,7 +505,7 @@ export default function ListingDetailPage() {
 
   const prevPhoto = () => {
     if (listing?.photos) {
-      setCurrentPhotoIndex((prev) => 
+      setCurrentPhotoIndex((prev) =>
         prev === 0 ? listing.photos.length - 1 : prev - 1
       )
     }
@@ -485,7 +551,7 @@ export default function ListingDetailPage() {
               fill
               className="object-cover"
             />
-            
+
             {listing.photos.length > 1 && (
               <>
                 <button
@@ -500,18 +566,17 @@ export default function ListingDetailPage() {
                 >
                   <ChevronRight className="h-6 w-6" />
                 </button>
-                
+
                 {/* Photo indicators */}
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
                   {listing.photos.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => setCurrentPhotoIndex(index)}
-                      className={`h-2 rounded-full transition-all ${
-                        index === currentPhotoIndex 
-                          ? "w-6 bg-white" 
+                      className={`h-2 rounded-full transition-all ${index === currentPhotoIndex
+                          ? "w-6 bg-white"
                           : "w-2 bg-white/60"
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>
@@ -532,7 +597,7 @@ export default function ListingDetailPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          
+
           <div className="flex gap-2">
             <button
               onClick={handleShare}
@@ -551,6 +616,12 @@ export default function ListingDetailPage() {
 
         {/* Badges */}
         <div className="absolute bottom-4 left-4 flex gap-2">
+          {listing.videoTour && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-600 text-white text-xs font-medium">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              Virtual Tour
+            </span>
+          )}
           {listing.verified && (
             <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-xs font-medium">
               <CheckCircle className="h-3.5 w-3.5" />
@@ -564,6 +635,34 @@ export default function ListingDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Virtual Tour Section */}
+      {listing.videoTour && (
+        <div className="px-4 py-4 bg-slate-50">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
+              Virtual Tour
+            </h3>
+            {listing.videoTour.duration && (
+              <span className="text-sm text-slate-500">
+                {Math.floor(listing.videoTour.duration / 60)}:{(listing.videoTour.duration % 60).toString().padStart(2, '0')}
+              </span>
+            )}
+          </div>
+          <VideoPlayer
+            src={listing.videoTour.videoUrl}
+            thumbnail={listing.videoTour.thumbnailUrl}
+            title={`${listing.title} - Virtual Tour`}
+            className="h-48 rounded-xl"
+            onFlag={() => handleFlagContent(listing.id)}
+            onPlay={() => {
+              // Track video play analytics
+              console.log("Virtual tour played for listing:", listing.id)
+            }}
+          />
+        </div>
+      )}
 
       {/* Co-Application Ready Banner */}
       {acceptedInvitation && !existingApplication && listing?.status === "ACTIVE" && (
@@ -739,7 +838,7 @@ export default function ListingDetailPage() {
               {formatCurrency(listing.depositAmount || listing.rentAmount)}
             </p>
           </div>
-          
+
           {/* Schedule Viewing Button */}
           <Sheet
             open={isScheduleOpen}
@@ -761,7 +860,7 @@ export default function ListingDetailPage() {
                   Schedule a Viewing
                 </SheetTitle>
               </SheetHeader>
-              
+
               <div className="mt-6 space-y-4">
                 <div className="bg-blue-50 rounded-xl p-4">
                   <p className="text-sm text-blue-800">
@@ -805,8 +904,8 @@ export default function ListingDetailPage() {
                     className="min-h-[80px] rounded-xl"
                   />
                 </div>
-                
-                <Button 
+
+                <Button
                   className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700"
                   onClick={handleScheduleViewing}
                   disabled={isScheduling || !viewingDate || !viewingTime || Boolean(existingApplication) || listing?.status !== "ACTIVE"}
@@ -816,7 +915,7 @@ export default function ListingDetailPage() {
               </div>
             </SheetContent>
           </Sheet>
-          
+
           {/* Apply Together Button - When invitation is already accepted */}
           {acceptedInvitation && !existingApplication && listing?.status === "ACTIVE" && (
             <Button
@@ -828,7 +927,7 @@ export default function ListingDetailPage() {
               {isSubmittingCoApp ? "Submitting..." : "Apply Together"}
             </Button>
           )}
-          
+
           {/* Apply with Roommate Button - Only show if no accepted invitation */}
           {!acceptedInvitation && (
             <Sheet open={isCoApplyOpen} onOpenChange={setIsCoApplyOpen}>
@@ -843,107 +942,106 @@ export default function ListingDetailPage() {
                   <Users className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-            <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle className="flex items-center gap-2">
-                  <UserPlus className="h-5 w-5 text-blue-600" />
-                  Apply with Roommate
-                </SheetTitle>
-              </SheetHeader>
-              
-              <div className="mt-6 space-y-4">
-                <div className="bg-blue-50 rounded-xl p-4">
-                  <p className="text-sm text-blue-800">
-                    Invite your matched roommate to apply together as co-tenants. 
-                    Once they accept, you can submit a joint application for this listing.
-                  </p>
-                </div>
+              <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle className="flex items-center gap-2">
+                    <UserPlus className="h-5 w-5 text-blue-600" />
+                    Apply with Roommate
+                  </SheetTitle>
+                </SheetHeader>
 
-                {isLoadingMatches ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
-                  </div>
-                ) : mutualMatches.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                    <p className="text-slate-600 font-medium">No matched roommates yet</p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Match with someone first to apply together
+                <div className="mt-6 space-y-4">
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <p className="text-sm text-blue-800">
+                      Invite your matched roommate to apply together as co-tenants.
+                      Once they accept, you can submit a joint application for this listing.
                     </p>
-                    <Link href="/matches">
-                      <Button variant="outline" className="mt-4 rounded-xl">
-                        Find Roommates
-                      </Button>
-                    </Link>
                   </div>
-                ) : (
-                  <>
-                    <div>
-                      <label className="text-sm font-medium text-slate-700 mb-3 block">
-                        Select your roommate
-                      </label>
-                      <div className="space-y-2">
-                        {mutualMatches.map((match) => (
-                          <button
-                            key={match.id}
-                            type="button"
-                            onClick={() => setSelectedRoommate(match)}
-                            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                              selectedRoommate?.id === match.id
-                                ? "border-blue-600 bg-blue-50"
-                                : "border-slate-200 hover:bg-slate-50"
-                            }`}
-                          >
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={match.matchedUser?.profilePhotoUrl} />
-                              <AvatarFallback className="bg-blue-100 text-blue-600">
-                                {match.matchedUser?.firstName?.[0] || "?"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 text-left">
-                              <p className="font-medium text-slate-900">
-                                {match.matchedUser?.firstName} {match.matchedUser?.lastName}
-                              </p>
-                              <p className="text-sm text-slate-500">
-                                {match.compatibilityScore}% compatible
-                              </p>
-                            </div>
-                            {selectedRoommate?.id === match.id && (
-                              <CheckCircle className="h-5 w-5 text-blue-600" />
-                            )}
-                          </button>
-                        ))}
-                      </div>
+
+                  {isLoadingMatches ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full" />
                     </div>
-
-                    {selectedRoommate && (
+                  ) : mutualMatches.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+                      <p className="text-slate-600 font-medium">No matched roommates yet</p>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Match with someone first to apply together
+                      </p>
+                      <Link href="/matches">
+                        <Button variant="outline" className="mt-4 rounded-xl">
+                          Find Roommates
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
                       <div>
-                        <label className="text-sm font-medium text-slate-700 mb-2 block">
-                          Add a message (optional)
+                        <label className="text-sm font-medium text-slate-700 mb-3 block">
+                          Select your roommate
                         </label>
-                        <Textarea
-                          placeholder="Hey! I found this great place. What do you think about applying together?"
-                          value={coApplyMessage}
-                          onChange={(e) => setCoApplyMessage(e.target.value)}
-                          className="min-h-[80px] rounded-xl"
-                        />
+                        <div className="space-y-2">
+                          {mutualMatches.map((match) => (
+                            <button
+                              key={match.id}
+                              type="button"
+                              onClick={() => setSelectedRoommate(match)}
+                              className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-colors ${selectedRoommate?.id === match.id
+                                  ? "border-blue-600 bg-blue-50"
+                                  : "border-slate-200 hover:bg-slate-50"
+                                }`}
+                            >
+                              <Avatar className="h-12 w-12">
+                                <AvatarImage src={match.matchedUser?.profilePhotoUrl} />
+                                <AvatarFallback className="bg-blue-100 text-blue-600">
+                                  {match.matchedUser?.firstName?.[0] || "?"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 text-left">
+                                <p className="font-medium text-slate-900">
+                                  {match.matchedUser?.firstName} {match.matchedUser?.lastName}
+                                </p>
+                                <p className="text-sm text-slate-500">
+                                  {match.compatibilityScore}% compatible
+                                </p>
+                              </div>
+                              {selectedRoommate?.id === match.id && (
+                                <CheckCircle className="h-5 w-5 text-blue-600" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    )}
 
-                    <Button
-                      className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700"
-                      onClick={handleInviteRoommate}
-                      disabled={!selectedRoommate || isInviting}
-                    >
-                      {isInviting ? "Sending Invitation..." : "Send Invitation"}
-                    </Button>
-                  </>
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
+                      {selectedRoommate && (
+                        <div>
+                          <label className="text-sm font-medium text-slate-700 mb-2 block">
+                            Add a message (optional)
+                          </label>
+                          <Textarea
+                            placeholder="Hey! I found this great place. What do you think about applying together?"
+                            value={coApplyMessage}
+                            onChange={(e) => setCoApplyMessage(e.target.value)}
+                            className="min-h-[80px] rounded-xl"
+                          />
+                        </div>
+                      )}
+
+                      <Button
+                        className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700"
+                        onClick={handleInviteRoommate}
+                        disabled={!selectedRoommate || isInviting}
+                      >
+                        {isInviting ? "Sending Invitation..." : "Send Invitation"}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
           )}
-          
+
           {/* Apply Now Button */}
           <Sheet
             open={isApplyOpen}
@@ -961,7 +1059,7 @@ export default function ListingDetailPage() {
               <SheetHeader>
                 <SheetTitle>{t.applications.apply}</SheetTitle>
               </SheetHeader>
-              
+
               <div className="mt-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -998,23 +1096,54 @@ export default function ListingDetailPage() {
                   <label className="text-sm font-medium text-slate-700 mb-2 block">
                     {t.applications.message} * <span className="text-slate-400 font-normal">(min 50 characters)</span>
                   </label>
+
+                  {/* Message Templates */}
+                  {!applicationMessage && (
+                    <div className="mb-3">
+                      <p className="text-xs text-slate-500 mb-2">Quick templates:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {MESSAGE_TEMPLATES.map((tpl) => (
+                          <button
+                            key={tpl.label}
+                            type="button"
+                            onClick={() => setApplicationMessage(tpl.text)}
+                            className="px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100"
+                          >
+                            {tpl.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <Textarea
                     placeholder="Tell the landlord about yourself, why you're interested in this property, your occupation, etc."
                     value={applicationMessage}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setApplicationMessage(e.target.value)}
                     className="min-h-[120px] rounded-xl"
                   />
-                  <p className="text-xs text-slate-400 mt-1">
-                    {applicationMessage.length}/50 characters minimum
-                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-slate-400">
+                      {applicationMessage.length}/50 characters minimum
+                    </p>
+                    {applicationMessage && (
+                      <button
+                        type="button"
+                        onClick={() => setApplicationMessage("")}
+                        className="text-xs text-slate-400 hover:text-slate-600"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {applicationError && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-3">
                     <p className="text-sm text-red-600">{applicationError}</p>
                     {applicationError.includes("already applied") && (
-                      <Button 
-                        variant="link" 
+                      <Button
+                        variant="link"
                         className="text-red-600 p-0 h-auto mt-1"
                         onClick={() => router.push("/applications")}
                       >
@@ -1038,8 +1167,8 @@ export default function ListingDetailPage() {
                     </Button>
                   </div>
                 )}
-                
-                <Button 
+
+                <Button
                   className="w-full h-12 rounded-xl"
                   onClick={handleApply}
                   disabled={
@@ -1057,6 +1186,47 @@ export default function ListingDetailPage() {
           </Sheet>
         </div>
       </div>
+
+      {/* Verification Prompt Modal */}
+      {showVerifyPrompt && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl animate-in fade-in zoom-in-95">
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+                <Shield className="h-8 w-8 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                Verify your identity to stand out!
+              </h3>
+              <p className="text-sm text-slate-500 mb-6">
+                Your application was submitted successfully! Verified applicants are <span className="font-semibold text-slate-700">3x more likely</span> to be accepted by landlords.
+              </p>
+              <div className="flex flex-col gap-2">
+                <Button
+                  className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    setShowVerifyPrompt(false)
+                    router.push("/verification")
+                  }}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Verify Now
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full h-11 rounded-xl text-slate-500"
+                  onClick={() => {
+                    setShowVerifyPrompt(false)
+                    router.push("/applications")
+                  }}
+                >
+                  Maybe Later
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

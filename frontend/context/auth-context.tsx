@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('refreshToken', response.refreshToken);
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
-        
+
         // Role-based redirect after login
         if (response.role === 'ADMIN') {
           router.push('/admin');
@@ -74,12 +74,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('refreshToken', response.refreshToken);
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
-        
+
         // Role-based redirect after registration
         if (response.role === 'LANDLORD') {
           router.push('/landlord');
         } else {
-          router.push('/for-you');
+          router.push('/onboarding');
         }
       } else {
         router.push('/login?registered=true');

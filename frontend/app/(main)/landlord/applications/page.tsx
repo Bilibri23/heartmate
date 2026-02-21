@@ -35,11 +35,22 @@ interface Application {
   studentPhotoUrl: string | null
   studentEmail: string
   studentPhone: string
+  studentVerified: boolean
   listingId: string
   listingTitle: string
   message: string
   status: "PENDING" | "ACCEPTED" | "REJECTED" | "SHORTLISTED"
   createdAt: string
+  // Co-application fields
+  isCoApplication?: boolean
+  coApplicantId?: string
+  coApplicantName?: string
+  coApplicantEmail?: string
+  coApplicantPhone?: string
+  coApplicantPhotoUrl?: string | null
+  coApplicantVerified?: boolean
+  coApplicantConfirmed?: boolean
+  coApplicantConfirmedAt?: string
 }
 
 type StatusFilter = "all" | "PENDING" | "SHORTLISTED" | "ACCEPTED" | "REJECTED"
@@ -67,6 +78,8 @@ export default function LandlordApplicationsPage() {
       
       const response = await api.get("/applications/landlord/received", { params })
       const content = response.data?.content || response.data || []
+      console.log("Landlord applications response:", response.data)
+      console.log("Applications content:", content)
       setApplications(content)
     } catch (err) {
       console.error("Failed to fetch applications:", err)
@@ -200,6 +213,7 @@ export default function LandlordApplicationsPage() {
             >
               <div className="p-4">
                 <div className="flex items-start gap-3">
+                  {/* Primary Applicant */}
                   <Avatar className="h-12 w-12">
                     <AvatarImage src={app.studentPhotoUrl || undefined} />
                     <AvatarFallback className="bg-blue-100 text-blue-600">
@@ -209,16 +223,41 @@ export default function LandlordApplicationsPage() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-semibold text-slate-900">
-                        {app.studentName}
-                      </h3>
-                      <span className="text-xs text-slate-500">
-                        {formatDate(app.createdAt)}
-                      </span>
+                      <div>
+                        <h3 className="font-semibold text-slate-900">
+                          {app.studentName}
+                        </h3>
+                        {app.isCoApplication && app.coApplicantName && (
+                          <p className="text-sm text-slate-600">
+                            + {app.coApplicantName}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-slate-500">
+                          {formatDate(app.createdAt)}
+                        </span>
+                        {app.isCoApplication && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              app.coApplicantConfirmed 
+                                ? "bg-green-100 text-green-700" 
+                                : "bg-blue-100 text-blue-700"
+                            }`}>
+                              {app.coApplicantConfirmed ? "Both Confirmed" : "Joint Application"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
                     <p className="text-xs text-blue-600 mt-0.5">
                       For: {app.listingTitle}
+                      {app.isCoApplication && (
+                        <span className="ml-1 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                          Joint Application
+                        </span>
+                      )}
                     </p>
                     
                     <p className="text-sm text-slate-600 mt-2 line-clamp-2">
@@ -236,26 +275,73 @@ export default function LandlordApplicationsPage() {
 
       {/* Review Sheet */}
       <Sheet open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
+        <SheetContent side="bottom" className="h-[70vh] rounded-t-3xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Review Application</SheetTitle>
           </SheetHeader>
 
           {selectedApp && (
             <div className="mt-6 space-y-6">
-              {/* Applicant Info */}
-              <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
-                <Avatar className="h-14 w-14">
-                  <AvatarImage src={selectedApp.studentPhotoUrl || undefined} />
-                  <AvatarFallback className="bg-blue-100 text-blue-600 text-lg">
-                    {selectedApp.studentName.split(" ").map(n => n[0]).join("").toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-semibold text-slate-900">{selectedApp.studentName}</p>
-                  <p className="text-sm text-slate-500">{selectedApp.studentEmail}</p>
-                  <p className="text-sm text-slate-500">{selectedApp.studentPhone}</p>
+              {/* Applicants Info */}
+              <div className="space-y-4">
+                {/* Primary Applicant */}
+                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl">
+                  <Avatar className="h-14 w-14">
+                    <AvatarImage src={selectedApp.studentPhotoUrl || undefined} />
+                    <AvatarFallback className="bg-blue-100 text-blue-600 text-lg">
+                      {selectedApp.studentName.split(" ").map(n => n[0]).join("").toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-slate-900">{selectedApp.studentName}</p>
+                      {selectedApp.studentVerified && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                          Verified
+                        </span>
+                      )}
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                        Primary Applicant
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-500">{selectedApp.studentEmail}</p>
+                    <p className="text-sm text-slate-500">{selectedApp.studentPhone}</p>
+                  </div>
                 </div>
+
+                {/* Co-applicant */}
+                {selectedApp.isCoApplication && selectedApp.coApplicantName && (
+                  <div className="flex items-center gap-3 p-4 bg-purple-50 rounded-2xl">
+                    <Avatar className="h-14 w-14">
+                      <AvatarImage src={selectedApp.coApplicantPhotoUrl || undefined} />
+                      <AvatarFallback className="bg-purple-100 text-purple-600 text-lg">
+                        {selectedApp.coApplicantName.split(" ").map(n => n[0]).join("").toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-slate-900">{selectedApp.coApplicantName}</p>
+                        {selectedApp.coApplicantVerified && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                            Verified
+                          </span>
+                        )}
+                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                          Co-applicant
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          selectedApp.coApplicantConfirmed 
+                            ? "bg-green-100 text-green-700" 
+                            : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {selectedApp.coApplicantConfirmed ? "Both Confirmed" : "Joint Application Submitted"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-500">{selectedApp.coApplicantEmail}</p>
+                      <p className="text-sm text-slate-500">{selectedApp.coApplicantPhone}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Message */}
@@ -278,13 +364,21 @@ export default function LandlordApplicationsPage() {
               </div>
 
               {/* Quick Actions */}
-              <div className="flex gap-2">
+              <div className="space-y-2">
                 <Link href={`/messages/${selectedApp.studentId}`} className="flex-1">
                   <Button variant="outline" className="w-full rounded-xl">
                     <MessageCircle className="h-4 w-4 mr-2" />
-                    Message
+                    Message {selectedApp.studentName.split(" ")[0]}
                   </Button>
                 </Link>
+                {selectedApp.isCoApplication && selectedApp.coApplicantId && (
+                  <Link href={`/messages/${selectedApp.coApplicantId}`} className="flex-1">
+                    <Button variant="outline" className="w-full rounded-xl">
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Message {selectedApp.coApplicantName?.split(" ")[0]}
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               {/* Decision Buttons */}

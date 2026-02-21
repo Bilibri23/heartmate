@@ -19,16 +19,16 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import api from "@/lib/api"
-import { 
-  Wallet, 
-  MapPin, 
-  Sparkles, 
-  Moon, 
-  Sun, 
-  Users, 
-  Cigarette, 
-  Wine, 
-  Dog, 
+import {
+  Wallet,
+  MapPin,
+  Sparkles,
+  Moon,
+  Sun,
+  Users,
+  Cigarette,
+  Wine,
+  Dog,
   UserPlus,
   ChefHat,
   Save,
@@ -175,7 +175,7 @@ export default function PreferencesPage() {
   const { t, formatCurrency } = useLanguage()
   const { user } = useAuth()
   const router = useRouter()
-  
+
   const [activeSection, setActiveSection] = useState<"listing" | "roommate">("listing")
   const [listingPreferences, setListingPreferences] = useState<ListingPreferences>(defaultListingPreferences)
   const [roommatePreferences, setRoommatePreferences] = useState<RoommatePreferences>(defaultRoommatePreferences)
@@ -190,7 +190,7 @@ export default function PreferencesPage() {
   useEffect(() => {
     const fetchPreferences = async () => {
       if (!user?.id) return
-      
+
       try {
         const [listingRes, roommateRes] = await Promise.allSettled([
           api.get(`/listing-preferences/${user.id}`),
@@ -220,7 +220,7 @@ export default function PreferencesPage() {
         setIsLoading(false)
       }
     }
-    
+
     fetchPreferences()
   }, [user?.id])
 
@@ -231,7 +231,7 @@ export default function PreferencesPage() {
     maxBudget: listingPreferences.maxBudget,
     preferredLocations: listingPreferences.preferredLocations,
   })
-  
+
   useEffect(() => {
     setRoommatePreferences((prev) => ({
       ...prev,
@@ -239,12 +239,12 @@ export default function PreferencesPage() {
       maxBudget: listingPreferences.maxBudget,
       preferredLocations: listingPreferences.preferredLocations,
     }))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listingPrefsKey])
 
   const handleSaveListing = async () => {
     if (!user?.id) return
-    
+
     setIsSaving(true)
     try {
       if (hasListing) {
@@ -262,14 +262,24 @@ export default function PreferencesPage() {
 
   const handleSaveRoommate = async () => {
     if (!user?.id) return
-    
+
     setIsSaving(true)
     try {
       if (hasRoommate) {
         await api.put(`/preferences/${user.id}`, roommatePreferences)
       } else {
-        await api.post(`/preferences?userId=${user.id}`, roommatePreferences)
-        setHasRoommate(true)
+        try {
+          await api.post(`/preferences?userId=${user.id}`, roommatePreferences)
+          setHasRoommate(true)
+        } catch (postErr: any) {
+          // If POST fails with 400 (preferences already exist), retry as PUT
+          if (postErr.response?.status === 400) {
+            await api.put(`/preferences/${user.id}`, roommatePreferences)
+            setHasRoommate(true)
+          } else {
+            throw postErr
+          }
+        }
       }
       router.push("/matches")
     } catch (err) {
@@ -752,20 +762,19 @@ export default function PreferencesPage() {
               const Icon = step.icon
               const isActive = index === currentStep
               const isCompleted = index < currentStep
-              
+
               return (
                 <button
                   key={step.id}
                   onClick={() => setCurrentStep(index)}
                   className="flex flex-col items-center gap-1"
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                    isActive 
-                      ? "bg-blue-600 text-white" 
-                      : isCompleted 
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isActive
+                      ? "bg-blue-600 text-white"
+                      : isCompleted
                         ? "bg-green-100 text-green-600"
                         : "bg-slate-100 text-slate-400"
-                  }`}>
+                    }`}>
                     {isCompleted ? <Check className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                   </div>
                   <span className={`text-xs ${isActive ? "text-blue-600 font-medium" : "text-slate-400"}`}>
@@ -806,7 +815,7 @@ export default function PreferencesPage() {
                   className="rounded-xl"
                 />
               </div>
-              
+
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-2 block">
                   Maximum Budget (FCFA)
@@ -861,11 +870,10 @@ export default function PreferencesPage() {
                       key={city}
                       type="button"
                       onClick={() => setSelectedCity(city)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                        selectedCity === city
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCity === city
                           ? "bg-slate-900 text-white"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                        }`}
                     >
                       {city}
                     </button>
@@ -886,11 +894,10 @@ export default function PreferencesPage() {
                         key={neighborhood}
                         type="button"
                         onClick={() => toggleNeighborhood(neighborhood)}
-                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                          isSelected
+                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${isSelected
                             ? "bg-blue-600 text-white"
                             : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                        }`}
+                          }`}
                       >
                         {neighborhood}
                       </button>
@@ -938,9 +945,8 @@ export default function PreferencesPage() {
                             : [...(prev.propertyTypes || []), type.value]
                         }))
                       }
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                        isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
-                      }`}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                        }`}
                     >
                       {type.label}
                     </button>
@@ -966,7 +972,7 @@ export default function PreferencesPage() {
               Back
             </Button>
           )}
-          
+
           {currentStep < ROOMMATE_STEPS.length - 1 ? (
             <Button
               onClick={nextStep}

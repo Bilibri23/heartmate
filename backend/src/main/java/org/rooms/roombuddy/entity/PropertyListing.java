@@ -84,6 +84,16 @@ public class PropertyListing {
     @JdbcTypeCode(SqlTypes.JSON)
     private List<String> amenities;
     
+    // Virtual Tour
+    @Column(name = "video_tour_url")
+    private String videoTourUrl;
+    
+    @Column(name = "video_tour_thumbnail")
+    private String videoTourThumbnail;
+    
+    @Column(name = "video_tour_duration")
+    private Integer videoTourDuration; // in seconds
+    
     // Availability
     @Column(name = "available_from")
     private LocalDate availableFrom;

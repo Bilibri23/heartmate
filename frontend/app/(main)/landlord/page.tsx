@@ -6,11 +6,11 @@ import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
-import { 
-  Plus, 
-  Home, 
-  Users, 
-  FileText, 
+import {
+  Plus,
+  Home,
+  Users,
+  FileText,
   TrendingUp,
   Eye,
   Heart,
@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
+import { QuickTour } from "@/components/ui/quick-tour"
 import api from "@/lib/api"
 
 interface LandlordStats {
@@ -60,7 +61,7 @@ export default function LandlordDashboard() {
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return
-    
+
     setIsLoading(true)
     try {
       const [statsRes, listingsRes] = await Promise.all([
@@ -117,16 +118,17 @@ export default function LandlordDashboard() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
+      <QuickTour role="LANDLORD" storageKey="roombuddy_landlord_tour" />
       <MobileHeader title="Dashboard" />
 
       {/* Content */}
-      <div 
+      <div
         ref={containerRef}
         className="flex-1 overflow-y-auto relative"
       >
-        <PullToRefreshIndicator 
-          pullProgress={pullProgress} 
-          isRefreshing={isRefreshing} 
+        <PullToRefreshIndicator
+          pullProgress={pullProgress}
+          isRefreshing={isRefreshing}
         />
 
         <div className="p-4 space-y-6">
@@ -203,8 +205,8 @@ export default function LandlordDashboard() {
                       {/* Image */}
                       <div className="h-20 w-20 rounded-xl bg-slate-100 overflow-hidden flex-shrink-0">
                         {listing.photos?.[0]?.photoUrl ? (
-                          <img 
-                            src={listing.photos[0].photoUrl} 
+                          <img
+                            src={listing.photos[0].photoUrl}
                             alt={listing.title}
                             className="h-full w-full object-cover"
                           />
@@ -250,11 +252,11 @@ export default function LandlordDashboard() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                        
+
                         <p className="text-sm text-slate-500">
                           {listing.neighborhood}, {listing.city}
                         </p>
-                        
+
                         <p className="text-sm font-semibold text-slate-900 mt-1">
                           {formatCurrency(listing.rentAmount)}/mois
                         </p>
@@ -273,13 +275,12 @@ export default function LandlordDashboard() {
                             <Users className="h-3.5 w-3.5" />
                             {listing.applicationsCount}
                           </span>
-                          <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                            listing.status === "ACTIVE" 
-                              ? "bg-emerald-100 text-emerald-700" 
-                              : listing.status === "RENTED"
+                          <span className={`ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium ${listing.status === "ACTIVE"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : listing.status === "RENTED"
                               ? "bg-blue-100 text-blue-700"
                               : "bg-slate-100 text-slate-600"
-                          }`}>
+                            }`}>
                             {listing.status}
                           </span>
                         </div>

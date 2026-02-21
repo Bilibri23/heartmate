@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { ListingCard } from "@/components/cards/listing-card"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
+import { QuickTour } from "@/components/ui/quick-tour"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
@@ -53,46 +54,65 @@ export default function ForYouPage() {
   const [totalPages, setTotalPages] = useState(0)
   const PAGE_SIZE = 10
 
-  const normalizeListing = (l: any): RecommendedListing => ({
-    listingId: l.id || l.listingId,
-    title: l.title,
-    description: l.description || "",
-    rentAmount: l.rentAmount,
-    city: l.city,
-    neighborhood: l.neighborhood,
-    propertyType: l.propertyType || "",
-    primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
-    bedrooms: l.bedrooms,
-    bathrooms: l.bathrooms,
-    matchScore: l.matchScore ?? l.totalScore ?? 0,
-    preferenceScore: l.preferenceScore ?? 0,
-    behaviorScore: l.behaviorScore ?? 0,
-    reasons: l.reasons || [],
-    isViewed: l.isViewed ?? false,
-    isFavorited: l.isFavorited ?? false,
-    viewsCount: l.viewsCount ?? 0,
-    verified: l.verified,
-    featured: l.featured,
-    averageRating: l.averageRating ?? null,
-    reviewCount: l.reviewCount ?? 0,
-    status: l.status ?? null,
-    isAvailable: l.isAvailable ?? (l.status ? l.status === "ACTIVE" : null),
-  })
+  const normalizeListing = (l: any): RecommendedListing => {
+    // Debug logging to check what scores are coming from backend
+    console.log("Raw listing data:", {
+      id: l.id || l.listingId,
+      title: l.title,
+      matchScore: l.matchScore,
+      totalScore: l.totalScore,
+      compatibilityScore: l.compatibilityScore,
+      allKeys: Object.keys(l)
+    })
+    
+    const normalized = {
+      listingId: l.id || l.listingId,
+      title: l.title,
+      description: l.description || "",
+      rentAmount: l.rentAmount,
+      city: l.city,
+      neighborhood: l.neighborhood,
+      propertyType: l.propertyType || "",
+      primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
+      bedrooms: l.bedrooms,
+      bathrooms: l.bathrooms,
+      matchScore: l.matchScore ?? l.totalScore ?? l.compatibilityScore ?? 0,
+      preferenceScore: l.preferenceScore ?? 0,
+      behaviorScore: l.behaviorScore ?? 0,
+      reasons: l.reasons || [],
+      isViewed: l.isViewed ?? false,
+      isFavorited: l.isFavorited ?? false,
+      viewsCount: l.viewsCount ?? 0,
+      verified: l.verified,
+      featured: l.featured,
+      averageRating: l.averageRating ?? null,
+      reviewCount: l.reviewCount ?? 0,
+      status: l.status ?? null,
+      isAvailable: l.isAvailable ?? (l.status ? l.status === "ACTIVE" : null),
+    }
+    
+    console.log("Normalized listing:", {
+      title: normalized.title,
+      matchScore: normalized.matchScore
+    })
+    
+    return normalized
+  }
 
   // Fetch all sections on initial load
   const fetchAllSections = useCallback(async () => {
     if (!user?.id) return
-    
+
     setIsLoading(true)
     setError(null)
-    
+
     try {
       // Fetch all three sections in parallel
       const [recResponse, activeListingsResponse] = await Promise.allSettled([
         api.get("/recommendations/listings"),
         api.get("/listings/active", { params: user?.id ? { userId: user.id } : {} }),
       ])
-      
+
       // Process recommendations
       if (recResponse.status === "fulfilled") {
         const recData = Array.isArray(recResponse.value.data) ? recResponse.value.data : []
@@ -112,18 +132,18 @@ export default function ForYouPage() {
           setListings(fallbackData.slice(0, 20).map(normalizeListing))
         }
       }
-      
+
       // Process trending and recent from active listings
       if (activeListingsResponse.status === "fulfilled") {
         const allListings = activeListingsResponse.value.data || []
-        
+
         // Trending: Sort by views count, take top 15
         const trending = [...allListings]
           .sort((a, b) => (b.viewsCount || 0) - (a.viewsCount || 0))
           .slice(0, 15)
           .map(normalizeListing)
         setTrendingListings(trending)
-        
+
         // Recent: Sort by created date, take top 15
         const recent = [...allListings]
           .sort((a, b) => {
@@ -148,13 +168,13 @@ export default function ForYouPage() {
   // Fetch more recent listings (client-side pagination)
   const fetchMoreRecent = useCallback(async (page: number) => {
     if (!user?.id) return
-    
+
     try {
-      const response = await api.get("/listings/active", { 
+      const response = await api.get("/listings/active", {
         params: user?.id ? { userId: user.id } : {}
       })
       const allListings = response.data || []
-      
+
       // Client-side sorting and pagination
       const sorted = [...allListings]
         .sort((a, b) => {
@@ -162,12 +182,12 @@ export default function ForYouPage() {
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
           return dateB - dateA
         })
-      
+
       const totalPages = Math.ceil(sorted.length / PAGE_SIZE)
       const start = page * PAGE_SIZE
       const end = start + PAGE_SIZE
       const paginated = sorted.slice(start, end).map(normalizeListing)
-      
+
       setRecentListings(paginated)
       setTotalPages(totalPages)
       setCurrentPage(page)
@@ -203,8 +223,9 @@ export default function ForYouPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
+      <QuickTour role="STUDENT" storageKey="roombuddy_student_tour" />
       <MobileHeader title={t.nav.forYou} />
-      
+
       {/* Tabs */}
       <div className="sticky top-14 z-30 bg-white border-b border-slate-200">
         <div className="flex px-4 gap-2 py-2 overflow-x-auto scrollbar-hide">
@@ -214,11 +235,10 @@ export default function ForYouPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                  activeTab === tab.id
-                    ? "bg-blue-600 text-white"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${activeTab === tab.id
+                  ? "bg-blue-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
               >
                 <Icon className="h-4 w-4" />
                 {tab.label}
@@ -233,13 +253,13 @@ export default function ForYouPage() {
       </div>
 
       {/* Content */}
-      <div 
+      <div
         ref={containerRef}
         className="flex-1 overflow-y-auto relative"
       >
-        <PullToRefreshIndicator 
-          pullProgress={pullProgress} 
-          isRefreshing={isRefreshing} 
+        <PullToRefreshIndicator
+          pullProgress={pullProgress}
+          isRefreshing={isRefreshing}
         />
 
         <div className="py-4 space-y-6">
@@ -280,23 +300,6 @@ export default function ForYouPage() {
               {/* ===== FOR YOU SECTION ===== */}
               {activeTab === "forYou" && (
                 <>
-                  {/* AI Banner */}
-                  {listings.length > 0 && (
-                    <div className="px-4">
-                      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 rounded-2xl p-4 text-white shadow-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="p-2 bg-white/20 rounded-full">
-                            <Sparkles className="h-5 w-5" />
-                          </div>
-                          <span className="font-bold text-lg">Picked For You</span>
-                        </div>
-                        <p className="text-sm text-white/90">
-                          {listings.length} personalized recommendations based on your preferences, browsing history, and what students like you love.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Recommended Listings */}
                   {listings.length > 0 ? (
                     <div>
@@ -309,29 +312,8 @@ export default function ForYouPage() {
                       </div>
                       <div className="px-4">
                         <div className="grid gap-4 sm:grid-cols-2">
-                          {listings.slice(0, 6).map((listing, index) => (
+                          {listings.slice(0, 6).map((listing) => (
                             <div key={listing.listingId} className="relative">
-                              {/* Match Badge for Top 3 */}
-                              {index < 3 && listing.matchScore && listing.matchScore >= 60 && (
-                                <div className="absolute -top-2 -right-2 z-10 bg-gradient-to-br from-amber-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1">
-                                  <Sparkles className="h-3 w-3" />
-                                  {index === 0 ? "Best Match" : `${listing.matchScore}% Match`}
-                                </div>
-                              )}
-                              
-                              {/* Match Reasons - Show if reasons exist */}
-                              {listing.reasons && listing.reasons.length > 0 && listing.reasons[0] && (
-                                <div className="absolute top-2 left-2 z-10 bg-white/95 backdrop-blur-sm rounded-lg px-2 py-1.5 text-xs text-slate-700 shadow-sm max-w-[calc(100%-1rem)]">
-                                  <div className="flex items-center gap-1 text-blue-600 font-medium mb-0.5">
-                                    <Sparkles className="h-3 w-3" />
-                                    Why this match:
-                                  </div>
-                                  <div className="text-slate-600 line-clamp-2">
-                                    {listing.reasons[0]}
-                                  </div>
-                                </div>
-                              )}
-                              
                               <ListingCard
                                 id={listing.listingId}
                                 title={listing.title}
@@ -350,30 +332,14 @@ export default function ForYouPage() {
                                 rating={listing.averageRating}
                                 onFavoriteToggle={handleFavoriteToggle}
                               />
-                              
-                              {/* Match Score Bar - Always show if matchScore exists */}
-                              {listing.matchScore !== undefined && listing.matchScore !== null && listing.matchScore > 0 && (
-                                <div className="mt-2 px-2">
-                                  <div className="flex items-center justify-between text-xs mb-1">
-                                    <span className="text-slate-600">Match Score</span>
-                                    <span className={`font-semibold ${
-                                      listing.matchScore >= 80 ? "text-green-600" :
-                                      listing.matchScore >= 60 ? "text-blue-600" :
-                                      "text-amber-600"
-                                    }`}>
-                                      {listing.matchScore}%
-                                    </span>
-                                  </div>
-                                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                    <div 
-                                      className={`h-full rounded-full transition-all ${
-                                        listing.matchScore >= 80 ? "bg-gradient-to-r from-green-500 to-emerald-500" :
-                                        listing.matchScore >= 60 ? "bg-gradient-to-r from-blue-500 to-cyan-500" :
-                                        "bg-gradient-to-r from-amber-500 to-orange-500"
-                                      }`}
-                                      style={{ width: `${Math.min(100, listing.matchScore)}%` }}
-                                    />
-                                  </div>
+
+                              {/* Match Reasons — compact, below the card */}
+                              {listing.reasons && listing.reasons.length > 0 && listing.reasons[0] && (
+                                <div className="mt-1.5 px-1">
+                                  <p className="text-xs text-slate-500 flex items-center gap-1 line-clamp-1">
+                                    <Sparkles className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                    {listing.reasons[0]}
+                                  </p>
                                 </div>
                               )}
                             </div>
@@ -446,6 +412,7 @@ export default function ForYouPage() {
                               isVerified={listing.verified}
                               isFeatured={listing.featured}
                               isFavorited={listing.isFavorited}
+                              matchScore={listing.matchScore}
                               rating={listing.averageRating}
                               status={listing.status}
                               isAvailable={listing.isAvailable}
@@ -498,6 +465,7 @@ export default function ForYouPage() {
                                 isVerified={listing.verified}
                                 isFeatured={listing.featured}
                                 isFavorited={listing.isFavorited}
+                                matchScore={listing.matchScore}
                                 rating={listing.averageRating}
                                 status={listing.status}
                                 isAvailable={listing.isAvailable}

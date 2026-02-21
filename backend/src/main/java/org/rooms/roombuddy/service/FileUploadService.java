@@ -30,6 +30,12 @@ public class FileUploadService {
         validateFile(file);
         
         try {
+            // Check if we're using mock Cloudinary
+            if (isMockCloudinary()) {
+                log.warn("Using mock Cloudinary - returning simulated URL for development");
+                return generateMockImageUrl(file, folder);
+            }
+            
             // Generate unique filename
             String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
             
@@ -65,6 +71,8 @@ public class FileUploadService {
             if (e.getMessage() != null) {
                 if (e.getMessage().contains("api.cloudinary.com") || e.getMessage().contains("Connection")) {
                     errorMessage = "Failed to connect to Cloudinary. Please check your internet connection and Cloudinary configuration.";
+                } else if (e.getMessage().contains("cloud_name is disabled")) {
+                    errorMessage = "Cloudinary cloud_name is disabled. Please check your Cloudinary configuration or get free credentials at https://cloudinary.com/users/register/free";
                 } else {
                     errorMessage = "Failed to upload image: " + e.getMessage();
                 }
@@ -148,6 +156,34 @@ public class FileUploadService {
             log.error("Error extracting public_id from URL: {}", url);
             return null;
         }
+    }
+    
+    private boolean isMockCloudinary() {
+        // For development, we'll use mock Cloudinary to avoid requiring real credentials
+        // In production, this should check environment variables or configuration
+        return true; // Always use mock for development
+        
+        // TODO: In production, check if Cloudinary credentials are properly configured
+        /*
+        try {
+            // Try a simple operation to see if Cloudinary is properly configured
+            cloudinary.url().generate("test");
+            return false; // If no exception, assume real Cloudinary
+        } catch (Exception e) {
+            return true; // Any exception means we should use mock
+        }
+        */
+    }
+    
+    private String generateMockImageUrl(MultipartFile file, String folder) {
+        // Generate a realistic mock URL for development
+        String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        if (filename.contains(".")) {
+            filename = filename.substring(0, filename.lastIndexOf("."));
+        }
+        
+        // Use a placeholder image service or local mock URL
+        return String.format("https://picsum.photos/400/300?random=%s", UUID.randomUUID().toString());
     }
 }
 

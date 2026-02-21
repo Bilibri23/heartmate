@@ -35,6 +35,12 @@ interface Lease {
   studentName: string
   studentEmail: string
   studentPhone: string
+  // Co-tenant fields
+  coTenantId?: string
+  coTenantName?: string
+  coTenantEmail?: string
+  coTenantPhone?: string
+  isSharedLease: boolean
   startDate: string
   endDate: string
   monthlyRent: number
@@ -45,6 +51,9 @@ interface Lease {
   landlordAcceptedTerms: boolean
   studentAcceptedAt: string | null
   landlordAcceptedAt: string | null
+  // Co-tenant acceptance
+  coTenantAcceptedTerms?: boolean
+  coTenantAcceptedAt?: string | null
   durationMonths: number
   createdAt: string
 }
@@ -227,20 +236,43 @@ export default function LandlordLeasesPage() {
 
                     {/* Tenant Info */}
                     <div className="p-4 bg-slate-50">
-                      <p className="text-xs text-slate-500 mb-2">Tenant</p>
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                          <User className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-medium text-slate-900">{lease.studentName}</p>
-                          <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {lease.studentEmail}
-                            </span>
+                      <p className="text-xs text-slate-500 mb-2">
+                        {lease.isSharedLease ? "Tenants" : "Tenant"}
+                      </p>
+                      <div className="space-y-3">
+                        {/* Primary Tenant */}
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <User className="h-5 w-5 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-slate-900">{lease.studentName}</p>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                              <span className="flex items-center gap-1">
+                                <Mail className="h-3 w-3" />
+                                {lease.studentEmail}
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        
+                        {/* Co-tenant */}
+                        {lease.isSharedLease && lease.coTenantName && (
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                              <User className="h-5 w-5 text-purple-600" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-slate-900">{lease.coTenantName}</p>
+                              <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
+                                <span className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  {lease.coTenantEmail}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -262,11 +294,26 @@ export default function LandlordLeasesPage() {
                     {/* Signature Status */}
                     {lease.status === "PENDING_SIGNATURES" && (
                       <div className="px-4 pb-2">
-                        <div className="flex items-center gap-4 text-xs">
-                          <span className={`flex items-center gap-1 ${lease.studentAcceptedTerms ? 'text-green-600' : 'text-slate-400'}`}>
-                            {lease.studentAcceptedTerms ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                            Student {lease.studentAcceptedTerms ? 'signed' : 'pending'}
-                          </span>
+                        <div className="space-y-3">
+                          {/* Primary Tenant */}
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className={`flex items-center gap-1 ${lease.studentAcceptedTerms ? 'text-green-600' : 'text-slate-400'}`}>
+                              {lease.studentAcceptedTerms ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                              {lease.studentName} {lease.studentAcceptedTerms ? 'signed' : 'pending'}
+                            </span>
+                          </div>
+                          
+                          {/* Co-tenant */}
+                          {lease.isSharedLease && lease.coTenantName && (
+                            <div className="flex items-center gap-4 text-xs">
+                              <span className={`flex items-center gap-1 ${lease.coTenantAcceptedTerms ? 'text-green-600' : 'text-slate-400'}`}>
+                                {lease.coTenantAcceptedTerms ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                                {lease.coTenantName} {lease.coTenantAcceptedTerms ? 'signed' : 'pending'}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Landlord */}
                           <span className={`flex items-center gap-1 ${lease.landlordAcceptedTerms ? 'text-green-600' : 'text-slate-400'}`}>
                             {lease.landlordAcceptedTerms ? <CheckCircle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                             You {lease.landlordAcceptedTerms ? 'signed' : 'pending'}

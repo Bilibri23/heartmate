@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import api from "@/lib/api"
+import { toast } from "sonner"
 
 interface VerificationStatus {
   identityStatus: string
@@ -91,18 +92,15 @@ export default function LandlordVerificationPage() {
   const uploadFile = async (file: File): Promise<string> => {
     const formData = new FormData()
     formData.append("file", file)
-    const token = localStorage.getItem("token")
-    const response = await fetch("http://localhost:8080/api/upload/profile-photo", {
-      method: "POST",
-      headers: token ? { "Authorization": `Bearer ${token}` } : {},
-      body: formData
+    
+    const response = await api.post("/upload/profile-photo", formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     })
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.status}`)
-    }
-    const data = await response.json()
-    console.log("Upload response:", data)
-    return data?.data || data?.url || data
+    
+    console.log("Upload response:", response.data)
+    return response.data?.data || response.data?.url || response.data
   }
 
   const handleSubmit = async () => {
@@ -149,10 +147,12 @@ export default function LandlordVerificationPage() {
       console.error("Failed to submit verification:", err)
       const errorMessage = err?.response?.data?.message || "Failed to submit verification"
       if (errorMessage.includes("already verified") || errorMessage.includes("already submitted")) {
-        alert("Verification already submitted. Please wait for admin review or contact support.")
+        toast.error("Verification already submitted", {
+          description: "Please wait for admin review or contact support."
+        })
         fetchStatus()
       } else {
-        alert(errorMessage)
+        toast.error(errorMessage)
       }
     } finally {
       setIsSubmitting(false)

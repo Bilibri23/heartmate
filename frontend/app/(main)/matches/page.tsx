@@ -147,24 +147,6 @@ export default function MatchesPage() {
     createdAt: m.createdAt,
   })
 
-  const findNewMatches = useCallback(async () => {
-    if (!user?.id) return []
-    
-    setIsFinding(true)
-    try {
-      const response = await api.post(`/matches/find?userId=${user.id}`)
-      const rawMatches: MatchResponse[] = response.data || []
-      const normalized = rawMatches.map(normalizeMatch)
-      setMatches(normalized)
-      return normalized
-    } catch (err) {
-      console.error("Failed to find matches:", err)
-      return []
-    } finally {
-      setIsFinding(false)
-    }
-  }, [user?.id])
-
   const fetchMatches = useCallback(async () => {
     if (!user?.id) return []
     
@@ -192,6 +174,29 @@ export default function MatchesPage() {
       return []
     } finally {
       setIsLoading(false)
+    }
+  }, [user?.id])
+
+  const findNewMatches = useCallback(async () => {
+    if (!user?.id) return []
+    
+    setIsFinding(true)
+    try {
+      console.log("Finding matches for user:", user.id)
+      const response = await api.post(`/matches/find`, null, {
+        params: { userId: user.id }
+      })
+      const rawMatches: MatchResponse[] = response.data || []
+      console.log("Raw matches from API:", rawMatches.length, rawMatches)
+      const normalized = rawMatches.map(normalizeMatch)
+      console.log("Normalized matches:", normalized.length)
+      setMatches(normalized)
+      return normalized
+    } catch (err) {
+      console.error("Failed to find matches:", err)
+      return []
+    } finally {
+      setIsFinding(false)
     }
   }, [user?.id])
 
@@ -285,7 +290,7 @@ export default function MatchesPage() {
           <div className="relative">
             <Avatar className="h-14 w-14 ring-2 ring-white shadow-sm">
               <AvatarImage src={match.matchedUser.profilePhotoUrl || undefined} />
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg font-semibold">
+              <AvatarFallback className="bg-blue-100 text-blue-600 text-lg font-semibold">
                 {match.matchedUser.firstName?.[0] || "?"}{match.matchedUser.lastName?.[0] || ""}
               </AvatarFallback>
             </Avatar>
@@ -376,7 +381,7 @@ export default function MatchesPage() {
         style={{ height: "calc(100vh - 320px)", minHeight: "400px" }}
       >
         {/* Photo/Avatar Section */}
-        <div className="relative h-2/3 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500">
+        <div className="relative h-2/3 bg-blue-500">
           {match.matchedUser.profilePhotoUrl ? (
             <img 
               src={match.matchedUser.profilePhotoUrl} 
@@ -555,24 +560,6 @@ export default function MatchesPage() {
         </Link>
       )}
 
-      {/* Setup Preferences Banner */}
-      <Link href="/preferences">
-        <div className="mx-4 mt-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-3 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
-                <Settings className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="font-medium text-sm">Update Preferences</p>
-                <p className="text-xs text-white/80">Better matches await</p>
-              </div>
-            </div>
-            <ChevronRight className="h-5 w-5" />
-          </div>
-        </div>
-      </Link>
-
       {/* Tabs + View Mode Toggle */}
       <div className="px-4 pt-4 pb-2">
         <div className="flex items-center justify-between mb-3">
@@ -673,7 +660,7 @@ export default function MatchesPage() {
                 <>
                   {discoveredMatches.length === 0 ? (
                     <div className="text-center py-12">
-                      <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <UserPlus className="h-10 w-10 text-blue-500" />
                       </div>
                       <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -856,7 +843,7 @@ export default function MatchesPage() {
               <div className="flex flex-col items-center pt-2 pb-6">
                 <Avatar className="h-24 w-24 ring-4 ring-white shadow-lg mb-4">
                   <AvatarImage src={selectedMatch.matchedUser.profilePhotoUrl || undefined} />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-3xl font-bold">
+                  <AvatarFallback className="bg-blue-100 text-blue-600 text-3xl font-bold">
                     {selectedMatch.matchedUser.firstName?.[0]}{selectedMatch.matchedUser.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
@@ -931,7 +918,7 @@ export default function MatchesPage() {
                       Pass
                     </Button>
                     <Button
-                      className="flex-1 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                      className="flex-1 h-12 rounded-xl bg-blue-600 hover:bg-blue-700"
                       onClick={() => { handleAction(selectedMatch.id, "ACCEPT"); setSelectedMatch(null); }}
                     >
                       <Heart className="h-5 w-5 mr-2" />

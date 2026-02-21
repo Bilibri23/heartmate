@@ -238,9 +238,9 @@
                 <artifactId>flyway-maven-plugin</artifactId>
                 <version>11.7.2</version>
                 <configuration>
-                    <url>jdbc:postgresql://localhost:5432/roomconnect_db</url>
-                    <user>postgres</user>
-                    <password>postgres</password>
+                    <url>${env.DATABASE_URL}</url>
+                    <user>${env.DATABASE_USERNAME}</user>
+                    <password>${env.DATABASE_PASSWORD}</password>
                 </configuration>
             </plugin>
 

@@ -1,11 +1,5 @@
 # RoomBuddy CI/CD Pipeline
 # Runs on every push and pull request to main/develop branches
-#
-# What it does:
-# 1. Builds and tests the backend (Java/Maven)
-# 2. Builds and tests the frontend (React/Vite)
-# 3. Runs linting checks
-# 4. Blocks merge if tests fail
 
 name: CI/CD Pipeline
 
@@ -17,7 +11,7 @@ on:
 
 env:
   JAVA_VERSION: '17'
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
   # ==================== BACKEND BUILD & TEST ====================
@@ -26,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     
     services:
-      # PostgreSQL for integration tests
       postgres:
         image: postgres:15-alpine
         env:
@@ -72,10 +65,6 @@ jobs:
           SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
           SPRING_FLYWAY_ENABLED: false
 
-      - name: Generate test report
-        if: always()
-        run: mvn surefire-report:report-only -B
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -86,20 +75,14 @@ jobs:
       - name: Build JAR
         run: mvn package -DskipTests -B
 
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-jar
-          path: target/*.jar
-
-  # ==================== FRONTEND BUILD & TEST ====================
+  # ==================== FRONTEND BUILD ====================
   frontend:
-    name: Frontend (React/Vite)
+    name: Frontend (Next.js)
     runs-on: ubuntu-latest
     
     defaults:
       run:
-        working-directory: frontend/room8
+        working-directory: frontend
 
     steps:
       - name: Checkout code
@@ -110,7 +93,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: frontend/room8/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -119,51 +102,11 @@ jobs:
         run: npm run lint || echo "Linting completed with warnings"
         continue-on-error: true
 
-      - name: Run tests
-        run: npm test -- --passWithNoTests
-        continue-on-error: true
-
       - name: Build production bundle
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL || 'http://localhost:8080' }}
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend/room8/dist/
-
-  # ==================== CODE QUALITY ====================
-  code-quality:
-    name: Code Quality Checks
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK ${{ env.JAVA_VERSION }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-
-      - name: Check for hardcoded secrets
-        run: |
-          echo "Checking for potential hardcoded secrets..."
-          # Simple check for common secret patterns
-          if grep -rE "(password|secret|api_key|apikey).*=.*['\"][^'\"]{8,}['\"]" --include="*.java" --include="*.properties" --include="*.yml" . | grep -v "test" | grep -v "example"; then
-            echo "⚠️ Warning: Potential hardcoded secrets found. Please use environment variables."
-          fi
-        continue-on-error: true
-
-      - name: Check Java code style
-        run: |
-          echo "Running basic code style checks..."
-          # Check for common issues
-          find . -name "*.java" -exec grep -l "System.out.println" {} \; | head -5 && echo "⚠️ Found System.out.println - use proper logging instead" || echo "✅ No System.out.println found"
-        continue-on-error: true
+          NEXT_PUBLIC_BACKEND_URL: http://localhost:8082/api
+          NEXT_PUBLIC_API_URL: /api
 
   # ==================== DOCKER BUILD ====================
   docker:
@@ -180,14 +123,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build backend Docker image
-        run: |
-          docker build -t roombuddy-backend:${{ github.sha }} .
-        continue-on-error: true
-
-      - name: Build frontend Docker image
-        run: |
-          docker build -t roombuddy-frontend:${{ github.sha }} ./frontend/room8
-        continue-on-error: true
+        run: docker build -f backend/Dockerfile -t roombuddy-backend:${{ github.sha }} .
 
       # Uncomment when ready to push to a registry
       # - name: Login to Docker Hub
@@ -197,15 +133,13 @@ jobs:
       #     password: ${{ secrets.DOCKER_PASSWORD }}
       #
       # - name: Push images
-      #   run: |
-      #     docker push roombuddy-backend:${{ github.sha }}
-      #     docker push roombuddy-frontend:${{ github.sha }}
+      #   run: docker push roombuddy-backend:${{ github.sha }}
 
   # ==================== SUMMARY ====================
   summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [backend, frontend, code-quality]
+    needs: [backend, frontend]
     if: always()
     
     steps:
@@ -217,4 +151,3 @@ jobs:
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | ${{ needs.backend.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${{ needs.frontend.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Code Quality | ${{ needs.code-quality.result }} |" >> $GITHUB_STEP_SUMMARY

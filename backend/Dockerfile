@@ -24,7 +24,7 @@ COPY backend/src ./src
 RUN mvn clean package -DskipTests -B -Dmaven.wagon.http.pool=false
 
 # ==================== RUNTIME STAGE ====================
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:17-jre-alpine
 
 # Add labels for container metadata
 LABEL maintainer="RoomBuddy Team"

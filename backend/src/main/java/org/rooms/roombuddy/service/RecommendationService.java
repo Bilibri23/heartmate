@@ -39,7 +39,6 @@ public class RecommendationService {
      * Get personalized listing recommendations for a student
      * Combines: preferences + past viewing behavior + similar user behavior
      */
-    @org.springframework.cache.annotation.Cacheable(value = "recommendations", key = "#studentId")
     public List<ScoredListing> getRecommendedListings(UUID studentId) {
         log.info("Generating recommendations for student: {}", studentId);
         
@@ -52,9 +51,9 @@ public class RecommendationService {
         
         ListingPreferences prefs = prefsOpt.get();
         
-        // Get all active verified listings
-        List<PropertyListing> allListings = listingRepository.findByStatusAndVerified(
-            PropertyListing.Status.ACTIVE, true
+        // Get all active listings (verified status boosts score but doesn't exclude)
+        List<PropertyListing> allListings = listingRepository.findByStatus(
+            PropertyListing.Status.ACTIVE
         );
         
         // Get behavioral data
@@ -97,12 +96,17 @@ public class RecommendationService {
             // Combined score with all factors
             // Ensure we always have a base score from engagement (even if preferences are 0)
             int baseScore = (int) (engagementBoost * 0.2); // At least engagement score
+            
+            // Verified listings get a bonus
+            int verifiedBoost = Boolean.TRUE.equals(listing.getVerified()) ? 15 : 0;
+            
             int totalScore = (int) (
                 (preferenceScore * PREFERENCE_WEIGHT) + 
                 (behaviorBoost * BEHAVIOR_WEIGHT) +
                 (similarUserBoost * SIMILAR_USER_WEIGHT) +
                 (diversityBoost * DIVERSITY_WEIGHT) +
-                baseScore
+                baseScore +
+                verifiedBoost
             );
             
             // Ensure minimum score of 30 (so users see meaningful match percentages)

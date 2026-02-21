@@ -53,6 +53,11 @@ public class ListingRequest {
     // Amenities
     private List<String> amenities; // WiFi, Water, Electricity, Parking, Security, Furnished
     
+    // Virtual Tour
+    private String videoTourUrl;
+    private String videoTourThumbnail;
+    private Integer videoTourDuration;
+    
     // Availability
     private LocalDate availableFrom;
     private LocalDate availableTo;

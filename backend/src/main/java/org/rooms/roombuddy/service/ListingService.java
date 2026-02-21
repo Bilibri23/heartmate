@@ -78,6 +78,9 @@ public class ListingService {
                 .squareMeters(request.getSquareMeters())
                 .floor(request.getFloor())
                 .amenities(request.getAmenities())
+                .videoTourUrl(request.getVideoTourUrl())
+                .videoTourThumbnail(request.getVideoTourThumbnail())
+                .videoTourDuration(request.getVideoTourDuration())
                 .availableFrom(request.getAvailableFrom())
                 .availableTo(request.getAvailableTo())
                 .landlordWhatsapp(request.getLandlordWhatsapp())
@@ -183,6 +186,15 @@ public class ListingService {
         }
         if (request.getAmenities() != null) {
             listing.setAmenities(request.getAmenities());
+        }
+        if (request.getVideoTourUrl() != null) {
+            listing.setVideoTourUrl(request.getVideoTourUrl());
+        }
+        if (request.getVideoTourThumbnail() != null) {
+            listing.setVideoTourThumbnail(request.getVideoTourThumbnail());
+        }
+        if (request.getVideoTourDuration() != null) {
+            listing.setVideoTourDuration(request.getVideoTourDuration());
         }
         if (request.getAvailableFrom() != null) {
             listing.setAvailableFrom(request.getAvailableFrom());
@@ -588,6 +600,9 @@ public class ListingService {
                 .reviewCount((int) reviewCount)
                 .compatibilityScore(compatibilityScore)
                 .compatibilityReason(compatibilityReason)
+                .videoTourUrl(listing.getVideoTourUrl())
+                .videoTourThumbnail(listing.getVideoTourThumbnail())
+                .videoTourDuration(listing.getVideoTourDuration())
                 .createdAt(listing.getCreatedAt())
                 .updatedAt(listing.getUpdatedAt())
                 .build();

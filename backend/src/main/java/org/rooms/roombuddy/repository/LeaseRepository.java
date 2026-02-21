@@ -30,7 +30,7 @@ public interface LeaseRepository extends JpaRepository<Lease, UUID> {
     
     List<Lease> findByLandlordIdAndStatus(UUID landlordId, Lease.LeaseStatus status);
     
-    @Query("SELECT l FROM Lease l WHERE l.student.id = :userId OR l.landlord.id = :userId")
+    @Query("SELECT l FROM Lease l WHERE l.student.id = :userId OR l.landlord.id = :userId OR l.coTenant.id = :userId")
     Page<Lease> findByUserId(@Param("userId") UUID userId, Pageable pageable);
     
     @Query("SELECT l FROM Lease l WHERE l.listing.id = :listingId AND l.status = 'ACTIVE'")

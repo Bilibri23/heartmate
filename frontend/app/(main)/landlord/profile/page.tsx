@@ -67,16 +67,6 @@ export default function LandlordProfilePage() {
         // Profile may not exist yet
       }
       
-      // Also try to get user details for photo
-      try {
-        const userRes = await api.get(`/users/${user.id}`)
-        if (!profilePhotoUrl && userRes.data?.profilePhotoUrl) {
-          profilePhotoUrl = userRes.data.profilePhotoUrl
-        }
-      } catch {
-        // User endpoint may not exist
-      }
-      
       setProfile({
         id: user.id,
         firstName: user.firstName,

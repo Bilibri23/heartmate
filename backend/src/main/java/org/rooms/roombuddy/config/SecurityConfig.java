@@ -1,6 +1,7 @@
 package org.rooms.roombuddy.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -17,7 +18,9 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.rooms.roombuddy.security.JwtAuthenticationFilter;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -26,6 +29,9 @@ import java.util.Arrays;
 public class SecurityConfig {
     
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Value("${cors.allowed-origins:}")
+    private String corsAllowedOrigins;
     
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -75,10 +81,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList(
+        
+        // Build allowed origins: always include localhost for dev, add production origins from env
+        List<String> origins = new ArrayList<>(Arrays.asList(
                 "http://localhost:*",
                 "http://127.0.0.1:*"
         ));
+        if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
+            origins.addAll(Arrays.asList(corsAllowedOrigins.split(",")));
+        }
+        configuration.setAllowedOriginPatterns(origins);
+        
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -87,7 +100,7 @@ public class SecurityConfig {
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
-        source.registerCorsConfiguration("/ws/**", configuration);  // Add WebSocket CORS
+        source.registerCorsConfiguration("/ws/**", configuration);
         return source;
     }
     
