@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { messageService, Message, SharedListingInfo } from "@/services/message.service";
 import { profileService } from "@/services/profile.service";
@@ -11,7 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Send, Loader2, Home, MapPin, Share2, ExternalLink, X } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Home, MapPin, Share2, ExternalLink, X, Pencil, Trash2, Check, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +26,7 @@ export default function ChatPage() {
   const userId = params.userId as string;
   const { user: currentUser } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [otherUser, setOtherUser] = useState<{ name: string; avatarUrl?: string | null } | null>(null);
@@ -30,7 +37,18 @@ export default function ChatPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-pre-select listing from Share Room navigation
+  useEffect(() => {
+    const shareListingId = searchParams?.get("shareListingId");
+    const shareListingTitle = searchParams?.get("shareListingTitle");
+    if (shareListingId && shareListingTitle) {
+      setSelectedListing({ id: shareListingId, title: decodeURIComponent(shareListingTitle) } as Listing);
+    }
+  }, [searchParams]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -44,23 +62,46 @@ export default function ChatPage() {
       try {
         // Fetch conversation history
         const conversationData = await messageService.getConversation(userId);
-        setMessages(conversationData.messages || []); // Adjust based on actual API response structure
+        const msgs = conversationData.messages || [];
+        setMessages(msgs);
+        
+        let resolved = false;
         
         // Try to resolve participant name/avatar from conversation list
         try {
           const conversations = await messageService.getConversations();
           const match = conversations.find((conv) => conv.userId === userId);
-          if (match) {
+          if (match && match.userName && match.userName !== 'Unknown User') {
             setOtherUser({ name: match.userName, avatarUrl: match.userAvatar });
+            resolved = true;
           }
         } catch {
-          // Ignore and fallback to profile only
+          // Ignore and fallback
         }
 
-        if (!otherUser) {
+        // Fallback: extract name from message sender/receiver info
+        if (!resolved && msgs.length > 0) {
+          const otherMsg = msgs.find((m: any) => m.senderId === userId);
+          if (otherMsg && (otherMsg as any).senderFirstName) {
+            const name = `${(otherMsg as any).senderFirstName} ${(otherMsg as any).senderLastName || ''}`.trim();
+            setOtherUser({ name, avatarUrl: (otherMsg as any).senderProfilePhoto || null });
+            resolved = true;
+          } else {
+            // Check receiver info from messages we sent
+            const myMsg = msgs.find((m: any) => m.receiverId === userId);
+            if (myMsg && (myMsg as any).receiverFirstName) {
+              const name = `${(myMsg as any).receiverFirstName} ${(myMsg as any).receiverLastName || ''}`.trim();
+              setOtherUser({ name, avatarUrl: (myMsg as any).receiverProfilePhoto || null });
+              resolved = true;
+            }
+          }
+        }
+
+        // Last resort fallback
+        if (!resolved) {
           try {
             const profile = await profileService.getProfile(userId);
-            setOtherUser({ name: "User", avatarUrl: profile.profilePhotoUrl || null });
+            setOtherUser({ name: (profile as any).firstName ? `${(profile as any).firstName} ${(profile as any).lastName || ''}`.trim() : "User", avatarUrl: profile.profilePhotoUrl || null });
           } catch {
             setOtherUser({ name: "User", avatarUrl: null });
           }
@@ -150,6 +191,37 @@ export default function ChatPage() {
     }
   };
 
+  const handleEditMessage = async (messageId: string) => {
+    if (!editContent.trim()) return;
+    try {
+      const updated = await messageService.editMessage(messageId, editContent.trim());
+      setMessages((prev) => prev.map((m) => m.id === messageId ? { ...m, content: updated.content, isEdited: true } : m));
+      setEditingMessageId(null);
+      setEditContent("");
+    } catch (error) {
+      console.error("Failed to edit message", error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      await messageService.deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (error) {
+      console.error("Failed to delete message", error);
+    }
+  };
+
+  const startEditing = (msg: Message) => {
+    setEditingMessageId(msg.id);
+    setEditContent(msg.content);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditContent("");
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-CM", {
       style: "currency",
@@ -195,12 +267,30 @@ export default function ChatPage() {
           const hasSharedListing = msg.messageType === 'LISTING_SHARE' && msg.sharedListing;
           
           return (
-            <div key={msg.id} className={cn("flex items-end gap-2", isMe ? "justify-end" : "justify-start")}>
+            <div key={msg.id} className={cn("flex items-end gap-2 group", isMe ? "justify-end" : "justify-start")}>
               {!isMe && (
                 <Avatar className="h-7 w-7">
                   <AvatarImage src={otherUser?.avatarUrl || undefined} />
                   <AvatarFallback>{otherUser?.name?.substring(0, 1) || "?"}</AvatarFallback>
                 </Avatar>
+              )}
+              {/* Edit/Delete menu for own messages */}
+              {isMe && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-32">
+                    <DropdownMenuItem onClick={() => startEditing(msg)}>
+                      <Pencil className="h-3.5 w-3.5 mr-2" /> Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDeleteMessage(msg.id)} className="text-red-600">
+                      <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               <div
                 className={cn(
@@ -250,10 +340,36 @@ export default function ChatPage() {
                 
                 {/* Message Content */}
                 <div className="px-3 py-2">
-                  <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
-                  <span className={cn("mt-1 block text-[10px]", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
+                  {editingMessageId === msg.id ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="h-7 text-sm bg-background text-foreground"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleEditMessage(msg.id);
+                          if (e.key === 'Escape') cancelEditing();
+                        }}
+                      />
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleEditMessage(msg.id)}>
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={cancelEditing}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                  )}
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className={cn("block text-[10px]", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    {(msg as any).isEdited && (
+                      <span className={cn("text-[10px] italic", isMe ? "text-primary-foreground/50" : "text-muted-foreground/70")}>edited</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -146,6 +146,19 @@ public class ListingController {
         return ResponseEntity.ok(response);
     }
     
+    @PostMapping("/{listingId}/video-tour")
+    @Operation(summary = "Upload video tour", description = "Upload a video tour for a listing (Landlord only)")
+    public ResponseEntity<ListingResponse> uploadVideoTour(
+            @PathVariable UUID listingId,
+            @RequestParam UUID landlordId,
+            @RequestParam("file") MultipartFile file) {
+        log.info("Uploading video tour for listing: {}", listingId);
+        
+        String videoUrl = fileUploadService.uploadVideoTour(file);
+        ListingResponse response = listingService.setVideoTour(listingId, landlordId, videoUrl);
+        return ResponseEntity.ok(response);
+    }
+    
     @DeleteMapping("/photos/{photoId}")
     @Operation(summary = "Remove photo from listing", description = "Remove a photo from a listing (Landlord only)")
     public ResponseEntity<Void> removePhoto(

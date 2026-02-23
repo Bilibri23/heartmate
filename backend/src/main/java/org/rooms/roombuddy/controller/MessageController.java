@@ -103,6 +103,23 @@ public class MessageController {
     }
     
     /**
+     * Edit a message (sender only)
+     */
+    @PutMapping("/{messageId}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Edit message", description = "Edit a message you sent")
+    public ResponseEntity<MessageResponse> editMessage(
+            @PathVariable UUID messageId,
+            @RequestBody Map<String, String> body) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        String newContent = body.get("content");
+        log.info("Editing message {} for user {}", messageId, userId);
+        
+        MessageResponse response = messageService.editMessage(messageId, userId, newContent);
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
      * Delete a message
      */
     @DeleteMapping("/{messageId}")

@@ -190,6 +190,31 @@ public class MessageService {
     }
     
     /**
+     * Edit a message (sender only)
+     */
+    public MessageResponse editMessage(UUID messageId, UUID userId, String newContent) {
+        log.info("Editing message {} by user {}", messageId, userId);
+        
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found"));
+        
+        if (!message.getSender().getId().equals(userId)) {
+            throw new BadRequestException("Only the sender can edit a message");
+        }
+        
+        if (newContent == null || newContent.trim().isEmpty()) {
+            throw new BadRequestException("Message content cannot be empty");
+        }
+        
+        message.setContent(newContent.trim());
+        message.setIsEdited(true);
+        message.setEditedAt(java.time.LocalDateTime.now());
+        message = messageRepository.save(message);
+        
+        return toMessageResponse(message, userId);
+    }
+    
+    /**
      * Search messages in conversation
      */
     public Page<MessageResponse> searchMessages(UUID userId, UUID otherUserId, String searchTerm, int page, int size) {
@@ -236,7 +261,9 @@ public class MessageService {
                 .isRead(message.getIsRead())
                 .readAt(message.getReadAt())
                 .createdAt(message.getCreatedAt())
-                .isSentByMe(message.getSender().getId().equals(currentUserId));
+                .isSentByMe(message.getSender().getId().equals(currentUserId))
+                .isEdited(message.getIsEdited())
+                .editedAt(message.getEditedAt());
         
         // Add shared listing info if applicable
         if (message.getSharedListing() != null) {

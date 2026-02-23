@@ -17,7 +17,8 @@ import {
   ChevronRight,
   CheckCircle,
   Loader2,
-  Trash2
+  Trash2,
+  Video
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,7 +42,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import api from "@/lib/api"
+import api, { uploadApi } from "@/lib/api"
 
 const CAMEROON_CITIES = [
   "Douala", "Yaoundé", "Bamenda", "Bafoussam", "Garoua",
@@ -56,15 +57,26 @@ const PROPERTY_TYPES = [
   { value: "SHARED_ROOM", label: "Shared Room" },
 ]
 
-const AMENITIES = [
-  "WiFi", "Air Conditioning", "Furnished", "Kitchen", "Parking",
-  "Security", "Water Tank", "Generator", "Balcony", "Laundry"
-]
+const AMENITIES_BY_CATEGORY: Record<string, string[]> = {
+  "Essentials": ["WiFi", "Furnished", "Air Conditioning", "Ceiling Fan", "Hot Water", "Water Tank", "Generator"],
+  "Rooms & Spaces": ["Kitchen", "Living Room", "Dining Room", "Balcony", "Terrace", "Garden", "Storage Room", "Wardrobe"],
+  "Appliances": ["Refrigerator", "Washing Machine", "Dryer", "Microwave", "Stove/Oven", "TV", "Iron"],
+  "Building": ["Parking", "Garage", "Elevator", "Swimming Pool", "Gym", "Rooftop Access"],
+  "Safety & Security": ["Security", "CCTV", "Security Guard", "Gated Compound", "Fire Extinguisher", "Smoke Detector"],
+  "Utilities": ["Electricity (ENEO)", "Running Water (CDE)", "Solar Panels", "Septic Tank", "Laundry Area"],
+  "Nearby": ["Near University", "Near Hospital", "Near Market", "Near Bus Stop", "Near Main Road"],
+}
 
 interface ExistingPhoto {
   id: string
   photoUrl: string
   isPrimary: boolean
+}
+
+interface VideoTour {
+  videoTourUrl?: string
+  videoTourThumbnail?: string
+  videoTourDuration?: number
 }
 
 export default function EditListingPage() {
@@ -81,6 +93,8 @@ export default function EditListingPage() {
   const [existingPhotos, setExistingPhotos] = useState<ExistingPhoto[]>([])
   const [newPhotos, setNewPhotos] = useState<{ file: File; preview: string }[]>([])
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([])
+  const [existingVideoTour, setExistingVideoTour] = useState<VideoTour | null>(null)
+  const [newVideoTour, setNewVideoTour] = useState<{ file: File; preview: string; duration?: number } | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -114,14 +128,23 @@ export default function EditListingPage() {
         address: listing.address || "",
         distanceToUniversity: listing.distanceToUniversity?.toString() || "",
         rentAmount: listing.rentAmount?.toString() || "",
-        depositAmount: listing.depositAmount?.toString() || "",
+        depositAmount: (listing.deposit || listing.depositAmount)?.toString() || "",
         bedrooms: listing.bedrooms?.toString() || "1",
         bathrooms: listing.bathrooms?.toString() || "1",
-        size: listing.size?.toString() || "",
+        size: (listing.squareMeters || listing.size)?.toString() || "",
         amenities: listing.amenities || [],
       })
       
       setExistingPhotos(listing.photos || [])
+      
+      // Set existing video tour
+      if (listing.videoTourUrl || listing.videoTour) {
+        setExistingVideoTour({
+          videoTourUrl: listing.videoTourUrl || listing.videoTour?.videoUrl,
+          videoTourThumbnail: listing.videoTourThumbnail || listing.videoTour?.thumbnailUrl,
+          videoTourDuration: listing.videoTourDuration || listing.videoTour?.duration
+        })
+      }
     } catch (err) {
       console.error("Failed to fetch listing:", err)
       router.push("/landlord/listings")
@@ -157,6 +180,33 @@ export default function EditListingPage() {
     setNewPhotos(prev => prev.filter((_, i) => i !== index))
   }
 
+  const handleVideoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => {
+      setNewVideoTour({
+        file,
+        preview: URL.createObjectURL(file),
+        duration: Math.round(video.duration)
+      })
+    }
+    video.src = URL.createObjectURL(file)
+  }
+
+  const handleVideoRemove = () => {
+    if (newVideoTour) {
+      URL.revokeObjectURL(newVideoTour.preview)
+      setNewVideoTour(null)
+    }
+  }
+
+  const handleExistingVideoRemove = () => {
+    setExistingVideoTour(null)
+  }
+
   const toggleAmenity = (amenity: string) => {
     setFormData(prev => ({
       ...prev,
@@ -181,10 +231,10 @@ export default function EditListingPage() {
         address: formData.address,
         distanceToUniversity: formData.distanceToUniversity ? parseFloat(formData.distanceToUniversity) : null,
         rentAmount: parseInt(formData.rentAmount),
-        depositAmount: parseInt(formData.depositAmount) || parseInt(formData.rentAmount),
+        deposit: parseInt(formData.depositAmount) || parseInt(formData.rentAmount),
         bedrooms: parseInt(formData.bedrooms),
         bathrooms: parseInt(formData.bathrooms),
-        size: formData.size ? parseInt(formData.size) : null,
+        squareMeters: formData.size ? parseInt(formData.size) : null,
         amenities: formData.amenities,
       }
 
@@ -204,12 +254,21 @@ export default function EditListingPage() {
         const photoFormData = new FormData()
         photoFormData.append("file", newPhotos[i].file)
         
-        await api.post(`/listings/${listingId}/photos`, photoFormData, {
+        await uploadApi.post(`/listings/${listingId}/photos`, photoFormData, {
           params: { 
             landlordId: user.id,
             isPrimary: existingPhotos.length === 0 && photosToDelete.length === existingPhotos.length && i === 0
-          },
-          headers: { "Content-Type": "multipart/form-data" }
+          }
+          // Don't set Content-Type - let Axios handle it automatically for FormData
+        }).catch(() => {})
+      }
+
+      // Upload new video tour if provided
+      if (newVideoTour) {
+        const videoFormData = new FormData()
+        videoFormData.append("file", newVideoTour.file)
+        await uploadApi.post(`/listings/${listingId}/video-tour`, videoFormData, {
+          params: { landlordId: user.id }
         }).catch(() => {})
       }
 
@@ -316,6 +375,122 @@ export default function EditListingPage() {
                 </label>
               )}
             </div>
+          </div>
+
+          {/* Virtual Tour */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-slate-900">Virtual Tour (Optional)</h3>
+            
+            {/* Existing Video Tour */}
+            {existingVideoTour && (
+              <div className="space-y-3">
+                <div className="relative rounded-xl overflow-hidden bg-black">
+                  <video 
+                    src={existingVideoTour.videoTourUrl} 
+                    className="w-full h-48 object-contain"
+                    controls
+                    poster={existingVideoTour.videoTourThumbnail}
+                  />
+                  <div className="absolute top-2 left-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                    Current Virtual Tour
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={handleExistingVideoRemove}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 text-blue-800">
+                    <Video className="h-4 w-4" />
+                    <span className="font-medium text-sm">Current virtual tour</span>
+                  </div>
+                  {existingVideoTour.videoTourDuration && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Duration: {Math.floor(existingVideoTour.videoTourDuration / 60)}:{(existingVideoTour.videoTourDuration % 60).toString().padStart(2, '0')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* New Video Tour */}
+            {newVideoTour && (
+              <div className="space-y-3">
+                <div className="relative rounded-xl overflow-hidden bg-black">
+                  <video 
+                    src={newVideoTour.preview} 
+                    className="w-full h-48 object-contain"
+                    controls
+                  />
+                  <div className="absolute top-2 left-2 bg-gradient-to-r from-green-600 to-blue-600 text-white px-3 py-1 rounded-full text-xs font-medium">
+                    New Virtual Tour
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-2 right-2"
+                    onClick={handleVideoRemove}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 text-green-800">
+                    <Video className="h-4 w-4" />
+                    <span className="font-medium text-sm">New virtual tour ready</span>
+                  </div>
+                  {newVideoTour.duration && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Duration: {Math.floor(newVideoTour.duration / 60)}:{(newVideoTour.duration % 60).toString().padStart(2, '0')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Add Video Tour Button */}
+            {!existingVideoTour && !newVideoTour && (
+              <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
+                <Video className="h-8 w-8 text-slate-400 mx-auto mb-3" />
+                <h4 className="text-sm font-medium text-slate-900 mb-2">Add Virtual Tour</h4>
+                <p className="text-xs text-slate-500 mb-4">
+                  Upload a video walkthrough or 360° virtual tour
+                </p>
+                
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <div className="bg-slate-50 rounded-lg p-2">
+                    <div className="text-xs font-medium text-slate-900">📹 Standard Video</div>
+                    <div className="text-xs text-slate-500">Traditional walkthrough</div>
+                  </div>
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-2 border border-blue-200">
+                    <div className="text-xs font-medium text-slate-900">🌐 360° Tour</div>
+                    <div className="text-xs text-slate-500">Interactive 3D experience</div>
+                  </div>
+                </div>
+
+                <input
+                  type="file"
+                  accept="video/*,.mp4,.mov,.avi,.360"
+                  onChange={handleVideoAdd}
+                  className="hidden"
+                  id="video-upload"
+                />
+                <Button asChild variant="outline" size="sm" className="rounded-xl">
+                  <label htmlFor="video-upload" className="cursor-pointer">
+                    Choose Video
+                  </label>
+                </Button>
+                
+                <div className="mt-3 text-xs text-slate-400">
+                  <p>✅ Supports MP4, MOV, AVI, 360° videos</p>
+                  <p>✅ Maximum file size: 100MB</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Basic Info */}
@@ -501,22 +676,27 @@ export default function EditListingPage() {
 
           {/* Amenities */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-slate-900">Amenities</h3>
-            <div className="flex flex-wrap gap-2">
-              {AMENITIES.map((amenity) => (
-                <button
-                  key={amenity}
-                  onClick={() => toggleAmenity(amenity)}
-                  className={`px-3 py-2 rounded-full text-sm font-medium transition-colors ${
-                    formData.amenities.includes(amenity)
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {amenity}
-                </button>
-              ))}
-            </div>
+            <h3 className="font-semibold text-slate-900">Amenities & Features</h3>
+            {Object.entries(AMENITIES_BY_CATEGORY).map(([category, amenities]) => (
+              <div key={category} className="space-y-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{category}</p>
+                <div className="flex flex-wrap gap-2">
+                  {amenities.map((amenity) => (
+                    <button
+                      key={amenity}
+                      onClick={() => toggleAmenity(amenity)}
+                      className={`px-3 py-2 rounded-full text-sm font-medium transition-colors ${
+                        formData.amenities.includes(amenity)
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {amenity}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Actions */}

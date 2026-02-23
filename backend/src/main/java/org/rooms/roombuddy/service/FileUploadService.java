@@ -5,6 +5,7 @@ import com.cloudinary.utils.ObjectUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombuddy.exception.BadRequestException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,9 +20,20 @@ import java.util.UUID;
 public class FileUploadService {
     
     private final Cloudinary cloudinary;
+
+    @Value("${cloudinary.cloud-name:}")
+    private String cloudinaryCloudName;
+
+    @Value("${cloudinary.api-key:}")
+    private String cloudinaryApiKey;
+
+    @Value("${cloudinary.api-secret:}")
+    private String cloudinaryApiSecret;
     
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
     private static final String[] ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"};
+    private static final String[] ALLOWED_VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/x-msvideo", "video/webm"};
     
     public String uploadImage(MultipartFile file, String folder) {
         log.info("Uploading image to folder: {}", folder);
@@ -96,6 +108,79 @@ public class FileUploadService {
         return uploadImage(file, "property-listings");
     }
     
+    public String uploadVideoTour(MultipartFile file) {
+        return uploadVideo(file, "video-tours");
+    }
+    
+    public String uploadVideo(MultipartFile file, String folder) {
+        log.info("Uploading video to folder: {}", folder);
+        
+        validateVideoFile(file);
+        
+        try {
+            if (isMockCloudinary()) {
+                log.warn("Using mock Cloudinary - returning simulated video URL for development");
+                return String.format("https://picsum.photos/800/450?random=%s", UUID.randomUUID().toString());
+            }
+            
+            String filename = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            
+            Map<String, Object> uploadParams = new HashMap<>();
+            uploadParams.put("folder", folder);
+            String originalFilename = file.getOriginalFilename();
+            if (originalFilename != null && originalFilename.contains(".")) {
+                uploadParams.put("public_id", filename.substring(0, filename.lastIndexOf('.')));
+            } else {
+                uploadParams.put("public_id", filename);
+            }
+            uploadParams.put("resource_type", "video");
+            
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    uploadParams
+            );
+            
+            String url = (String) uploadResult.get("secure_url");
+            if (url == null) {
+                throw new BadRequestException("Video upload succeeded but no URL returned.");
+            }
+            
+            log.info("Video uploaded successfully: {}", url);
+            return url;
+            
+        } catch (IOException e) {
+            log.error("Error uploading video: {}", e.getMessage(), e);
+            throw new BadRequestException("Failed to upload video: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Unexpected error uploading video: {}", e.getMessage(), e);
+            throw new BadRequestException("Failed to upload video: " + (e.getMessage() != null ? e.getMessage() : "Unknown error"));
+        }
+    }
+    
+    private void validateVideoFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Video file is required");
+        }
+        
+        if (file.getSize() > MAX_VIDEO_SIZE) {
+            throw new BadRequestException("Video file size exceeds maximum allowed size of 100MB");
+        }
+        
+        String contentType = file.getContentType();
+        if (contentType == null || !isAllowedVideoType(contentType)) {
+            throw new BadRequestException("Invalid video type. Only MP4, MOV, AVI, and WEBM are allowed");
+        }
+    }
+    
+    private boolean isAllowedVideoType(String contentType) {
+        for (String allowedType : ALLOWED_VIDEO_TYPES) {
+            if (allowedType.equals(contentType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     public void deleteImage(String imageUrl) {
         log.info("Deleting image: {}", imageUrl);
         
@@ -159,20 +244,11 @@ public class FileUploadService {
     }
     
     private boolean isMockCloudinary() {
-        // For development, we'll use mock Cloudinary to avoid requiring real credentials
-        // In production, this should check environment variables or configuration
-        return true; // Always use mock for development
-        
-        // TODO: In production, check if Cloudinary credentials are properly configured
-        /*
-        try {
-            // Try a simple operation to see if Cloudinary is properly configured
-            cloudinary.url().generate("test");
-            return false; // If no exception, assume real Cloudinary
-        } catch (Exception e) {
-            return true; // Any exception means we should use mock
-        }
-        */
+        return cloudinaryCloudName == null || cloudinaryCloudName.trim().isEmpty() ||
+               cloudinaryApiKey == null || cloudinaryApiKey.trim().isEmpty() ||
+               cloudinaryApiSecret == null || cloudinaryApiSecret.trim().isEmpty() ||
+               "mock-cloud-name".equals(cloudinaryCloudName) ||
+               "mock-api-key".equals(cloudinaryApiKey);
     }
     
     private String generateMockImageUrl(MultipartFile file, String folder) {

@@ -115,7 +115,6 @@ export default function MatchesPage() {
   const [pendingMatches, setPendingMatches] = useState<Match[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFinding, setIsFinding] = useState(false)
-  const [pendingCoAppInvitations, setPendingCoAppInvitations] = useState(0)
   const [activeTab, setActiveTab] = useState<"discover" | "pending" | "matched">("discover")
   const [viewMode, setViewMode] = useState<"grid" | "swipe">("grid")
   const [currentSwipeIndex, setCurrentSwipeIndex] = useState(0)
@@ -182,14 +181,11 @@ export default function MatchesPage() {
     
     setIsFinding(true)
     try {
-      console.log("Finding matches for user:", user.id)
       const response = await api.post(`/matches/find`, null, {
         params: { userId: user.id }
       })
       const rawMatches: MatchResponse[] = response.data || []
-      console.log("Raw matches from API:", rawMatches.length, rawMatches)
       const normalized = rawMatches.map(normalizeMatch)
-      console.log("Normalized matches:", normalized.length)
       setMatches(normalized)
       return normalized
     } catch (err) {
@@ -206,13 +202,6 @@ export default function MatchesPage() {
       // Auto-find matches if none exist
       if (!existingMatches || existingMatches.length === 0) {
         await findNewMatches()
-      }
-      // Fetch pending co-application invitations count
-      try {
-        const invRes = await api.get("/co-applications/invitations/count")
-        setPendingCoAppInvitations(invRes.data?.count || 0)
-      } catch (err) {
-        // Ignore errors for invitation count
       }
     }
     initMatches()
@@ -521,11 +510,17 @@ export default function MatchesPage() {
       )}
 
       {(match.status === "MUTUAL" || match.status === "ACCEPTED" || match.isMutualMatch) && (
-        <div className="mt-4">
-          <Link href={`/messages/${match.matchedUser?.id}`}>
+        <div className="mt-4 flex gap-2">
+          <Link href={`/messages/${match.matchedUser?.id}`} className="flex-1">
             <Button className="w-full rounded-xl bg-blue-600 hover:bg-blue-700">
               <MessageCircle className="h-4 w-4 mr-2" />
-              Send Message
+              Message
+            </Button>
+          </Link>
+          <Link href={`/messages/${match.matchedUser?.id}`} className="flex-1">
+            <Button variant="outline" className="w-full rounded-xl border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+              <Home className="h-4 w-4 mr-2" />
+              Share Room
             </Button>
           </Link>
         </div>
@@ -538,26 +533,21 @@ export default function MatchesPage() {
     <div className="flex flex-col min-h-screen bg-slate-50">
       <MobileHeader title="Roommate Matching" />
 
-      {/* Co-Application Invitations Banner */}
-      {pendingCoAppInvitations > 0 && (
-        <Link href="/applications/invitations">
-          <div className="mx-4 mt-4 bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-3 text-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
-                  <Home className="h-4 w-4" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm">
-                    {pendingCoAppInvitations} Co-Application Invitation{pendingCoAppInvitations > 1 ? "s" : ""}
-                  </p>
-                  <p className="text-xs text-white/80">Apply together for a listing</p>
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5" />
+      {/* Mutual Matches Tip Banner */}
+      {mutualMatches.length > 0 && (
+        <div className="mx-4 mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-3 text-white">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+              <Home className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="font-medium text-sm">
+                {mutualMatches.length} Roommate Match{mutualMatches.length > 1 ? "es" : ""}
+              </p>
+              <p className="text-xs text-white/80">Message your matches to share your room or find one together</p>
             </div>
           </div>
-        </Link>
+        </div>
       )}
 
       {/* Tabs + View Mode Toggle */}
@@ -789,17 +779,17 @@ export default function MatchesPage() {
                         {mutualMatches.map(match => renderGridCard(match))}
                       </div>
                       
-                      {/* Co-Application Quick Links */}
+                      {/* Quick Links */}
                       <div className="mt-6 space-y-3">
-                        <Link href="/applications/invitations">
+                        <Link href="/for-you">
                           <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 hover:border-blue-300 transition-colors">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                                 <Home className="h-5 w-5 text-green-600" />
                               </div>
                               <div>
-                                <p className="font-medium text-slate-900">Co-Application Invitations</p>
-                                <p className="text-sm text-slate-500">View & manage joint applications</p>
+                                <p className="font-medium text-slate-900">Browse Listings</p>
+                                <p className="text-sm text-slate-500">Find a room to share with your match</p>
                               </div>
                             </div>
                             <ChevronRight className="h-5 w-5 text-slate-400" />

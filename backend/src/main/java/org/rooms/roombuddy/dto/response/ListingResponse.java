@@ -54,6 +54,8 @@ public class ListingResponse {
     private String compatibilityReason; // Why this listing matches
     // Virtual Tour
     private String videoTourUrl;
+    private String videoTourEmbedCode;
+    private String virtualTourProvider; // panoee, kuula, zillow, cloudpano, generic
     private String videoTourThumbnail;
     private Integer videoTourDuration;
     private LocalDateTime createdAt;

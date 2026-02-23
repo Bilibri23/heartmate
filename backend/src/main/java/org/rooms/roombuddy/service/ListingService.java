@@ -12,12 +12,7 @@ import org.rooms.roombuddy.entity.PropertyListing;
 import org.rooms.roombuddy.entity.User;
 import org.rooms.roombuddy.exception.BadRequestException;
 import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.ListingFavoriteRepository;
-import org.rooms.roombuddy.repository.ListingPhotoRepository;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.repository.ReviewRepository;
-import org.rooms.roombuddy.repository.ListingPreferencesRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombuddy.repository.*;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -44,6 +39,7 @@ public class ListingService {
     private final ReviewRepository reviewRepository;
     private final NotificationService notificationService;
     private final ListingPreferencesRepository preferencesRepository;
+    private final RoomApplicationRepository applicationRepository;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -79,6 +75,8 @@ public class ListingService {
                 .floor(request.getFloor())
                 .amenities(request.getAmenities())
                 .videoTourUrl(request.getVideoTourUrl())
+                .videoTourEmbedCode(request.getVideoTourEmbedCode())
+                .virtualTourProvider(request.getVirtualTourProvider())
                 .videoTourThumbnail(request.getVideoTourThumbnail())
                 .videoTourDuration(request.getVideoTourDuration())
                 .availableFrom(request.getAvailableFrom())
@@ -189,6 +187,12 @@ public class ListingService {
         }
         if (request.getVideoTourUrl() != null) {
             listing.setVideoTourUrl(request.getVideoTourUrl());
+        }
+        if (request.getVideoTourEmbedCode() != null) {
+            listing.setVideoTourEmbedCode(request.getVideoTourEmbedCode());
+        }
+        if (request.getVirtualTourProvider() != null) {
+            listing.setVirtualTourProvider(request.getVirtualTourProvider());
         }
         if (request.getVideoTourThumbnail() != null) {
             listing.setVideoTourThumbnail(request.getVideoTourThumbnail());
@@ -601,6 +605,8 @@ public class ListingService {
                 .compatibilityScore(compatibilityScore)
                 .compatibilityReason(compatibilityReason)
                 .videoTourUrl(listing.getVideoTourUrl())
+                .videoTourEmbedCode(listing.getVideoTourEmbedCode())
+                .virtualTourProvider(listing.getVirtualTourProvider())
                 .videoTourThumbnail(listing.getVideoTourThumbnail())
                 .videoTourDuration(listing.getVideoTourDuration())
                 .createdAt(listing.getCreatedAt())
@@ -741,6 +747,20 @@ public class ListingService {
         return mapToResponse(saved, landlordId);
     }
 
+    // Set video tour
+    public ListingResponse setVideoTour(UUID listingId, UUID landlordId, String videoUrl) {
+        PropertyListing listing = listingRepository.findById(listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Listing not found"));
+        
+        if (!listing.getLandlord().getId().equals(landlordId)) {
+            throw new BadRequestException("Only the listing owner can set the video tour");
+        }
+        
+        listing.setVideoTourUrl(videoUrl);
+        listing = listingRepository.save(listing);
+        return mapToResponse(listing, null);
+    }
+    
     // Track view
     public void trackView(UUID listingId, UUID userId) {
         PropertyListing listing = listingRepository.findById(listingId)
@@ -752,12 +772,26 @@ public class ListingService {
     // Get statistics
     public Map<String, Object> getLandlordStatistics(UUID landlordId) {
         List<PropertyListing> listings = listingRepository.findByLandlordId(landlordId);
-        return Map.of(
-                "totalListings", listings.size(),
-                "activeListings", listings.stream().filter(l -> l.getStatus() == PropertyListing.Status.ACTIVE).count(),
-                "rentedListings", listings.stream().filter(l -> l.getStatus() == PropertyListing.Status.RENTED).count(),
-                "totalViews", listings.stream().mapToInt(PropertyListing::getViewsCount).sum()
-        );
+        
+        // Count total favorites across all landlord's listings
+        long totalFavorites = listings.stream()
+                .mapToLong(l -> favoriteRepository.countByListingId(l.getId()))
+                .sum();
+        
+        // Count applications
+        long totalApplications = applicationRepository.countByLandlordId(landlordId);
+        long pendingApplications = applicationRepository.countByLandlordIdAndStatus(
+                landlordId, org.rooms.roombuddy.entity.RoomApplication.Status.PENDING);
+        
+        Map<String, Object> stats = new java.util.HashMap<>();
+        stats.put("totalListings", listings.size());
+        stats.put("activeListings", listings.stream().filter(l -> l.getStatus() == PropertyListing.Status.ACTIVE).count());
+        stats.put("rentedListings", listings.stream().filter(l -> l.getStatus() == PropertyListing.Status.RENTED).count());
+        stats.put("totalViews", listings.stream().mapToInt(PropertyListing::getViewsCount).sum());
+        stats.put("totalFavorites", totalFavorites);
+        stats.put("totalApplications", totalApplications);
+        stats.put("pendingApplications", pendingApplications);
+        return stats;
     }
 
     // Update search to support pagination
@@ -836,6 +870,28 @@ public class ListingService {
     
     return new org.springframework.data.domain.PageImpl<>(
             responses, pageable, allListings.size());
+}
+
+@Transactional(readOnly = true)
+public List<ListingResponse> getAllListings(String status) {
+    log.info("Fetching all listings with status filter: {}", status);
+    
+    List<PropertyListing> listings;
+    if (status != null && !status.isEmpty()) {
+        try {
+            PropertyListing.Status statusEnum = PropertyListing.Status.valueOf(status.toUpperCase());
+            listings = listingRepository.findByStatus(statusEnum);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid status filter: {}", status);
+            listings = listingRepository.findAll();
+        }
+    } else {
+        listings = listingRepository.findAll();
+    }
+    
+    return listings.stream()
+            .map(listing -> mapToResponse(listing, null))
+            .collect(Collectors.toList());
 }
 }
 

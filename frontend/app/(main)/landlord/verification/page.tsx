@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import api from "@/lib/api"
+import api, { uploadApi } from "@/lib/api"
 import { toast } from "sonner"
 
 interface VerificationStatus {
@@ -93,13 +93,7 @@ export default function LandlordVerificationPage() {
     const formData = new FormData()
     formData.append("file", file)
     
-    const response = await api.post("/upload/profile-photo", formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
-    
-    console.log("Upload response:", response.data)
+    const response = await uploadApi.post("/upload/profile-photo", formData)
     return response.data?.data || response.data?.url || response.data
   }
 
@@ -109,15 +103,11 @@ export default function LandlordVerificationPage() {
     setIsSubmitting(true)
     try {
       // Step 1: Upload files to get URLs
-      console.log("Uploading ID document...")
       const idFrontPhotoUrl = await uploadFile(idDocument)
-      console.log("ID photo URL:", idFrontPhotoUrl)
       
       let selfieWithIdUrl = idFrontPhotoUrl
       if (selfie) {
-        console.log("Uploading selfie...")
         selfieWithIdUrl = await uploadFile(selfie)
-        console.log("Selfie URL:", selfieWithIdUrl)
       }
       
       // Step 2: Submit identity verification with JSON body
@@ -130,7 +120,6 @@ export default function LandlordVerificationPage() {
         city: "Douala",
         region: "Littoral"
       }
-      console.log("Submitting verification:", requestBody)
       
       await api.post("/landlord-verifications/identity", requestBody)
       

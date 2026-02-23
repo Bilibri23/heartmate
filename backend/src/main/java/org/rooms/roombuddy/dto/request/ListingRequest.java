@@ -55,6 +55,8 @@ public class ListingRequest {
     
     // Virtual Tour
     private String videoTourUrl;
+    private String videoTourEmbedCode;
+    private String virtualTourProvider; // panoee, kuula, zillow, cloudpano, generic
     private String videoTourThumbnail;
     private Integer videoTourDuration;
     

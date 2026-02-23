@@ -83,5 +83,14 @@ export const messageService = {
 
   markAsRead: async (senderId: string) => {
     await api.put(`/messages/read/${senderId}`);
+  },
+
+  editMessage: async (messageId: string, content: string): Promise<Message> => {
+    const response = await api.put<Message>(`/messages/${messageId}`, { content });
+    return response.data;
+  },
+
+  deleteMessage: async (messageId: string): Promise<void> => {
+    await api.delete(`/messages/${messageId}`);
   }
 };

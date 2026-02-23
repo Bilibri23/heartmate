@@ -14,7 +14,6 @@ async function handler(request: NextRequest) {
 
   // Forward authorization header if present
   const authHeader = request.headers.get('Authorization');
-  console.log(`[API Proxy] ${request.method} ${path} - Auth header present: ${!!authHeader}`)
   if (authHeader) {
     headers['Authorization'] = authHeader;
   }

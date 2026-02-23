@@ -54,50 +54,31 @@ export default function ForYouPage() {
   const [totalPages, setTotalPages] = useState(0)
   const PAGE_SIZE = 10
 
-  const normalizeListing = (l: any): RecommendedListing => {
-    // Debug logging to check what scores are coming from backend
-    console.log("Raw listing data:", {
-      id: l.id || l.listingId,
-      title: l.title,
-      matchScore: l.matchScore,
-      totalScore: l.totalScore,
-      compatibilityScore: l.compatibilityScore,
-      allKeys: Object.keys(l)
-    })
-    
-    const normalized = {
-      listingId: l.id || l.listingId,
-      title: l.title,
-      description: l.description || "",
-      rentAmount: l.rentAmount,
-      city: l.city,
-      neighborhood: l.neighborhood,
-      propertyType: l.propertyType || "",
-      primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
-      bedrooms: l.bedrooms,
-      bathrooms: l.bathrooms,
-      matchScore: l.matchScore ?? l.totalScore ?? l.compatibilityScore ?? 0,
-      preferenceScore: l.preferenceScore ?? 0,
-      behaviorScore: l.behaviorScore ?? 0,
-      reasons: l.reasons || [],
-      isViewed: l.isViewed ?? false,
-      isFavorited: l.isFavorited ?? false,
-      viewsCount: l.viewsCount ?? 0,
-      verified: l.verified,
-      featured: l.featured,
-      averageRating: l.averageRating ?? null,
-      reviewCount: l.reviewCount ?? 0,
-      status: l.status ?? null,
-      isAvailable: l.isAvailable ?? (l.status ? l.status === "ACTIVE" : null),
-    }
-    
-    console.log("Normalized listing:", {
-      title: normalized.title,
-      matchScore: normalized.matchScore
-    })
-    
-    return normalized
-  }
+  const normalizeListing = (l: any): RecommendedListing => ({
+    listingId: l.id || l.listingId,
+    title: l.title,
+    description: l.description || "",
+    rentAmount: l.rentAmount,
+    city: l.city,
+    neighborhood: l.neighborhood,
+    propertyType: l.propertyType || "",
+    primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
+    bedrooms: l.bedrooms,
+    bathrooms: l.bathrooms,
+    matchScore: l.matchScore ?? l.totalScore ?? l.compatibilityScore ?? 0,
+    preferenceScore: l.preferenceScore ?? 0,
+    behaviorScore: l.behaviorScore ?? 0,
+    reasons: l.reasons || [],
+    isViewed: l.isViewed ?? false,
+    isFavorited: l.isFavorited ?? false,
+    viewsCount: l.viewsCount ?? 0,
+    verified: l.verified,
+    featured: l.featured,
+    averageRating: l.averageRating ?? null,
+    reviewCount: l.reviewCount ?? 0,
+    status: l.status ?? null,
+    isAvailable: l.isAvailable ?? (l.status ? l.status === "ACTIVE" : null),
+  })
 
   // Fetch all sections on initial load
   const fetchAllSections = useCallback(async () => {

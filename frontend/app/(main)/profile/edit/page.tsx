@@ -90,15 +90,11 @@ export default function EditProfilePage() {
 
         // Try update first, if 404 then create
         try {
-          await api.put(`/profiles/${user.id}`, formDataObj, {
-            headers: { "Content-Type": "multipart/form-data" }
-          })
+          await api.put(`/profiles/${user.id}`, formDataObj)
         } catch (err: any) {
           if (err.response?.status === 404) {
             // Profile doesn't exist, create it
-            await api.post(`/profiles`, formDataObj, {
-              headers: { "Content-Type": "multipart/form-data" }
-            })
+            await api.post(`/profiles`, formDataObj)
           } else {
             throw err
           }

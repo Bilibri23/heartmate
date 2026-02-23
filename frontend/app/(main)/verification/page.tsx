@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import api from "@/lib/api"
+import api, { uploadApi } from "@/lib/api"
 
 type VerificationStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED" | "VERIFIED"
 
@@ -71,6 +71,28 @@ export default function VerificationPage() {
     fetchVerification()
   }, [user?.id])
 
+  // Refetch verification status when page gains focus (user switches back from admin)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user?.id) {
+        const fetchVerification = async () => {
+          try {
+            const response = await api.get(`/verifications/${user.id}`)
+            setVerification(response.data)
+          } catch (err: any) {
+            if (err.response?.status === 404) {
+              setVerification({ status: "NONE" })
+            }
+          }
+        }
+        fetchVerification()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user?.id])
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -84,17 +106,11 @@ export default function VerificationPage() {
 
     setIsSubmitting(true)
     try {
-      // Step 1: Upload the student ID photo first (use fetch directly to backend)
+      // Step 1: Upload the student ID photo first
       const uploadFormData = new FormData()
       uploadFormData.append("file", formData.documentFile)
-      const token = localStorage.getItem("token")
-      const uploadResponse = await fetch("http://localhost:8082/api/upload/student-id", {
-        method: "POST",
-        headers: token ? { "Authorization": `Bearer ${token}` } : {},
-        body: uploadFormData
-      })
-      const uploadData = await uploadResponse.json()
-      const studentIdPhotoUrl = uploadData?.data || uploadData?.url || uploadData
+      const uploadResponse = await uploadApi.post("/upload/student-id", uploadFormData)
+      const studentIdPhotoUrl = uploadResponse.data?.data || uploadResponse.data?.url || uploadResponse.data
 
       // Step 2: Submit verification with JSON body (backend expects university and studentId fields)
       await api.post(`/verifications?userId=${user.id}`, {
@@ -126,7 +142,7 @@ export default function VerificationPage() {
     }
 
     // Already verified
-    if (verification?.status === "APPROVED") {
+    if (verification?.status === "VERIFIED") {
       return (
         <div className="text-center py-12 px-4">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
@@ -136,8 +152,47 @@ export default function VerificationPage() {
             {t.verification.approved}
           </h2>
           <p className="text-slate-500 mb-6">
-            Your student ID has been verified. You can now apply to listings.
+            Your student ID has been verified. You can now access all features.
           </p>
+          
+          {/* Verified Benefits */}
+          <div className="bg-emerald-50 rounded-xl p-6 mb-6 text-left">
+            <h3 className="font-semibold text-emerald-800 mb-4 flex items-center justify-center">
+              <Shield className="h-5 w-5 mr-2" />
+              Verified Student Benefits
+            </h3>
+            <div className="space-y-3 max-w-sm mx-auto">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Priority Applications</p>
+                  <p className="text-xs text-slate-600">Your applications are highlighted to landlords</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Verified Badge</p>
+                  <p className="text-xs text-slate-600">Show your verification status on profile</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Increased Trust</p>
+                  <p className="text-xs text-slate-600">Landlords prefer verified students</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-slate-800">Full Access</p>
+                  <p className="text-xs text-slate-600">Apply to any listing without restrictions</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           <Button onClick={() => router.push("/search")} className="rounded-xl">
             Browse Listings
             <ArrowRight className="ml-2 h-4 w-4" />
@@ -148,6 +203,18 @@ export default function VerificationPage() {
 
     // Pending verification
     if (verification?.status === "PENDING") {
+      const refreshStatus = async () => {
+        if (!user?.id) return
+        try {
+          const response = await api.get(`/verifications/${user.id}`)
+          setVerification(response.data)
+        } catch (err: any) {
+          if (err.response?.status === 404) {
+            setVerification({ status: "NONE" })
+          }
+        }
+      }
+
       return (
         <div className="text-center py-12 px-4">
           <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-amber-100">
@@ -159,9 +226,12 @@ export default function VerificationPage() {
           <p className="text-slate-500 mb-2">
             We're reviewing your documents. This usually takes 24-48 hours.
           </p>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-400 mb-4">
             Submitted: {verification.submittedAt ? new Date(verification.submittedAt).toLocaleDateString() : "Recently"}
           </p>
+          <Button onClick={refreshStatus} variant="outline" className="rounded-xl mb-4">
+            Refresh Status
+          </Button>
         </div>
       )
     }

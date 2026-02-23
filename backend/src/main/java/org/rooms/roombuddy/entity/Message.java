@@ -61,6 +61,13 @@ public class Message {
     @Builder.Default
     private Boolean isDeletedByReceiver = false;
     
+    @Column(name = "is_edited")
+    @Builder.Default
+    private Boolean isEdited = false;
+    
+    @Column(name = "edited_at")
+    private LocalDateTime editedAt;
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

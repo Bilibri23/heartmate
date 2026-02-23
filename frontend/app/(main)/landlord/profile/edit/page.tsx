@@ -68,7 +68,6 @@ export default function EditLandlordProfilePage() {
       })
     } catch (err) {
       // Profile may not exist yet - use auth context data as fallback
-      console.log("Profile not found, using auth context data")
       setFormData({
         firstName: user.firstName || "",
         lastName: user.lastName || "",

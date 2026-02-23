@@ -88,6 +88,12 @@ public class PropertyListing {
     @Column(name = "video_tour_url")
     private String videoTourUrl;
     
+    @Column(name = "video_tour_embed_code")
+    private String videoTourEmbedCode;
+    
+    @Column(name = "virtual_tour_provider")
+    private String virtualTourProvider; // panoee, kuula, zillow, cloudpano, generic
+    
     @Column(name = "video_tour_thumbnail")
     private String videoTourThumbnail;
     

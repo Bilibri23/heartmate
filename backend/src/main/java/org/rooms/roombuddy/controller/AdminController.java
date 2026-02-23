@@ -106,6 +106,16 @@ public class AdminController {
         return ResponseEntity.ok(listings);
     }
     
+    @GetMapping("/listings")
+    @Operation(summary = "Get all listings", description = "Get all listings with optional status filter (Admin only)")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<ListingResponse>> getAllListings(
+            @RequestParam(required = false) String status) {
+        log.info("Admin {} fetching all listings with status filter: {}", SecurityUtils.getCurrentUserId(), status);
+        List<ListingResponse> listings = listingService.getAllListings(status);
+        return ResponseEntity.ok(listings);
+    }
+    
     @PostMapping("/listings/{listingId}/approve")
     @Operation(summary = "Approve or reject listing", description = "Approve or reject a property listing (Admin only)")
     @PreAuthorize("hasRole('ADMIN')")

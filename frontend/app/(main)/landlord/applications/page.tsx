@@ -78,8 +78,6 @@ export default function LandlordApplicationsPage() {
       
       const response = await api.get("/applications/landlord/received", { params })
       const content = response.data?.content || response.data || []
-      console.log("Landlord applications response:", response.data)
-      console.log("Applications content:", content)
       setApplications(content)
     } catch (err) {
       console.error("Failed to fetch applications:", err)

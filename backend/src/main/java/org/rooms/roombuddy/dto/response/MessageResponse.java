@@ -30,6 +30,8 @@ public class MessageResponse {
     private LocalDateTime readAt;
     private LocalDateTime createdAt;
     private Boolean isSentByMe;
+    private Boolean isEdited;
+    private LocalDateTime editedAt;
     
     @Data
     @Builder

@@ -46,14 +46,6 @@ export function ListingCard({
 }: ListingCardProps) {
   const { formatCurrency, t } = useLanguage()
   const [favorited, setFavorited] = useState(isFavorited)
-  
-  // Debug logging for match score
-  console.log(`ListingCard "${title}":`, {
-    matchScore,
-    matchScoreType: typeof matchScore,
-    matchScoreNull: matchScore == null,
-    matchScoreZero: matchScore === 0
-  })
 
   const normalizedStatus = status?.toUpperCase?.()
   const availabilityLabel =
@@ -93,7 +85,7 @@ export function ListingCard({
           )}
 
           {/* Match Score Badge — prominent, top-right */}
-          {matchScore != null && (
+          {matchScore != null && matchScore > 0 && (
             <div className={cn(
               "absolute right-2 top-2 z-10 flex items-center gap-1 rounded-xl px-2.5 py-1.5 shadow-lg",
               matchScore >= 80

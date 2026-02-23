@@ -245,9 +245,26 @@ export default function AdminVerificationsPage() {
                 <p><span className="text-slate-500">Submitted:</span> {new Date(selectedStudent.createdAt).toLocaleString()}</p>
               </div>
               {selectedStudent.studentIdPhotoUrl && (
-                <a href={selectedStudent.studentIdPhotoUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
-                  <ExternalLink className="h-4 w-4" /> View Student ID Document
-                </a>
+                <div className="space-y-3">
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-sm font-medium text-slate-700 mb-2">Student ID Document</p>
+                    <div className="relative group">
+                      <img 
+                        src={selectedStudent.studentIdPhotoUrl} 
+                        alt="Student ID Document" 
+                        className="w-full h-64 object-contain rounded-lg border border-slate-200"
+                      />
+                      <a 
+                        href={selectedStudent.studentIdPhotoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <ExternalLink className="h-4 w-4 text-slate-600" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
               )}
               {selectedStudent.rejectionReason && (
                 <div className="bg-red-50 rounded-xl p-4">
@@ -291,14 +308,48 @@ export default function AdminVerificationsPage() {
                 <p><span className="text-slate-500">Submitted:</span> {new Date(selectedLandlord.createdAt).toLocaleString()}</p>
               </div>
               {selectedLandlord.idFrontPhotoUrl && (
-                <a href={selectedLandlord.idFrontPhotoUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
-                  <ExternalLink className="h-4 w-4" /> View ID Front Photo
-                </a>
+                <div className="space-y-3">
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-sm font-medium text-slate-700 mb-2">ID Front Photo</p>
+                    <div className="relative group">
+                      <img 
+                        src={selectedLandlord.idFrontPhotoUrl} 
+                        alt="ID Front Photo" 
+                        className="w-full h-64 object-contain rounded-lg border border-slate-200"
+                      />
+                      <a 
+                        href={selectedLandlord.idFrontPhotoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <ExternalLink className="h-4 w-4 text-slate-600" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
               )}
               {selectedLandlord.selfieWithIdUrl && (
-                <a href={selectedLandlord.selfieWithIdUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
-                  <ExternalLink className="h-4 w-4" /> View Selfie with ID
-                </a>
+                <div className="space-y-3">
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-sm font-medium text-slate-700 mb-2">Selfie with ID</p>
+                    <div className="relative group">
+                      <img 
+                        src={selectedLandlord.selfieWithIdUrl} 
+                        alt="Selfie with ID" 
+                        className="w-full h-64 object-contain rounded-lg border border-slate-200"
+                      />
+                      <a 
+                        href={selectedLandlord.selfieWithIdUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <ExternalLink className="h-4 w-4 text-slate-600" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
               )}
               {selectedLandlord.identityRejectionReason && (
                 <div className="bg-red-50 rounded-xl p-4">

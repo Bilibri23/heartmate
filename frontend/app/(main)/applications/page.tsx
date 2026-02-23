@@ -13,8 +13,7 @@ import {
   AlertCircle,
   ChevronRight,
   MapPin,
-  Calendar,
-  Users
+  Calendar
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -77,7 +76,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [pendingInvitations, setPendingInvitations] = useState(0)
+
 
   const fetchApplications = useCallback(async () => {
     if (!user?.id) return
@@ -108,10 +107,6 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     fetchApplications()
-    // Fetch pending co-application invitations count
-    api.get("/co-applications/invitations/count")
-      .then(res => setPendingInvitations(res.data?.count || 0))
-      .catch(() => {})
   }, [fetchApplications])
 
   const { containerRef, isRefreshing, pullProgress } = usePullToRefresh({
@@ -147,29 +142,6 @@ export default function ApplicationsPage() {
     <div className="flex flex-col min-h-screen bg-slate-50">
       <MobileHeader title={t.applications.title} />
 
-      {/* Co-Application Invitations Banner */}
-      {pendingInvitations > 0 && (
-        <Link href="/applications/invitations">
-          <div className="bg-blue-50 border-b border-blue-100 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-blue-900">
-                    {pendingInvitations} roommate invitation{pendingInvitations > 1 ? "s" : ""}
-                  </p>
-                  <p className="text-xs text-blue-700">
-                    Your matched roommate wants to apply together
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-blue-600" />
-            </div>
-          </div>
-        </Link>
-      )}
 
       {/* Status Filters */}
       <div className="sticky top-14 z-30 bg-white border-b border-slate-200">

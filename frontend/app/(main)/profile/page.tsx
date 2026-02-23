@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import api from "@/lib/api"
 
 interface MenuItem {
   icon: React.ElementType
@@ -40,6 +41,23 @@ export default function ProfilePage() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [isVerified, setIsVerified] = useState(false)
+
+  // Fetch verification status
+  useEffect(() => {
+    const fetchVerificationStatus = async () => {
+      if (!user?.id) return
+      
+      try {
+        const response = await api.get(`/verifications/${user.id}`)
+        setIsVerified(response.data?.status === "VERIFIED")
+      } catch (err: any) {
+        // User might not have verification record yet
+        setIsVerified(false)
+      }
+    }
+
+    fetchVerificationStatus()
+  }, [user?.id])
 
   const handleLogout = () => {
     logout()

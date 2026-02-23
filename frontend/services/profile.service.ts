@@ -24,11 +24,7 @@ export const profileService = {
   uploadProfilePhoto: async (userId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await api.put<Profile>(`/profiles/${userId}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await api.put<Profile>(`/profiles/${userId}`, formData);
     return response.data;
   }
 };
