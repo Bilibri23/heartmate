@@ -72,6 +72,14 @@ export const CITY_CENTERS: Record<string, { lat: number; lng: number; zoom: numb
 // Get coordinates for a neighborhood, with fallback to city center
 export function getNeighborhoodCoordinates(neighborhood: string, city?: string): { lat: number; lng: number } | null {
   // Try exact match
+  // Return null if neighborhood is not provided
+  if (!neighborhood) {
+    if (city && CITY_CENTERS[city]) {
+      return { lat: CITY_CENTERS[city].lat, lng: CITY_CENTERS[city].lng }
+    }
+    return null
+  }
+  
   if (NEIGHBORHOOD_COORDINATES[neighborhood]) {
     return {
       lat: NEIGHBORHOOD_COORDINATES[neighborhood].lat,

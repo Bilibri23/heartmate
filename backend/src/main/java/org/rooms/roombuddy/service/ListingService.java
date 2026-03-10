@@ -16,10 +16,12 @@ import org.rooms.roombuddy.repository.*;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -238,6 +240,162 @@ public class ListingService {
         
         listingRepository.delete(listing);
         log.info("Listing deleted successfully: {}", listingId);
+    }
+    
+    @Transactional(readOnly = true)
+    public Page<ListingResponse> searchListingsAdvanced(
+            String query,
+            String city,
+            String neighborhood,
+            String propertyType,
+            Integer minPrice,
+            Integer maxPrice,
+            Integer bedrooms,
+            Integer bathrooms,
+            List<String> amenities,
+            Double maxDistance,
+            Double userLat,
+            Double userLon,
+            String availableFrom,
+            UUID userId,
+            Pageable pageable) {
+        log.info("Advanced search - query: {}, city: {}, bedrooms: {}, bathrooms: {}, maxDistance: {}", 
+                query, city, bedrooms, bathrooms, maxDistance);
+        
+        // Start with base query for active and verified listings
+        List<PropertyListing> listings = listingRepository.findByStatusAndVerified(
+                PropertyListing.Status.ACTIVE, true);
+        
+        // Text search filter (title, description, city, neighborhood)
+        if (query != null && !query.isEmpty()) {
+            String lowerQuery = query.toLowerCase();
+            listings = listings.stream()
+                    .filter(listing -> 
+                            (listing.getTitle() != null && listing.getTitle().toLowerCase().contains(lowerQuery)) ||
+                            (listing.getDescription() != null && listing.getDescription().toLowerCase().contains(lowerQuery)) ||
+                            (listing.getCity() != null && listing.getCity().toLowerCase().contains(lowerQuery)) ||
+                            (listing.getNeighborhood() != null && listing.getNeighborhood().toLowerCase().contains(lowerQuery)))
+                    .collect(Collectors.toList());
+        }
+        
+        // City filter
+        if (city != null && !city.isEmpty()) {
+            listings = listings.stream()
+                    .filter(listing -> city.equalsIgnoreCase(listing.getCity()))
+                    .collect(Collectors.toList());
+        }
+        
+        // Neighborhood filter
+        if (neighborhood != null && !neighborhood.isEmpty()) {
+            listings = listings.stream()
+                    .filter(listing -> neighborhood.equalsIgnoreCase(listing.getNeighborhood()))
+                    .collect(Collectors.toList());
+        }
+        
+        // Property type filter
+        if (propertyType != null && !propertyType.isEmpty()) {
+            try {
+                PropertyListing.PropertyType type = PropertyListing.PropertyType.valueOf(propertyType.toUpperCase());
+                listings = listings.stream()
+                        .filter(listing -> listing.getPropertyType() == type)
+                        .collect(Collectors.toList());
+            } catch (IllegalArgumentException e) {
+                log.warn("Invalid property type: {}", propertyType);
+            }
+        }
+        
+        // Price range filters
+        if (minPrice != null) {
+            listings = listings.stream()
+                    .filter(listing -> listing.getRentAmount() != null && listing.getRentAmount() >= minPrice)
+                    .collect(Collectors.toList());
+        }
+        
+        if (maxPrice != null) {
+            listings = listings.stream()
+                    .filter(listing -> listing.getRentAmount() != null && listing.getRentAmount() <= maxPrice)
+                    .collect(Collectors.toList());
+        }
+        
+        // Bedrooms filter
+        if (bedrooms != null) {
+            listings = listings.stream()
+                    .filter(listing -> listing.getBedrooms() != null && listing.getBedrooms() >= bedrooms)
+                    .collect(Collectors.toList());
+        }
+        
+        // Bathrooms filter
+        if (bathrooms != null) {
+            listings = listings.stream()
+                    .filter(listing -> listing.getBathrooms() != null && listing.getBathrooms() >= bathrooms)
+                    .collect(Collectors.toList());
+        }
+        
+        // Amenities filter
+        if (amenities != null && !amenities.isEmpty()) {
+            listings = listings.stream()
+                    .filter(listing -> listing.getAmenities() != null && 
+                            listing.getAmenities().containsAll(amenities))
+                    .collect(Collectors.toList());
+        }
+        
+        // Distance filter (if user location provided)
+        if (maxDistance != null && userLat != null && userLon != null) {
+            listings = listings.stream()
+                    .filter(listing -> {
+                        if (listing.getLatitude() == null || listing.getLongitude() == null) {
+                            return false;
+                        }
+                        double distance = calculateDistance(
+                                userLat, userLon,
+                                listing.getLatitude().doubleValue(),
+                                listing.getLongitude().doubleValue());
+                        return distance <= maxDistance;
+                    })
+                    .collect(Collectors.toList());
+        }
+        
+        // Availability date filter
+        if (availableFrom != null && !availableFrom.isEmpty()) {
+            try {
+                LocalDate requestedDate = LocalDate.parse(availableFrom);
+                listings = listings.stream()
+                        .filter(listing -> {
+                            if (listing.getAvailableFrom() == null) {
+                                return true; // Available immediately
+                            }
+                            return !listing.getAvailableFrom().isAfter(requestedDate);
+                        })
+                        .collect(Collectors.toList());
+            } catch (Exception e) {
+                log.warn("Invalid date format for availableFrom: {}", availableFrom);
+            }
+        }
+        
+        // Convert to responses
+        List<ListingResponse> responses = listings.stream()
+                .map(listing -> mapToResponse(listing, userId))
+                .collect(Collectors.toList());
+        
+        // Apply pagination manually
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), responses.size());
+        List<ListingResponse> pageContent = start >= responses.size() ? 
+                new ArrayList<>() : responses.subList(start, end);
+        
+        return new PageImpl<>(pageContent, pageable, responses.size());
+    }
+    
+    // Calculate distance between two coordinates using Haversine formula (in km)
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Radius of the earth in km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
     
     @Transactional(readOnly = true)

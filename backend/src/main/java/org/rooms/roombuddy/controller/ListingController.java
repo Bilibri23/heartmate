@@ -10,6 +10,7 @@ import org.rooms.roombuddy.dto.response.ApiResponse;
 import org.rooms.roombuddy.dto.response.ListingResponse;
 import org.rooms.roombuddy.service.FileUploadService;
 import org.rooms.roombuddy.service.ListingService;
+import org.rooms.roombuddy.util.InputSanitizer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +33,7 @@ public class ListingController {
     
     private final ListingService listingService;
     private final FileUploadService fileUploadService;
+    private final InputSanitizer inputSanitizer;
     
     @PostMapping
     @Operation(summary = "Create listing", description = "Create a new property listing (Landlord only)")
@@ -79,26 +81,56 @@ public class ListingController {
     }
     
     @GetMapping
-    @Operation(summary = "Search listings", description = "Search and filter property listings with pagination")
+    @Operation(summary = "Search listings", description = "Search and filter property listings with advanced filters and pagination")
     public ResponseEntity<Page<ListingResponse>> searchListings(
+            @RequestParam(required = false) String query,
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String neighborhood,
             @RequestParam(required = false) String propertyType,
             @RequestParam(required = false) Integer minPrice,
             @RequestParam(required = false) Integer maxPrice,
+            @RequestParam(required = false) Integer bedrooms,
+            @RequestParam(required = false) Integer bathrooms,
             @RequestParam(required = false) List<String> amenities,
+            @RequestParam(required = false) Double maxDistance,
+            @RequestParam(required = false) Double userLat,
+            @RequestParam(required = false) Double userLon,
+            @RequestParam(required = false) String availableFrom,
             @RequestParam(required = false) UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir) {
-        log.info("Searching listings with filters - page: {}, size: {}", page, size);
+        log.info("Searching listings with filters - query: {}, city: {}, page: {}, size: {}", query, city, page, size);
+        
+        // SECURITY: Sanitize all inputs to prevent SQL injection and XSS attacks
+        try {
+            query = inputSanitizer.sanitizeString(query);
+            city = inputSanitizer.sanitizeCity(city);
+            neighborhood = inputSanitizer.sanitizeString(neighborhood);
+            propertyType = inputSanitizer.sanitizePropertyType(propertyType);
+            minPrice = inputSanitizer.sanitizeInteger(minPrice, 0, 10000000);
+            maxPrice = inputSanitizer.sanitizeInteger(maxPrice, 0, 10000000);
+            bedrooms = inputSanitizer.sanitizeInteger(bedrooms, 0, 20);
+            bathrooms = inputSanitizer.sanitizeInteger(bathrooms, 0, 20);
+            amenities = inputSanitizer.sanitizeList(amenities);
+            maxDistance = inputSanitizer.sanitizeDistance(maxDistance);
+            userLat = inputSanitizer.sanitizeLatitude(userLat);
+            userLon = inputSanitizer.sanitizeLongitude(userLon);
+            availableFrom = inputSanitizer.sanitizeDate(availableFrom);
+        } catch (SecurityException e) {
+            log.warn("Security violation detected in search: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+        
         Sort sort = sortDir.equalsIgnoreCase("ASC") 
                 ? Sort.by(sortBy).ascending() 
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        Page<ListingResponse> listings = (Page<ListingResponse>) listingService.searchListings(
-                city, neighborhood, propertyType, minPrice, maxPrice, amenities, userId, pageable);
+        Page<ListingResponse> listings = listingService.searchListingsAdvanced(
+                query, city, neighborhood, propertyType, minPrice, maxPrice, 
+                bedrooms, bathrooms, amenities, maxDistance, userLat, userLon, 
+                availableFrom, userId, pageable);
         return ResponseEntity.ok(listings);
     }
     

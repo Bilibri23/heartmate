@@ -30,7 +30,7 @@ public class FileUploadService {
     @Value("${cloudinary.api-secret:}")
     private String cloudinaryApiSecret;
     
-    private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB (increased for 360° panoramic images)
     private static final long MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
     private static final String[] ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"};
     private static final String[] ALLOWED_VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/x-msvideo", "video/webm"};

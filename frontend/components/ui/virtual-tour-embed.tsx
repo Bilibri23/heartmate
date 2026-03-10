@@ -1,252 +1,214 @@
 "use client"
 
-import React, { useState, useRef } from 'react'
-import { Play, Pause, Maximize2, ExternalLink, Eye, Navigation, Move3d, Flag, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { Maximize2, ExternalLink, Flag, Loader2, AlertCircle, RefreshCw, Move3d } from 'lucide-react'
 import { Button } from './button'
 
 interface VirtualTourEmbedProps {
-  tourUrl?: string
-  embedCode?: string
+  tourUrl?: string         // Cloudinary URL of the 360° equirectangular image
   title?: string
   className?: string
   onFlag?: () => void
   listingId?: string
-  tourProvider?: 'panoee' | 'kuula' | 'zillow' | 'cloudpano' | 'generic'
   height?: string
+  // legacy props kept for backward compat but not used
+  embedCode?: string
+  tourProvider?: string
 }
 
-const TOUR_PROVIDERS = {
-  panoee: {
-    name: 'Panoee',
-    icon: '🌐',
-    color: 'from-blue-600 to-purple-600',
-    features: ['360° Views', 'Interactive Hotspots', 'Mobile Friendly']
-  },
-  kuula: {
-    name: 'Kuula',
-    icon: '🎯',
-    color: 'from-green-600 to-blue-600',
-    features: ['360° Photos', 'Hotspot Navigation', 'VR Support']
-  },
-  zillow: {
-    name: 'Zillow 3D Home',
-    icon: '🏠',
-    color: 'from-blue-500 to-cyan-600',
-    features: ['Phone Capture', 'Quick Setup', 'Free']
-  },
-  cloudpano: {
-    name: 'CloudPano',
-    icon: '☁️',
-    color: 'from-indigo-600 to-purple-600',
-    features: ['Custom Branding', 'Analytics', 'Fast Loading']
-  },
-  generic: {
-    name: 'Virtual Tour',
-    icon: '🎮',
-    color: 'from-slate-600 to-slate-800',
-    features: ['Interactive Tour', '360° Experience', 'Web Ready']
+declare global {
+  interface Window {
+    pannellum: any
   }
 }
 
 export function VirtualTourEmbed({
   tourUrl,
-  embedCode,
-  title = "Virtual Tour",
+  title = "360° Virtual Tour",
   className = "",
   onFlag,
-  listingId,
-  tourProvider = 'generic',
-  height = "h-96"
+  height = "h-96",
 }: VirtualTourEmbedProps) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [hasError, setHasError] = useState(false)
-  const [showControls, setShowControls] = useState(true)
-  const iframeRef = useRef<HTMLIFrameElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const viewerRef = useRef<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [scriptLoaded, setScriptLoaded] = useState(false)
+  const [showFallback, setShowFallback] = useState(false)
 
-  const provider = TOUR_PROVIDERS[tourProvider]
+  // Load Pannellum CSS + JS from CDN once
+  useEffect(() => {
+    if (document.getElementById('pannellum-css')) {
+      setScriptLoaded(true)
+      return
+    }
 
-  const getEmbedUrl = () => {
-    // Try embed code first
-    if (embedCode) {
-      const srcMatch = embedCode.match(/src=["']([^"']+)["']/)
-      if (srcMatch) {
-        console.log('Extracted embed URL:', srcMatch[1])
-        return srcMatch[1]
+    const link = document.createElement('link')
+    link.id = 'pannellum-css'
+    link.rel = 'stylesheet'
+    link.href = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css'
+    document.head.appendChild(link)
+
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js'
+    script.async = true
+    script.onload = () => setScriptLoaded(true)
+    script.onerror = () => setHasError(true)
+    document.body.appendChild(script)
+
+    return () => {
+      // Don't remove scripts on unmount — other instances may use them
+    }
+  }, [])
+
+  // Fallback timeout - show image if Pannellum doesn't load in 5 seconds
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('⏱️ Pannellum loading timeout - showing fallback image')
+        setShowFallback(true)
+        setIsLoading(false)
       }
-      // Fallback: extract any URL from embed code
-      const urlMatch = embedCode.match(/https?:\/\/[^\s"']+/)
-      if (urlMatch) {
-        console.log('Fallback URL from embed:', urlMatch[0])
-        return urlMatch[0]
+    }, 5000)
+    return () => clearTimeout(timeout)
+  }, [isLoading])
+
+  // Init Pannellum viewer once script is loaded and URL is available
+  useEffect(() => {
+    if (!scriptLoaded || !tourUrl || !containerRef.current) return
+
+    // Check if window.pannellum is actually available
+    if (!window.pannellum) {
+      console.warn('⏳ Pannellum script loaded but window.pannellum not yet available, retrying...')
+      const checkInterval = setInterval(() => {
+        if (window.pannellum) {
+          clearInterval(checkInterval)
+          setScriptLoaded(true) // Trigger re-render
+        }
+      }, 100)
+      return () => clearInterval(checkInterval)
+    }
+
+    console.log('🔮 Initializing Pannellum 360° viewer with URL:', tourUrl)
+
+    try {
+      // Destroy previous viewer instance if any
+      if (viewerRef.current) {
+        viewerRef.current.destroy()
+        viewerRef.current = null
+      }
+
+      viewerRef.current = window.pannellum.viewer(containerRef.current, {
+        type: 'equirectangular',
+        panorama: tourUrl,
+        autoLoad: true,
+        autoRotate: -2,          // Slow auto-rotation
+        compass: true,           // Show compass for orientation
+        showControls: true,
+        showFullscreenCtrl: true,
+        showZoomCtrl: true,
+        mouseZoom: true,
+        draggable: true,         // Enable drag to look around
+        keyboardZoom: true,      // Enable keyboard zoom
+        disableKeyboardCtrl: false,
+        hfov: 120,               // Wider initial field of view for immersive feel
+        minHfov: 50,             // Minimum zoom out
+        maxHfov: 120,            // Maximum zoom in
+        pitch: 0,                // Start looking straight ahead
+        yaw: 0,                  // Start facing forward
+        strings: {
+          loadButtonLabel: 'Click to Load 360° Tour',
+          loadingLabel: 'Loading 360° Tour...',
+          bylineLabel: '',
+          noPanoramaError: 'No 360° image provided.',
+          fileAccessError: 'The 360° image could not be loaded.',
+          imageCorsError: 'The image cannot be displayed due to CORS restrictions.',
+          imageSizeError: 'The image is too large.',
+          swfNotFoundError: '',
+        },
+        onLoad: () => {
+          console.log('✅ Pannellum 360° tour loaded successfully')
+          setIsLoading(false)
+        },
+        onError: (err: any) => {
+          console.error('❌ Pannellum load error:', err)
+          setIsLoading(false)
+          setHasError(true)
+        },
+      })
+    } catch (e) {
+      console.error('❌ Pannellum init error:', e)
+      setHasError(true)
+      setIsLoading(false)
+    }
+
+    return () => {
+      if (viewerRef.current) {
+        viewerRef.current.destroy()
+        viewerRef.current = null
       }
     }
-    
-    // Fallback to tour URL
-    if (tourUrl) {
-      console.log('Using tour URL:', tourUrl, 'Provider:', tourProvider)
-      
-      // Simple provider-specific handling
-      if (tourProvider === 'kuula' && !tourUrl.includes('/embed/')) {
-        return `${tourUrl}/embed/transparent/800x600`
-      }
-      
-      // For all other providers, return URL as-is
-      return tourUrl
-    }
-    
-    console.log('No URL or embed code found')
-    return null
-  }
+  }, [scriptLoaded, tourUrl])
 
-  const handleLoad = () => {
-    setIsLoading(false)
+  const handleRetry = () => {
     setHasError(false)
-  }
-
-  const handleError = () => {
-    setIsLoading(false)
-    setHasError(true)
-  }
-
-  const toggleFullscreen = () => {
-    const container = containerRef.current
-    if (!container) return
-
-    if (!isFullscreen) {
-      container.requestFullscreen?.()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen?.()
-      setIsFullscreen(false)
-    }
-  }
-
-  const refreshTour = () => {
     setIsLoading(true)
-    setHasError(false)
-    if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src
-    }
+    setScriptLoaded(false)   // triggers script re-check
+    setTimeout(() => setScriptLoaded(true), 100)
   }
 
-  const openInNewTab = () => {
-    const url = getEmbedUrl()
-    if (url) {
-      window.open(url, '_blank')
-    }
-  }
-
-  const embedUrl = getEmbedUrl()
-
-  // Debug logging
-  console.log('VirtualTourEmbed Props:', { tourUrl, embedCode, tourProvider })
-  console.log('Final embedUrl:', embedUrl)
-
-  if (!embedUrl) {
+  if (!tourUrl) {
     return (
       <div className={`bg-slate-100 rounded-xl flex items-center justify-center ${height} ${className}`}>
         <div className="text-center">
           <Move3d className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-          <p className="text-slate-600 font-medium">Virtual Tour Not Available</p>
-          <p className="text-sm text-slate-500 mt-1">Check back later for an interactive tour</p>
-          <div className="mt-3 p-2 bg-slate-200 rounded text-xs text-left">
-            <div>URL: {tourUrl || 'none'}</div>
-            <div>Embed: {embedCode ? 'provided' : 'none'}</div>
-            <div>Provider: {tourProvider}</div>
-          </div>
+          <p className="text-slate-600 font-medium">360° Tour Not Available</p>
+          <p className="text-sm text-slate-500 mt-1">No panoramic image provided</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className={`relative bg-black rounded-xl overflow-hidden ${className}`}
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
-      {/* Loading State */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-20">
+    <div className={`relative rounded-xl overflow-hidden bg-black ${className}`}>
+      {/* Loading overlay */}
+      {isLoading && !hasError && (
+        <div className={`absolute inset-0 bg-black/60 flex items-center justify-center z-20 ${height}`}>
           <div className="text-center">
             <Loader2 className="h-8 w-8 text-white animate-spin mx-auto mb-3" />
-            <p className="text-white text-sm">Loading Virtual Tour...</p>
+            <p className="text-white text-sm">Loading 360° Tour...</p>
           </div>
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error overlay */}
       {hasError && (
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-30">
-          <div className="text-center bg-white rounded-xl p-6 max-w-sm mx-4">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <AlertCircle className="h-6 w-6 text-red-600" />
-            </div>
-            <p className="text-slate-800 text-sm font-medium mb-2">Tour Failed to Load</p>
-            <p className="text-slate-600 text-xs mb-4">This tour may not be available in iframe</p>
+        <div className={`absolute inset-0 bg-black/70 flex items-center justify-center z-30 ${height}`}>
+          <div className="text-center bg-white rounded-xl p-6 max-w-xs mx-4">
+            <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-3" />
+            <p className="text-slate-800 font-medium mb-1">Failed to load 360° Tour</p>
+            <p className="text-slate-500 text-xs mb-4">
+              The panoramic image could not be loaded. Make sure the image URL is accessible.
+            </p>
             <div className="space-y-2">
-              <Button size="sm" onClick={refreshTour} className="w-full">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Retry Loading
+              <Button size="sm" onClick={handleRetry} className="w-full">
+                <RefreshCw className="h-4 w-4 mr-2" /> Retry
               </Button>
-              {tourUrl && (
-                <Button size="sm" variant="outline" onClick={() => window.open(tourUrl, '_blank')} className="w-full">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open in New Tab
-                </Button>
-              )}
+              <Button size="sm" variant="outline" onClick={() => window.open(tourUrl, '_blank')} className="w-full">
+                <ExternalLink className="h-4 w-4 mr-2" /> Open Image
+              </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Virtual Tour iframe */}
-      <iframe
-        ref={iframeRef}
-        src={embedUrl}
-        title={`${title} - Virtual Tour`}
-        className={`w-full ${height} border-0`}
-        onLoad={handleLoad}
-        onError={handleError}
-        allowFullScreen
-        allow="xr-spatial-tracking; gyroscope; accelerometer; magnetometer; vr; camera; microphone"
-        loading="lazy"
-      />
+      {/* Pannellum mounts here */}
+      <div ref={containerRef} className={`w-full ${height}`} />
 
-      {/* Tour Provider Badge */}
-      <div className="absolute top-4 left-4 bg-gradient-to-r from-black/70 to-black/50 backdrop-blur-sm text-white px-3 py-2 rounded-full text-xs font-medium flex items-center gap-2 z-10">
-        <span className="text-lg">{provider.icon}</span>
-        <span>{provider.name}</span>
-      </div>
-
-      {/* Interactive Controls */}
-      {showControls && !isLoading && !hasError && (
-        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between z-10">
-          {/* Left Controls */}
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-white bg-black/50 backdrop-blur-sm hover:bg-black/70"
-              onClick={openInNewTab}
-              title="Open in new tab"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-white bg-black/50 backdrop-blur-sm hover:bg-black/70"
-              onClick={refreshTour}
-              title="Refresh tour"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-
+      {/* Controls overlay */}
+      {!isLoading && !hasError && (
+        <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none">
+          <div className="flex items-center gap-2 pointer-events-auto">
             {onFlag && (
               <Button
                 size="sm"
@@ -258,38 +220,27 @@ export function VirtualTourEmbed({
                 <Flag className="h-4 w-4" />
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-white bg-black/50 backdrop-blur-sm hover:bg-black/70"
+              onClick={() => window.open(tourUrl, '_blank')}
+              title="Open full image"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
           </div>
-
-          {/* Right Controls */}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-white bg-black/50 backdrop-blur-sm hover:bg-black/70"
-            onClick={toggleFullscreen}
-            title="Fullscreen"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </Button>
+          <div className="bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
+            🖱️ Drag to look around · Scroll to zoom
+          </div>
         </div>
       )}
 
-      {/* Tour Features Badge */}
-      <div className="absolute top-4 right-4 bg-gradient-to-r from-black/70 to-black/50 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-xs z-10">
-        <div className="flex items-center gap-1 mb-1">
-          <Eye className="h-3 w-3" />
-          <span className="font-medium">Interactive</span>
-        </div>
-        <div className="text-xs opacity-80">
-          {provider.features[0]}
-        </div>
-      </div>
-
-      {/* Instructions Overlay */}
+      {/* Badge */}
       {!isLoading && !hasError && (
-        <div className="absolute bottom-20 left-4 right-4 bg-black/60 backdrop-blur-sm rounded-lg p-3 opacity-0 hover:opacity-100 transition-opacity z-10">
-          <p className="text-white text-xs">
-            🖱️ Click and drag to look around • Use mouse wheel to zoom • Click hotspots for details
-          </p>
+        <div className="absolute top-4 left-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-2 z-10">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          360° Interactive Tour
         </div>
       )}
     </div>

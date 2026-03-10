@@ -154,6 +154,14 @@ export default function ListingDetailPage() {
         setListing(response.data)
         setIsFavorited(response.data?.isFavorited || response.data?.isFavorite || false)
 
+        // Debug: Log virtual tour data
+        console.log('Virtual Tour Data:', {
+          videoTourUrl: response.data?.videoTourUrl,
+          virtualTourProvider: response.data?.virtualTourProvider,
+          videoTour: response.data?.videoTour,
+          videoTourEmbedCode: response.data?.videoTourEmbedCode
+        })
+
         // Track view (don't await, fire and forget)
         api.post(`/listings/${params.id}/view`, null, {
           params: user?.id ? { userId: user.id } : undefined
@@ -278,7 +286,7 @@ export default function ListingDetailPage() {
       // Check if user is verified — if not, show verification nudge
       // PAUSED FOR DEVELOPMENT - always redirect to applications
       router.push("/applications")
-      
+
       // TODO: Re-enable verification prompt after development
       /*
       try {
@@ -482,8 +490,8 @@ export default function ListingDetailPage() {
                       key={index}
                       onClick={() => setCurrentPhotoIndex(index)}
                       className={`h-2 rounded-full transition-all ${index === currentPhotoIndex
-                          ? "w-6 bg-white"
-                          : "w-2 bg-white/60"
+                        ? "w-6 bg-white"
+                        : "w-2 bg-white/60"
                         }`}
                     />
                   ))}
@@ -550,60 +558,79 @@ export default function ListingDetailPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <div className="w-2 h-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-pulse" />
-              Virtual Tour
+              {listing.virtualTourProvider === '360' ? '360° Virtual Tour' : 'Virtual Tour'}
             </h3>
-            <div className="flex items-center gap-3">
-              {(listing.videoTour?.duration || listing.videoTourDuration) && (
-                <span className="text-sm text-slate-500">
-                  {Math.floor((listing.videoTour?.duration || listing.videoTourDuration || 0) / 60)}:{((listing.videoTour?.duration || listing.videoTourDuration || 0) % 60).toString().padStart(2, '0')}
-                </span>
-              )}
+            {/* Only show toggle for legacy listings without a clear provider */}
+            {(!listing.virtualTourProvider || (listing.virtualTourProvider !== '360' && listing.virtualTourProvider !== 'video')) && (
               <Button
                 size="sm"
                 variant={is3DTourMode ? "default" : "outline"}
                 onClick={() => setIs3DTourMode(!is3DTourMode)}
                 className="rounded-xl"
               >
-                {is3DTourMode ? "3D Mode" : "Video Mode"}
+                {is3DTourMode ? "360° Mode" : "Video Mode"}
               </Button>
-            </div>
+            )}
           </div>
-          
-          {is3DTourMode ? (
+
+          {/* 360° self-hosted tour via Pannellum */}
+          {listing.virtualTourProvider === '360' && (
             <VirtualTourEmbed
               tourUrl={listing.videoTour?.videoUrl || listing.videoTourUrl}
-              embedCode={listing.videoTourEmbedCode}
-              title={`${listing.title} - 3D Virtual Tour`}
-              className="h-96 rounded-xl"
-              tourProvider={(listing.virtualTourProvider as any) || 'generic'}
+              title={`${listing.title} - 360° Tour`}
+              className="rounded-xl"
               onFlag={() => handleFlagContent(listing.id)}
               listingId={listing.id}
             />
-          ) : (
+          )}
+
+          {/* Video walkthrough (self-hosted MP4) */}
+          {listing.virtualTourProvider === 'video' && (
             <VideoPlayer
               src={listing.videoTour?.videoUrl || listing.videoTourUrl || undefined}
               thumbnail={listing.videoTour?.thumbnailUrl || listing.videoTourThumbnail}
-              title={`${listing.title} - Virtual Tour`}
+              title={`${listing.title} - Video Tour`}
               className="h-64 rounded-xl"
               onFlag={() => handleFlagContent(listing.id)}
-              onPlay={() => {
-                // Track video play analytics (future: send analytics event)
-              }}
+              onPlay={() => { }}
             />
           )}
-          
-          {/* Tour Features */}
+
+          {/* Legacy: listings without a clear provider — keep old toggle behaviour */}
+          {(!listing.virtualTourProvider || (listing.virtualTourProvider !== '360' && listing.virtualTourProvider !== 'video')) && (
+            is3DTourMode ? (
+              <VirtualTourEmbed
+                tourUrl={listing.videoTour?.videoUrl || listing.videoTourUrl}
+                embedCode={listing.videoTourEmbedCode}
+                title={`${listing.title} - 3D Virtual Tour`}
+                className="h-96 rounded-xl"
+                onFlag={() => handleFlagContent(listing.id)}
+                listingId={listing.id}
+              />
+            ) : (
+              <VideoPlayer
+                src={listing.videoTour?.videoUrl || listing.videoTourUrl || undefined}
+                thumbnail={listing.videoTour?.thumbnailUrl || listing.videoTourThumbnail}
+                title={`${listing.title} - Virtual Tour`}
+                className="h-64 rounded-xl"
+                onFlag={() => handleFlagContent(listing.id)}
+                onPlay={() => { }}
+              />
+            )
+          )}
+
+          {/* Tour info chips */}
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="bg-white rounded-lg p-2 text-center">
               <div className="text-xs text-slate-500 mb-1">Experience</div>
               <div className="text-sm font-medium text-slate-900">
-                {is3DTourMode ? "360° View" : "Standard"}
+                {listing.virtualTourProvider === '360' ? '360° View' : 'Standard'}
               </div>
             </div>
             <div className="bg-white rounded-lg p-2 text-center">
               <div className="text-xs text-slate-500 mb-1">Controls</div>
               <div className="text-sm font-medium text-slate-900">
-                {is3DTourMode ? "Interactive" : "Play/Pause"}
+                {listing.virtualTourProvider === '360' ? 'Interactive' : 'Play/Pause'}
               </div>
             </div>
             <div className="bg-white rounded-lg p-2 text-center">

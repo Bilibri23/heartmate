@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Camera, X, MapPin, Bed, Bath, Maximize, CheckCircle, ImageIcon, FileText, DollarSign, Sparkles, Check, ArrowLeft, ArrowRight, Video, Play } from "lucide-react"
+import { Camera, X, MapPin, Bed, Bath, Maximize, CheckCircle, ImageIcon, FileText, DollarSign, Sparkles, Check, ArrowLeft, ArrowRight, Video, Image as ImageIcon2, Upload, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,10 +34,10 @@ const ALL_AMENITIES = Object.values(AMENITIES_BY_CATEGORY).flat()
 const STEPS = [{ id: 1, title: "Photos", icon: ImageIcon }, { id: 2, title: "Details", icon: FileText }, { id: 3, title: "Pricing", icon: DollarSign }, { id: 4, title: "Amenities", icon: Sparkles }, { id: 5, title: "Virtual Tour", icon: Video }]
 
 interface PhotoItem { file: File; preview: string }
-interface VirtualTour {
-  tourUrl?: string
-  embedCode?: string
-  provider?: 'panoee' | 'kuula' | 'zillow' | 'cloudpano' | 'generic'
+interface VirtualTourItem {
+  file: File
+  preview: string      // object URL for preview
+  type: 'video' | '360'
 }
 
 export default function NewListingPage() {
@@ -49,7 +49,8 @@ export default function NewListingPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0)
   const [photos, setPhotos] = useState<PhotoItem[]>([])
-  const [virtualTour, setVirtualTour] = useState<VirtualTour | null>(null)
+  const [virtualTour, setVirtualTour] = useState<VirtualTourItem | null>(null)
+  const [tourUploadProgress, setTourUploadProgress] = useState<number>(0)
   const [formData, setFormData] = useState({ title: "", description: "", propertyType: "", city: "", neighborhood: "", address: "", rentAmount: "", depositAmount: "", bedrooms: "1", bathrooms: "1", size: "", amenities: [] as string[] })
 
   const handlePhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,37 +62,15 @@ export default function NewListingPage() {
 
   const handlePhotoRemove = (index: number) => setPhotos(prev => prev.filter((_, i) => i !== index))
 
-  const handleVirtualTourUrlChange = (url: string) => {
-    setVirtualTour(prev => prev ? {
-      ...prev,
-      tourUrl: url
-    } : {
-      provider: 'generic',
-      tourUrl: url,
-      embedCode: ''
-    })
-  }
-
-  const handleEmbedCodeChange = (embedCode: string) => {
-    setVirtualTour(prev => prev ? {
-      ...prev,
-      embedCode
-    } : {
-      provider: 'generic',
-      tourUrl: '',
-      embedCode
-    })
-  }
-
-  const handleProviderChange = (provider: 'panoee' | 'kuula' | 'zillow' | 'cloudpano' | 'generic') => {
-    setVirtualTour(prev => ({
-      ...prev,
-      provider
-    }))
+  const handleTourFileSelect = (file: File, type: 'video' | '360') => {
+    const preview = URL.createObjectURL(file)
+    setVirtualTour({ file, preview, type })
   }
 
   const handleVirtualTourRemove = () => {
+    if (virtualTour?.preview) URL.revokeObjectURL(virtualTour.preview)
     setVirtualTour(null)
+    setTourUploadProgress(0)
   }
 
   const toggleAmenity = (amenity: string) => setFormData(prev => ({ ...prev, amenities: prev.amenities.includes(amenity) ? prev.amenities.filter(a => a !== amenity) : [...prev.amenities, amenity] }))
@@ -100,6 +79,7 @@ export default function NewListingPage() {
     if (!user?.id) return
     setIsSubmitting(true)
     try {
+      // Step 1: Create listing (no tour URL yet)
       const listingData = {
         title: formData.title,
         description: formData.description,
@@ -113,21 +93,82 @@ export default function NewListingPage() {
         bathrooms: parseInt(formData.bathrooms),
         squareMeters: formData.size ? parseInt(formData.size) : null,
         amenities: formData.amenities,
-        videoTourUrl: virtualTour?.tourUrl,
-        videoTourEmbedCode: virtualTour?.embedCode,
-        virtualTourProvider: virtualTour?.provider || 'generic'
+        virtualTourProvider: virtualTour ? virtualTour.type : undefined,
       }
       const response = await api.post("/listings", listingData, { params: { landlordId: user.id } })
       const listingId = response.data.id
+
+      // Step 2: Upload photos
       for (let i = 0; i < photos.length; i++) {
         const photoFormData = new FormData()
         photoFormData.append("file", photos[i].file)
-        await uploadApi.post(`/listings/${listingId}/photos`, photoFormData, { 
+        await uploadApi.post(`/listings/${listingId}/photos`, photoFormData, {
           params: { landlordId: user.id, isPrimary: i === 0 }
-          // Don't set Content-Type - let Axios handle it automatically for FormData
         })
       }
-      
+
+      // Step 3: Upload virtual tour file (video or 360° image) if present
+      if (virtualTour?.file) {
+        console.log('📤 Uploading virtual tour:', {
+          fileName: virtualTour.file.name,
+          fileSize: virtualTour.file.size,
+          fileType: virtualTour.file.type,
+          tourType: virtualTour.type
+        })
+        
+        const tourFormData = new FormData()
+        tourFormData.append("file", virtualTour.file)
+        try {
+          const tourRes = await uploadApi.post(
+            `/listings/${listingId}/photos`,
+            tourFormData,
+            {
+              params: { landlordId: user.id, isPrimary: false },
+              onUploadProgress: (e) => {
+                if (e.total) setTourUploadProgress(Math.round((e.loaded * 100) / e.total))
+              }
+            }
+          )
+          
+          console.log('✅ Tour file uploaded to Cloudinary:', tourRes.data)
+          
+          // Get Cloudinary URL from response
+          // Backend returns ListingResponse with photos array - get the last added photo
+          const photos = tourRes.data?.photos || []
+          const lastPhoto = photos[photos.length - 1]
+          const tourUrl = lastPhoto?.photoUrl || tourRes.data?.photoUrl || tourRes.data?.url
+          console.log('🔗 Extracted tour URL:', tourUrl, 'from photos:', photos.length)
+          
+          if (tourUrl) {
+            // Backend requires full ListingRequest with validation, so we need to send all required fields
+            const updateData = {
+              title: formData.title,
+              rentAmount: parseInt(formData.rentAmount),
+              videoTourUrl: tourUrl,
+              virtualTourProvider: virtualTour.type,
+            }
+            console.log('📝 Updating listing with tour data:', updateData)
+            
+            const updateRes = await api.put(`/listings/${listingId}`, updateData, { 
+              params: { landlordId: user.id } 
+            })
+            
+            console.log('✅ Listing updated successfully:', updateRes.data)
+          } else {
+            console.error('❌ No tour URL in upload response:', tourRes.data)
+          }
+        } catch (tourErr: any) {
+          // Non-fatal: listing still created, tour just won't show
+          console.error("❌ Tour upload failed:", {
+            error: tourErr,
+            message: tourErr?.response?.data?.message || tourErr?.message,
+            status: tourErr?.response?.status
+          })
+        }
+      } else {
+        console.log('ℹ️ No virtual tour file to upload')
+      }
+
       router.push("/landlord")
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Failed to create listing. Please try again."
@@ -217,11 +258,21 @@ export default function NewListingPage() {
                 <div className="space-y-4">
                   <div><h2 className="text-lg font-semibold text-slate-900">Pricing</h2><p className="text-sm text-slate-500">Set your rent</p></div>
                   <div className="space-y-4">
-                    <div><Label className="text-slate-700 mb-2 block">Monthly Rent (FCFA) *</Label><Input type="number" placeholder="e.g., 75000" value={formData.rentAmount} onChange={(e) => setFormData(prev => ({ ...prev, rentAmount: e.target.value }))} className="h-12 rounded-xl text-lg font-semibold" /></div>
-                    <div><Label className="text-slate-700 mb-2 block">Deposit (FCFA)</Label><Input type="number" placeholder="Same as rent if empty" value={formData.depositAmount} onChange={(e) => setFormData(prev => ({ ...prev, depositAmount: e.target.value }))} className="h-12 rounded-xl" /></div>
+                    <div><Label className="text-slate-700 mb-2 block">Monthly Rent (FCFA) *</Label><Input type="number" placeholder="e.g., 75000" value={formData.rentAmount} onChange={(e) => {
+                      const value = e.target.value
+                      if (value === '' || parseFloat(value) >= 0) {
+                        setFormData(prev => ({ ...prev, rentAmount: value }))
+                      }
+                    }} className="h-12 rounded-xl text-lg font-semibold" /></div>
+                    <div><Label className="text-slate-700 mb-2 block">Deposit (FCFA)</Label><Input type="number" placeholder="Same as rent if empty" value={formData.depositAmount} onChange={(e) => {
+                      const value = e.target.value
+                      if (value === '' || parseFloat(value) >= 0) {
+                        setFormData(prev => ({ ...prev, depositAmount: value }))
+                      }
+                    }} className="h-12 rounded-xl" /></div>
                     <div className="grid grid-cols-3 gap-3">
-                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bed className="h-4 w-4" /> Beds</Label><Select value={formData.bedrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bedrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5,6].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
-                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bath className="h-4 w-4" /> Baths</Label><Select value={formData.bathrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bathrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
+                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bed className="h-4 w-4" /> Beds</Label><Select value={formData.bedrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bedrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4, 5, 6].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
+                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bath className="h-4 w-4" /> Baths</Label><Select value={formData.bathrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bathrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
                       <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Maximize className="h-4 w-4" /> Size</Label><Input type="number" placeholder="m2" value={formData.size} onChange={(e) => setFormData(prev => ({ ...prev, size: e.target.value }))} className="h-12 rounded-xl" /></div>
                     </div>
                   </div>
@@ -253,167 +304,127 @@ export default function NewListingPage() {
                 <div className="space-y-4">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900">Virtual Tour</h2>
-                    <p className="text-sm text-slate-500">Add a video walkthrough or 360° virtual tour (optional)</p>
+                    <p className="text-sm text-slate-500">Upload a video walkthrough or a 360° panoramic photo (optional)</p>
                   </div>
                   <div className="space-y-4">
-                    {virtualTour && (virtualTour.tourUrl || virtualTour.embedCode) ? (
+                    {virtualTour ? (
                       <div className="space-y-4">
                         <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2 text-blue-800">
-                              <Video className="h-5 w-5" />
-                              <span className="font-medium">Virtual Tour Configured</span>
+                              {virtualTour.type === 'video' ? <Video className="h-5 w-5" /> : <ImageIcon2 className="h-5 w-5" />}
+                              <span className="font-medium">
+                                {virtualTour.type === 'video' ? 'Video Walkthrough' : '360° Virtual Tour'} Ready
+                              </span>
                             </div>
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={handleVirtualTourRemove}
-                              className="text-slate-600 hover:text-slate-800"
+                              className="text-red-600 hover:text-red-700 border-red-200"
                             >
-                              Remove
+                              <Trash2 className="h-4 w-4 mr-1" /> Remove
                             </Button>
                           </div>
-                          
-                          {virtualTour.tourUrl && (
-                            <div className="mb-3">
-                              <div className="text-xs text-slate-500 mb-1">Tour URL</div>
-                              <div className="text-sm text-slate-900 bg-white rounded p-2 border border-slate-200 break-all">
-                                {virtualTour.tourUrl}
-                              </div>
-                            </div>
+
+                          {/* Preview */}
+                          {virtualTour.type === 'video' ? (
+                            <video
+                              src={virtualTour.preview}
+                              className="w-full rounded-xl max-h-48 object-cover bg-black"
+                              controls
+                              muted
+                            />
+                          ) : (
+                            <img
+                              src={virtualTour.preview}
+                              alt="360° panorama preview"
+                              className="w-full rounded-xl max-h-48 object-cover"
+                            />
                           )}
-                          
-                          {virtualTour.embedCode && (
-                            <div className="mb-3">
-                              <div className="text-xs text-slate-500 mb-1">Embed Code</div>
-                              <div className="text-sm text-slate-900 bg-white rounded p-2 border border-slate-200 max-h-20 overflow-y-auto">
-                                <code className="text-xs">{virtualTour.embedCode.substring(0, 100)}...</code>
-                              </div>
-                            </div>
-                          )}
-                          
+
                           <div className="mt-3 grid grid-cols-2 gap-2">
                             <div className="bg-white rounded-lg p-2 text-center">
-                              <div className="text-xs text-slate-500">Provider</div>
-                              <div className="text-sm font-medium text-slate-900 capitalize">{virtualTour.provider || 'generic'}</div>
+                              <div className="text-xs text-slate-500">Type</div>
+                              <div className="text-sm font-medium text-slate-900">
+                                {virtualTour.type === 'video' ? '📹 Video' : '🔮 360° Photo'}
+                              </div>
                             </div>
                             <div className="bg-white rounded-lg p-2 text-center">
-                              <div className="text-xs text-slate-500">Type</div>
-                              <div className="text-sm font-medium text-slate-900">360° Tour</div>
+                              <div className="text-xs text-slate-500">File size</div>
+                              <div className="text-sm font-medium text-slate-900">
+                                {(virtualTour.file.size / (1024 * 1024)).toFixed(1)} MB
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-6">
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-blue-200">
-                          <div className="flex items-center gap-2 mb-4">
-                            <Video className="h-6 w-6 text-blue-600" />
-                            <h3 className="text-lg font-medium text-slate-900">Add Virtual Tour</h3>
-                            <span className="bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-medium">NEW</span>
-                          </div>
-                          
-                          {/* Provider Selection */}
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Tour Provider</label>
-                            <div className="grid grid-cols-2 gap-2">
-                              {[
-                                { id: 'panoee', name: 'Panoee', desc: 'Best free option', icon: '🌐' },
-                                { id: 'kuula', name: 'Kuula', desc: 'Hotspot support', icon: '🎯' },
-                                { id: 'zillow', name: 'Zillow 3D', desc: 'Phone capture', icon: '🏠' },
-                                { id: 'cloudpano', name: 'CloudPano', desc: 'Custom branding', icon: '☁️' },
-                                { id: 'generic', name: 'Other', desc: 'Any platform', icon: '🎮' }
-                              ].map(provider => (
-                                <button
-                                  key={provider.id}
-                                  type="button"
-                                  onClick={() => handleProviderChange(provider.id as any)}
-                                  className={`p-3 rounded-lg border text-left transition-colors ${
-                                    virtualTour?.provider === provider.id
-                                      ? 'border-blue-500 bg-blue-50'
-                                      : 'border-slate-200 bg-white hover:border-slate-300'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-lg">{provider.icon}</span>
-                                    <div>
-                                      <div className="text-sm font-medium text-slate-900">{provider.name}</div>
-                                      <div className="text-xs text-slate-500">{provider.desc}</div>
-                                    </div>
-                                  </div>
-                                </button>
-                              ))}
+                      <div className="space-y-4">
+                        {/* Option 1: Video Walkthrough */}
+                        <label className="block cursor-pointer">
+                          <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-colors text-center">
+                            <Video className="h-10 w-10 text-blue-500 mx-auto mb-3" />
+                            <p className="font-semibold text-slate-900 mb-1">📹 Video Walkthrough</p>
+                            <p className="text-sm text-slate-500 mb-3">
+                              Upload an MP4 video walking through each room
+                            </p>
+                            <div className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium">
+                              <Upload className="h-4 w-4" /> Choose Video File
                             </div>
+                            <p className="text-xs text-slate-400 mt-2">MP4, MOV, AVI · Max 200MB</p>
                           </div>
+                          <input
+                            type="file"
+                            accept="video/mp4,video/quicktime,video/avi,video/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleTourFileSelect(file, 'video')
+                            }}
+                          />
+                        </label>
 
-                          {/* Tour URL Input */}
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Tour URL</label>
-                            <Input
-                              placeholder="https://your-tour.panoee.com/apartment123"
-                              value={virtualTour?.tourUrl || ''}
-                              onChange={(e) => handleVirtualTourUrlChange(e.target.value)}
-                              className="rounded-xl"
-                            />
-                            <p className="text-xs text-slate-500 mt-1">
-                              Paste the shareable link from your virtual tour provider
-                            </p>
-                          </div>
-
-                          {/* Embed Code Input */}
-                          <div className="mb-4">
-                            <label className="block text-sm font-medium text-slate-700 mb-2">Embed Code (Optional)</label>
-                            <textarea
-                              placeholder='<iframe src="https://tour-url.com/embed" width="800" height="600" frameborder="0" allowfullscreen></iframe>'
-                              value={virtualTour?.embedCode || ''}
-                              onChange={(e) => handleEmbedCodeChange(e.target.value)}
-                              className="w-full p-3 border border-slate-200 rounded-xl resize-none h-20 text-sm font-mono"
-                            />
-                            <p className="text-xs text-slate-500 mt-1">
-                              If you have embed code, paste it here for better integration
-                            </p>
-                          </div>
+                        {/* Divider */}
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-px bg-slate-200" />
+                          <span className="text-xs text-slate-400 font-medium">OR</span>
+                          <div className="flex-1 h-px bg-slate-200" />
                         </div>
 
-                        {/* Help Section */}
-                        <div className="bg-slate-50 rounded-xl p-4">
-                          <h4 className="font-medium text-slate-900 mb-3">📖 How to Create a Virtual Tour</h4>
-                          <div className="space-y-3 text-sm text-slate-600">
-                            <div className="flex items-start gap-2">
-                              <span className="text-blue-600">1️⃣</span>
-                              <div>
-                                <strong>Choose a Provider:</strong> We recommend <strong>Panoee</strong> (free) or <strong>Kuula</strong> for best results
-                              </div>
+                        {/* Option 2: 360° Photo */}
+                        <label className="block cursor-pointer">
+                          <div className="border-2 border-dashed border-purple-300 rounded-xl p-6 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 transition-colors text-center">
+                            <ImageIcon2 className="h-10 w-10 text-purple-500 mx-auto mb-3" />
+                            <p className="font-semibold text-slate-900 mb-1">🔮 360° Virtual Tour</p>
+                            <p className="text-sm text-slate-500 mb-3">
+                              Upload a 360° panoramic photo for an interactive tour
+                            </p>
+                            <div className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-medium">
+                              <Upload className="h-4 w-4" /> Choose 360° Photo
                             </div>
-                            <div className="flex items-start gap-2">
-                              <span className="text-blue-600">2️⃣</span>
-                              <div>
-                                <strong>Capture Photos:</strong> Use your phone to take 360° photos in each room, or hire a photographer
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span className="text-blue-600">3️⃣</span>
-                              <div>
-                                <strong>Create Tour:</strong> Upload photos to the platform, add hotspots, and publish
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <span className="text-blue-600">4️⃣</span>
-                              <div>
-                                <strong>Get Link:</strong> Copy the shareable URL or embed code and paste it above
-                              </div>
-                            </div>
+                            <p className="text-xs text-slate-400 mt-2">JPG, PNG equirectangular · Max 50MB</p>
                           </div>
-                          
-                          <div className="mt-4 p-3 bg-white rounded-lg border border-slate-200">
-                            <div className="text-xs font-medium text-slate-900 mb-2">💡 Pro Tips:</div>
-                            <ul className="text-xs text-slate-600 space-y-1">
-                              <li>• Good lighting makes a huge difference</li>
-                              <li>• Capture from center of each room for best 360° effect</li>
-                              <li>• Add hotspots to highlight features</li>
-                              <li>• Most providers offer free plans with basic features</li>
-                            </ul>
-                          </div>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/jpg"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleTourFileSelect(file, '360')
+                            }}
+                          />
+                        </label>
+
+                        {/* Help tip */}
+                        <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
+                          <p className="font-medium text-slate-900 mb-2">💡 How to capture a 360° photo</p>
+                          <ul className="space-y-1 text-xs">
+                            <li>• Use <strong>Google Street View</strong> app (free) to capture 360° photos</li>
+                            <li>• Stand in the center of the room and follow the app's guide</li>
+                            <li>• Export the panorama as a JPG equirectangular image</li>
+                            <li>• Good lighting makes a huge difference!</li>
+                          </ul>
                         </div>
                       </div>
                     )}

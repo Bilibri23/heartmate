@@ -149,15 +149,17 @@ export function VideoPlayer({
       ref={containerRef}
       className={`relative bg-black rounded-xl overflow-hidden ${className}`}
     >
-      <video
-        ref={videoRef}
-        src={src || undefined}
-        poster={thumbnail}
-        className="w-full h-full object-contain"
-        playsInline
-        muted={isMuted}
-        onClick={togglePlay}
-      />
+      {src && (
+        <video
+          ref={videoRef}
+          src={src}
+          poster={thumbnail}
+          className="w-full h-full object-contain"
+          playsInline
+          muted={isMuted}
+          onClick={togglePlay}
+        />
+      )}
 
       {/* Play Overlay */}
       {showPlayOverlay && !isLoading && (
