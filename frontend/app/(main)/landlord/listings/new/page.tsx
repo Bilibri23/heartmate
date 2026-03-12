@@ -41,7 +41,7 @@ interface VirtualTourItem {
 }
 
 export default function NewListingPage() {
-  const { formatCurrency } = useLanguage()
+  const { formatCurrency, language, t } = useLanguage()
   const { user } = useAuth()
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
@@ -192,7 +192,7 @@ export default function NewListingPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <MobileHeader title="New Listing" />
+      <MobileHeader title={t.landlordForm.newListing} />
       <div className="flex-1 flex flex-col lg:flex-row">
         <div className="flex-1 flex flex-col">
           <div className="bg-white border-b px-4 py-3">
@@ -219,7 +219,7 @@ export default function NewListingPage() {
             <div className="max-w-lg mx-auto">
               {currentStep === 1 && (
                 <div className="space-y-4">
-                  <div><h2 className="text-lg font-semibold text-slate-900">Add Photos</h2><p className="text-sm text-slate-500">Upload up to 10 photos</p></div>
+                  <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.addPhotos}</h2><p className="text-sm text-slate-500">{t.landlordForm.uploadPhotos}</p></div>
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((photo, index) => (
                       <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-slate-100">
@@ -239,48 +239,85 @@ export default function NewListingPage() {
               )}
               {currentStep === 2 && (
                 <div className="space-y-4">
-                  <div><h2 className="text-lg font-semibold text-slate-900">Property Details</h2><p className="text-sm text-slate-500">Tell us about your property</p></div>
+                  <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.propertyDetails}</h2><p className="text-sm text-slate-500">{t.landlordForm.tellUsAbout}</p></div>
                   <div className="space-y-4">
-                    <div><Label className="text-slate-700 mb-2 block">Title *</Label><Input placeholder="e.g., Modern Studio in Bonapriso" value={formData.title} onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))} className="h-12 rounded-xl" /></div>
-                    <div><Label className="text-slate-700 mb-2 block">Property Type *</Label>
+                    <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.titleLabel} *</Label><Input placeholder={t.landlordForm.titlePlaceholder} value={formData.title} onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))} className="h-12 rounded-xl" /></div>
+                    <div><Label className="text-slate-700 mb-2 block">{t.listings.propertyType} *</Label>
                       <Select value={formData.propertyType} onValueChange={(value) => setFormData(prev => ({ ...prev, propertyType: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger><SelectContent>{PROPERTY_TYPES.map((type) => (<SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>))}</SelectContent></Select>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div><Label className="text-slate-700 mb-2 block">City *</Label><Select value={formData.city} onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select city" /></SelectTrigger><SelectContent>{CAMEROON_CITIES.map((city) => (<SelectItem key={city} value={city}>{city}</SelectItem>))}</SelectContent></Select></div>
-                      <div><Label className="text-slate-700 mb-2 block">Neighborhood *</Label><Input placeholder="e.g., Bonapriso" value={formData.neighborhood} onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))} className="h-12 rounded-xl" /></div>
+                      <div><Label className="text-slate-700 mb-2 block">{t.search.city} *</Label><Select value={formData.city} onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select city" /></SelectTrigger><SelectContent>{CAMEROON_CITIES.map((city) => (<SelectItem key={city} value={city}>{city}</SelectItem>))}</SelectContent></Select></div>
+                      <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.neighborhoodLabel} *</Label><Input placeholder={t.landlordForm.neighborhoodPlaceholder} value={formData.neighborhood} onChange={(e) => setFormData(prev => ({ ...prev, neighborhood: e.target.value }))} className="h-12 rounded-xl" /></div>
                     </div>
-                    <div><Label className="text-slate-700 mb-2 block">Address</Label><Input placeholder="Street address" value={formData.address} onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))} className="h-12 rounded-xl" /></div>
-                    <div><Label className="text-slate-700 mb-2 block">Description</Label><Textarea placeholder="Describe your property..." value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} className="min-h-[100px] rounded-xl resize-none" /></div>
+                    <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.addressLabel}</Label><Input placeholder={t.landlordForm.addressPlaceholder} value={formData.address} onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))} className="h-12 rounded-xl" /></div>
+                    <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.descriptionLabel}</Label><Textarea placeholder={t.landlordForm.descriptionPlaceholder} value={formData.description} onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))} className="min-h-[100px] rounded-xl resize-none" /></div>
+                    <div>
+                      <Label className="text-slate-700 mb-3 block">{language === "fr" ? "Meublé ?" : "Furnished?"} *</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              amenities: prev.amenities.includes("Furnished")
+                                ? prev.amenities
+                                : [...prev.amenities, "Furnished"]
+                            }))
+                          }}
+                          className={`p-4 rounded-xl border-2 text-center transition-all ${formData.amenities.includes("Furnished") ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-slate-300"}`}
+                        >
+                          <span className="text-2xl block mb-1">🛋️</span>
+                          <span className={`font-medium text-sm ${formData.amenities.includes("Furnished") ? "text-blue-700" : "text-slate-700"}`}>
+                            {language === "fr" ? "Meublé" : "Furnished"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              amenities: prev.amenities.filter(a => a !== "Furnished")
+                            }))
+                          }}
+                          className={`p-4 rounded-xl border-2 text-center transition-all ${!formData.amenities.includes("Furnished") ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-slate-300"}`}
+                        >
+                          <span className="text-2xl block mb-1">🏠</span>
+                          <span className={`font-medium text-sm ${!formData.amenities.includes("Furnished") ? "text-blue-700" : "text-slate-700"}`}>
+                            {language === "fr" ? "Non meublé" : "Unfurnished"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
               {currentStep === 3 && (
                 <div className="space-y-4">
-                  <div><h2 className="text-lg font-semibold text-slate-900">Pricing</h2><p className="text-sm text-slate-500">Set your rent</p></div>
+                  <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.pricing}</h2><p className="text-sm text-slate-500">{t.landlordForm.setYourRent}</p></div>
                   <div className="space-y-4">
-                    <div><Label className="text-slate-700 mb-2 block">Monthly Rent (FCFA) *</Label><Input type="number" placeholder="e.g., 75000" value={formData.rentAmount} onChange={(e) => {
+                    <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.monthlyRent} *</Label><Input type="number" placeholder={t.landlordForm.rentPlaceholder} value={formData.rentAmount} onChange={(e) => {
                       const value = e.target.value
                       if (value === '' || parseFloat(value) >= 0) {
                         setFormData(prev => ({ ...prev, rentAmount: value }))
                       }
                     }} className="h-12 rounded-xl text-lg font-semibold" /></div>
-                    <div><Label className="text-slate-700 mb-2 block">Deposit (FCFA)</Label><Input type="number" placeholder="Same as rent if empty" value={formData.depositAmount} onChange={(e) => {
+                    <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.depositLabel}</Label><Input type="number" placeholder={t.landlordForm.depositPlaceholder} value={formData.depositAmount} onChange={(e) => {
                       const value = e.target.value
                       if (value === '' || parseFloat(value) >= 0) {
                         setFormData(prev => ({ ...prev, depositAmount: value }))
                       }
                     }} className="h-12 rounded-xl" /></div>
                     <div className="grid grid-cols-3 gap-3">
-                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bed className="h-4 w-4" /> Beds</Label><Select value={formData.bedrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bedrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4, 5, 6].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
-                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bath className="h-4 w-4" /> Baths</Label><Select value={formData.bathrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bathrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
-                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Maximize className="h-4 w-4" /> Size</Label><Input type="number" placeholder="m2" value={formData.size} onChange={(e) => setFormData(prev => ({ ...prev, size: e.target.value }))} className="h-12 rounded-xl" /></div>
+                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bed className="h-4 w-4" /> {t.landlordForm.beds}</Label><Select value={formData.bedrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bedrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4, 5, 6].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
+                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bath className="h-4 w-4" /> {t.landlordForm.baths}</Label><Select value={formData.bathrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bathrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
+                      <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Maximize className="h-4 w-4" /> {t.landlordForm.size}</Label><Input type="number" placeholder="m²" value={formData.size} onChange={(e) => setFormData(prev => ({ ...prev, size: e.target.value }))} className="h-12 rounded-xl" /></div>
                     </div>
                   </div>
                 </div>
               )}
               {currentStep === 4 && (
                 <div className="space-y-4">
-                  <div><h2 className="text-lg font-semibold text-slate-900">Amenities & Features</h2><p className="text-sm text-slate-500">Select everything your property offers</p></div>
+                  <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.amenitiesFeatures}</h2><p className="text-sm text-slate-500">{t.landlordForm.selectAmenities}</p></div>
                   {Object.entries(AMENITIES_BY_CATEGORY).map(([category, amenities]) => (
                     <div key={category} className="space-y-2">
                       <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{category}</h3>
@@ -290,12 +327,12 @@ export default function NewListingPage() {
                     </div>
                   ))}
                   <div className="mt-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <h3 className="font-semibold text-emerald-800 mb-2">Ready to publish?</h3>
+                    <h3 className="font-semibold text-emerald-800 mb-2">{t.landlordForm.readyToPublish}</h3>
                     <ul className="text-sm text-emerald-700 space-y-1">
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {photos.length} photos</li>
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.title || "No title"}</li>
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : "No price"}/month</li>
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.amenities.length} amenities</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {photos.length} {t.landlordForm.photos}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.title || t.landlordForm.noTitle}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : t.landlordForm.noPrice}{t.listings.perMonth}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.amenities.length} {t.landlordForm.amenitiesCount}</li>
                     </ul>
                   </div>
                 </div>
@@ -430,13 +467,13 @@ export default function NewListingPage() {
                     )}
                   </div>
                   <div className="mt-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <h3 className="font-semibold text-emerald-800 mb-2">Ready to publish?</h3>
+                    <h3 className="font-semibold text-emerald-800 mb-2">{t.landlordForm.readyToPublish}</h3>
                     <ul className="text-sm text-emerald-700 space-y-1">
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {photos.length} photos</li>
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.title || "No title"}</li>
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : "No price"}/month</li>
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.amenities.length} amenities</li>
-                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {virtualTour ? "Virtual tour added" : "No virtual tour"}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {photos.length} {t.landlordForm.photos}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.title || t.landlordForm.noTitle}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : t.landlordForm.noPrice}{t.listings.perMonth}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {formData.amenities.length} {t.landlordForm.amenitiesCount}</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4" /> {virtualTour ? t.landlordForm.virtualTourAdded : t.landlordForm.noVirtualTour}</li>
                     </ul>
                   </div>
                 </div>
@@ -450,8 +487,8 @@ export default function NewListingPage() {
               </div>
             )}
             <div className="max-w-lg mx-auto flex gap-3">
-              {currentStep > 1 && <Button variant="outline" onClick={prevStep} className="flex-1 h-12 rounded-xl"><ArrowLeft className="h-4 w-4 mr-2" />Back</Button>}
-              {currentStep < 5 ? (<Button onClick={() => { setSubmitError(null); nextStep() }} disabled={!canProceed()} className="flex-1 h-12 rounded-xl">Next<ArrowRight className="h-4 w-4 ml-2" /></Button>) : (<Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()} className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700">{isSubmitting ? "Publishing..." : "Publish Listing"}</Button>)}
+              {currentStep > 1 && <Button variant="outline" onClick={prevStep} className="flex-1 h-12 rounded-xl"><ArrowLeft className="h-4 w-4 mr-2" />{t.common.back}</Button>}
+              {currentStep < 5 ? (<Button onClick={() => { setSubmitError(null); nextStep() }} disabled={!canProceed()} className="flex-1 h-12 rounded-xl">{t.common.next}<ArrowRight className="h-4 w-4 ml-2" /></Button>) : (<Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()} className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700">{isSubmitting ? t.landlordForm.publishing : t.landlordForm.publishListing}</Button>)}
             </div>
           </div>
         </div>
@@ -459,12 +496,14 @@ export default function NewListingPage() {
           <div className="sticky top-4">
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
               <div className="relative h-48 bg-slate-200">
-                {photos.length > 0 ? (<div className="relative h-full"><img src={photos[previewPhotoIndex]?.preview} alt="Preview" className="w-full h-full object-cover" />{photos.length > 1 && (<div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">{photos.map((_, index) => (<button key={index} onClick={() => setPreviewPhotoIndex(index)} className={`h-1.5 rounded-full transition-all ${index === previewPhotoIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"}`} />))}</div>)}</div>) : (<div className="flex h-full items-center justify-center flex-col gap-2"><Camera className="h-10 w-10 text-slate-300" /><p className="text-slate-400 text-xs">Add photos</p></div>)}
-                <div className="absolute top-2 left-2"><span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-xs font-medium">Live Preview</span></div>
+                {photos.length > 0 ? (<div className="relative h-full"><img src={photos[previewPhotoIndex]?.preview} alt="Preview" className="w-full h-full object-cover" />{photos.length > 1 && (<div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">{photos.map((_, index) => (<button key={index} onClick={() => setPreviewPhotoIndex(index)} className={`h-1.5 rounded-full transition-all ${index === previewPhotoIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"}`} />))}</div>)}</div>) : (<div className="flex h-full items-center justify-center flex-col gap-2"><Camera className="h-10 w-10 text-slate-300" /><p className="text-slate-400 text-xs">{t.landlordForm.addPhotosCta}</p></div>)}
+                <div className="absolute top-2 left-2"><span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-xs font-medium">{t.landlordForm.livePreview}</span></div>
               </div>
               <div className="p-3 space-y-3">
-                <div><p className="text-lg font-bold text-blue-600">{formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : "---"}/mois</p><h1 className="text-sm font-semibold text-slate-900 line-clamp-1">{formData.title || "Your listing title"}</h1><p className="text-slate-500 text-xs flex items-center gap-1"><MapPin className="h-3 w-3" />{formData.neighborhood || "Neighborhood"}, {formData.city || "City"}</p></div>
-                <div className="flex gap-3 py-2 border-y border-slate-100 text-xs"><div className="flex items-center gap-1"><Bed className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.bedrooms || "1"}</span></div><div className="flex items-center gap-1"><Bath className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.bathrooms || "1"}</span></div>{formData.size && <div className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.size}m2</span></div>}</div>
+                <div><p className="text-lg font-bold text-blue-600">{formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : "---"}{t.listings.perMonth}</p><h1 className="text-sm font-semibold text-slate-900 line-clamp-1">{formData.title || t.landlordForm.yourListingTitle}</h1><p className="text-slate-500 text-xs flex items-center gap-1"><MapPin className="h-3 w-3" />{formData.neighborhood || t.landlordForm.neighborhoodLabel}, {formData.city || t.search.city}</p></div>
+                <div className="flex gap-3 py-2 border-y border-slate-100 text-xs">
+                  {formData.amenities.includes("Furnished") && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{language === "fr" ? "Meublé" : "Furnished"}</span>}
+                  <div className="flex items-center gap-1"><Bed className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.bedrooms || "1"}</span></div><div className="flex items-center gap-1"><Bath className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.bathrooms || "1"}</span></div>{formData.size && <div className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.size}m2</span></div>}</div>
                 {formData.amenities.length > 0 && (<div className="flex flex-wrap gap-1">{formData.amenities.slice(0, 4).map((amenity) => (<span key={amenity} className="px-2 py-0.5 bg-slate-100 rounded-full text-xs text-slate-600">{amenity}</span>))}{formData.amenities.length > 4 && <span className="px-2 py-0.5 bg-slate-100 rounded-full text-xs text-slate-600">+{formData.amenities.length - 4}</span>}</div>)}
               </div>
             </div>

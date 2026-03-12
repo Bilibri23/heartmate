@@ -262,76 +262,27 @@ public class ListingService {
         log.info("Advanced search - query: {}, city: {}, bedrooms: {}, bathrooms: {}, maxDistance: {}", 
                 query, city, bedrooms, bathrooms, maxDistance);
         
-        // Start with base query for active and verified listings
-        List<PropertyListing> listings = listingRepository.findByStatusAndVerified(
-                PropertyListing.Status.ACTIVE, true);
-        
-        // Text search filter (title, description, city, neighborhood)
-        if (query != null && !query.isEmpty()) {
-            String lowerQuery = query.toLowerCase();
-            listings = listings.stream()
-                    .filter(listing -> 
-                            (listing.getTitle() != null && listing.getTitle().toLowerCase().contains(lowerQuery)) ||
-                            (listing.getDescription() != null && listing.getDescription().toLowerCase().contains(lowerQuery)) ||
-                            (listing.getCity() != null && listing.getCity().toLowerCase().contains(lowerQuery)) ||
-                            (listing.getNeighborhood() != null && listing.getNeighborhood().toLowerCase().contains(lowerQuery)))
-                    .collect(Collectors.toList());
+        boolean needsInMemoryFiltering = (amenities != null && !amenities.isEmpty())
+                || (maxDistance != null && userLat != null && userLon != null);
+
+        if (!needsInMemoryFiltering) {
+            // Fast path: push everything to the database
+            var spec = ListingSpecifications.buildSearchSpec(
+                    query, city, neighborhood, propertyType,
+                    minPrice, maxPrice, bedrooms, bathrooms,
+                    amenities, availableFrom);
+            Page<PropertyListing> page = listingRepository.findAll(spec, pageable);
+            return page.map(listing -> mapToResponse(listing, userId));
         }
+
+        // Slow path: fetch DB-filtered results unpaginated, then apply amenities/distance in memory
+        var spec = ListingSpecifications.buildSearchSpec(
+                query, city, neighborhood, propertyType,
+                minPrice, maxPrice, bedrooms, bathrooms,
+                null, availableFrom);
+        List<PropertyListing> listings = listingRepository.findAll(spec);
         
-        // City filter
-        if (city != null && !city.isEmpty()) {
-            listings = listings.stream()
-                    .filter(listing -> city.equalsIgnoreCase(listing.getCity()))
-                    .collect(Collectors.toList());
-        }
-        
-        // Neighborhood filter
-        if (neighborhood != null && !neighborhood.isEmpty()) {
-            listings = listings.stream()
-                    .filter(listing -> neighborhood.equalsIgnoreCase(listing.getNeighborhood()))
-                    .collect(Collectors.toList());
-        }
-        
-        // Property type filter
-        if (propertyType != null && !propertyType.isEmpty()) {
-            try {
-                PropertyListing.PropertyType type = PropertyListing.PropertyType.valueOf(propertyType.toUpperCase());
-                listings = listings.stream()
-                        .filter(listing -> listing.getPropertyType() == type)
-                        .collect(Collectors.toList());
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid property type: {}", propertyType);
-            }
-        }
-        
-        // Price range filters
-        if (minPrice != null) {
-            listings = listings.stream()
-                    .filter(listing -> listing.getRentAmount() != null && listing.getRentAmount() >= minPrice)
-                    .collect(Collectors.toList());
-        }
-        
-        if (maxPrice != null) {
-            listings = listings.stream()
-                    .filter(listing -> listing.getRentAmount() != null && listing.getRentAmount() <= maxPrice)
-                    .collect(Collectors.toList());
-        }
-        
-        // Bedrooms filter
-        if (bedrooms != null) {
-            listings = listings.stream()
-                    .filter(listing -> listing.getBedrooms() != null && listing.getBedrooms() >= bedrooms)
-                    .collect(Collectors.toList());
-        }
-        
-        // Bathrooms filter
-        if (bathrooms != null) {
-            listings = listings.stream()
-                    .filter(listing -> listing.getBathrooms() != null && listing.getBathrooms() >= bathrooms)
-                    .collect(Collectors.toList());
-        }
-        
-        // Amenities filter
+        // Amenities filter (JSON array containment not easily expressed in JPA Criteria)
         if (amenities != null && !amenities.isEmpty()) {
             listings = listings.stream()
                     .filter(listing -> listing.getAmenities() != null && 
@@ -339,7 +290,7 @@ public class ListingService {
                     .collect(Collectors.toList());
         }
         
-        // Distance filter (if user location provided)
+        // Distance filter (Haversine — requires PostGIS for DB-side, kept in-memory for now)
         if (maxDistance != null && userLat != null && userLon != null) {
             listings = listings.stream()
                     .filter(listing -> {
@@ -353,23 +304,6 @@ public class ListingService {
                         return distance <= maxDistance;
                     })
                     .collect(Collectors.toList());
-        }
-        
-        // Availability date filter
-        if (availableFrom != null && !availableFrom.isEmpty()) {
-            try {
-                LocalDate requestedDate = LocalDate.parse(availableFrom);
-                listings = listings.stream()
-                        .filter(listing -> {
-                            if (listing.getAvailableFrom() == null) {
-                                return true; // Available immediately
-                            }
-                            return !listing.getAvailableFrom().isAfter(requestedDate);
-                        })
-                        .collect(Collectors.toList());
-            } catch (Exception e) {
-                log.warn("Invalid date format for availableFrom: {}", availableFrom);
-            }
         }
         
         // Convert to responses

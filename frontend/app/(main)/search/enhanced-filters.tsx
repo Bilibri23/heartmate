@@ -6,6 +6,7 @@ import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Navigation, MapPin } from "lucide-react"
+import { useLanguage } from "@/context/language-context"
 
 interface Filters {
   city: string
@@ -56,6 +57,7 @@ export function EnhancedFilters({
   formatCurrency
 }: EnhancedFiltersProps) {
   
+  const { t, language } = useLanguage()
   const toggleAmenity = (amenity: string) => {
     const newAmenities = filters.amenities.includes(amenity)
       ? filters.amenities.filter(a => a !== amenity)
@@ -68,7 +70,7 @@ export function EnhancedFilters({
       {/* Location & Distance */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">
-          📍 Location & Distance
+          📍 {language === "fr" ? "Emplacement & Distance" : "Location & Distance"}
         </label>
         <div className="space-y-3">
           <Button
@@ -78,13 +80,13 @@ export function EnhancedFilters({
             disabled={isLoadingLocation}
           >
             <Navigation className="h-4 w-4 mr-2" />
-            {isLoadingLocation ? "Getting location..." : userLocation ? "Location enabled" : "Use my location"}
+            {isLoadingLocation ? (language === "fr" ? "Localisation..." : "Getting location...") : userLocation ? (language === "fr" ? "Position activée" : "Location enabled") : (language === "fr" ? "Utiliser ma position" : "Use my location")}
           </Button>
           
           {userLocation && (
             <div>
               <label className="text-xs text-slate-600 mb-2 block">
-                Max Distance: {filters.maxDistance || "Any"} km
+                {language === "fr" ? "Distance max" : "Max Distance"}: {filters.maxDistance || t.common.any} km
               </label>
               <Slider
                 value={[filters.maxDistance]}
@@ -95,7 +97,7 @@ export function EnhancedFilters({
                 className="mt-2"
               />
               <div className="flex justify-between text-xs text-slate-500 mt-1">
-                <span>Any</span>
+                <span>{t.common.any}</span>
                 <span>50 km</span>
               </div>
             </div>
@@ -106,17 +108,17 @@ export function EnhancedFilters({
       {/* City */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">
-          🏙️ City
+          🏙️ {t.search.city}
         </label>
         <Select
           value={filters.city}
           onValueChange={(value) => setFilters({ ...filters, city: value })}
         >
           <SelectTrigger className="h-11 rounded-xl">
-            <SelectValue placeholder="Select city" />
+            <SelectValue placeholder={t.landlordForm.selectCity} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All cities</SelectItem>
+            <SelectItem value="all">{language === "fr" ? "Toutes les villes" : "All cities"}</SelectItem>
             {CAMEROON_CITIES.map((city) => (
               <SelectItem key={city} value={city}>{city}</SelectItem>
             ))}
@@ -127,17 +129,17 @@ export function EnhancedFilters({
       {/* Property Type */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">
-          🏠 Property Type
+          🏠 {t.listings.propertyType}
         </label>
         <Select
           value={filters.propertyType}
           onValueChange={(value) => setFilters({ ...filters, propertyType: value })}
         >
           <SelectTrigger className="h-11 rounded-xl">
-            <SelectValue placeholder="Select type" />
+            <SelectValue placeholder={t.landlordForm.selectType} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="all">{t.search.anyType}</SelectItem>
             {PROPERTY_TYPES.map((type) => (
               <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
             ))}
@@ -148,7 +150,7 @@ export function EnhancedFilters({
       {/* Bedrooms */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">
-          🛏️ Bedrooms (min)
+          🛏️ {t.listings.bedrooms} (min)
         </label>
         <div className="grid grid-cols-5 gap-2">
           {[0, 1, 2, 3, 4].map((num) => (
@@ -158,7 +160,7 @@ export function EnhancedFilters({
               className="h-11 rounded-xl"
               onClick={() => setFilters({ ...filters, bedrooms: num })}
             >
-              {num === 0 ? "Any" : num}
+              {num === 0 ? t.common.any : num}
             </Button>
           ))}
         </div>
@@ -167,7 +169,7 @@ export function EnhancedFilters({
       {/* Bathrooms */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">
-          🚿 Bathrooms (min)
+          🚿 {t.listings.bathrooms} (min)
         </label>
         <div className="grid grid-cols-4 gap-2">
           {[0, 1, 2, 3].map((num) => (
@@ -177,7 +179,7 @@ export function EnhancedFilters({
               className="h-11 rounded-xl"
               onClick={() => setFilters({ ...filters, bathrooms: num })}
             >
-              {num === 0 ? "Any" : num}
+              {num === 0 ? t.common.any : num}
             </Button>
           ))}
         </div>
@@ -186,7 +188,7 @@ export function EnhancedFilters({
       {/* Price Range */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-4 block">
-          💰 Price Range: {formatCurrency(filters.minPrice)} - {formatCurrency(filters.maxPrice)}
+          💰 {t.search.priceRange}: {formatCurrency(filters.minPrice)} - {formatCurrency(filters.maxPrice)}
         </label>
         <Slider
           value={[filters.minPrice, filters.maxPrice]}
@@ -205,7 +207,7 @@ export function EnhancedFilters({
       {/* Amenities */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-3 block">
-          ✨ Amenities ({filters.amenities.length} selected)
+          ✨ {t.listings.amenities} ({filters.amenities.length} {language === "fr" ? "sélectionnés" : "selected"})
         </label>
         <div className="grid grid-cols-2 gap-2">
           {AMENITIES.map((amenity) => (
@@ -229,7 +231,7 @@ export function EnhancedFilters({
       {/* Availability Date */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">
-          📅 Available From
+          📅 {language === "fr" ? "Disponible à partir du" : "Available From"}
         </label>
         <Input
           type="date"

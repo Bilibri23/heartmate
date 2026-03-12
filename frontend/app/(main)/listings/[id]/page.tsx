@@ -24,7 +24,21 @@ import {
   Clock,
   CalendarDays,
   Users,
-  UserPlus
+  UserPlus,
+  UtensilsCrossed,
+  Sofa,
+  Sun,
+  TreePine,
+  Warehouse,
+  Armchair,
+  Wifi,
+  Car,
+  ShieldCheck,
+  Zap,
+  Droplets,
+  Wind,
+  Eye,
+  Flag,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -105,7 +119,7 @@ interface ExistingApplication {
 export default function ListingDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const { t, formatCurrency } = useLanguage()
+  const { t, formatCurrency, language } = useLanguage()
   const { user } = useAuth()
   const [listing, setListing] = useState<ListingDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -140,6 +154,27 @@ export default function ListingDetailPage() {
       text: `Hi there! I'm looking to move in as soon as possible and this property caught my eye. I have all my documents ready and I can meet at your earliest convenience. Could we arrange a viewing soon? Thank you!`,
     },
   ]
+
+  const LIVING_SPACE_ICONS: Record<string, { icon: React.ReactNode; labelEn: string; labelFr: string }> = {
+    "Kitchen": { icon: <UtensilsCrossed className="h-4 w-4" />, labelEn: "Kitchen", labelFr: "Cuisine" },
+    "Living Room": { icon: <Sofa className="h-4 w-4" />, labelEn: "Living Room", labelFr: "Salon" },
+    "Dining Room": { icon: <UtensilsCrossed className="h-4 w-4" />, labelEn: "Dining Room", labelFr: "Salle à manger" },
+    "Balcony": { icon: <Sun className="h-4 w-4" />, labelEn: "Balcony", labelFr: "Balcon" },
+    "Terrace": { icon: <Sun className="h-4 w-4" />, labelEn: "Terrace", labelFr: "Terrasse" },
+    "Garden": { icon: <TreePine className="h-4 w-4" />, labelEn: "Garden", labelFr: "Jardin" },
+    "Garage": { icon: <Car className="h-4 w-4" />, labelEn: "Garage", labelFr: "Garage" },
+    "Storage Room": { icon: <Warehouse className="h-4 w-4" />, labelEn: "Storage", labelFr: "Rangement" },
+    "Furnished": { icon: <Armchair className="h-4 w-4" />, labelEn: "Furnished", labelFr: "Meublé" },
+    "WiFi": { icon: <Wifi className="h-4 w-4" />, labelEn: "WiFi", labelFr: "WiFi" },
+    "Parking": { icon: <Car className="h-4 w-4" />, labelEn: "Parking", labelFr: "Parking" },
+    "Security": { icon: <ShieldCheck className="h-4 w-4" />, labelEn: "Security", labelFr: "Sécurité" },
+    "Generator": { icon: <Zap className="h-4 w-4" />, labelEn: "Generator", labelFr: "Groupe électrogène" },
+    "Hot Water": { icon: <Droplets className="h-4 w-4" />, labelEn: "Hot Water", labelFr: "Eau chaude" },
+    "Air Conditioning": { icon: <Wind className="h-4 w-4" />, labelEn: "A/C", labelFr: "Climatisation" },
+    "Swimming Pool": { icon: <Droplets className="h-4 w-4" />, labelEn: "Pool", labelFr: "Piscine" },
+  }
+
+  const matchedSpaces = listing?.amenities?.filter(a => LIVING_SPACE_ICONS[a]) || []
 
   const [mutualMatches, setMutualMatches] = useState<any[]>([])
   const [isShareRoomOpen, setIsShareRoomOpen] = useState(false)
@@ -443,12 +478,17 @@ export default function ListingDetailPage() {
 
   if (!listing) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">🏠</div>
-          <h2 className="text-xl font-semibold text-slate-900">Listing not found</h2>
-          <Button className="mt-4" onClick={() => router.back()}>
-            Go Back
+          <h2 className="text-xl font-semibold text-slate-900">
+            {language === "fr" ? "Annonce introuvable" : "Listing not found"}
+          </h2>
+          <p className="text-sm text-slate-500 mt-2">
+            {language === "fr" ? "Cette annonce n'existe plus ou a été retirée." : "This listing no longer exists or has been removed."}
+          </p>
+          <Button className="mt-4 rounded-xl" onClick={() => router.back()}>
+            {t.common.back}
           </Button>
         </div>
       </div>
@@ -456,96 +496,107 @@ export default function ListingDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-slate-50 pb-24">
       {/* Photo Gallery */}
-      <div className="relative h-72 sm:h-96 bg-slate-200 overflow-hidden">
+      <div className="relative h-80 sm:h-[28rem] bg-slate-200 overflow-hidden">
         {listing.photos && listing.photos.length > 0 ? (
           <>
             <Image
               src={listing.photos[currentPhotoIndex].photoUrl}
               alt={listing.title}
               fill
-              className="object-cover"
+              className="object-cover transition-opacity duration-300"
+              priority
             />
+            {/* Bottom gradient overlay */}
+            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/60 via-black/20 to-transparent pointer-events-none" />
 
             {listing.photos.length > 1 && (
               <>
                 <button
                   onClick={prevPhoto}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md hover:bg-white transition-colors"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <ChevronLeft className="h-5 w-5 text-slate-700" />
                 </button>
                 <button
                   onClick={nextPhoto}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md hover:bg-white transition-colors"
                 >
-                  <ChevronRight className="h-6 w-6" />
+                  <ChevronRight className="h-5 w-5 text-slate-700" />
                 </button>
 
-                {/* Photo indicators */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
-                  {listing.photos.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentPhotoIndex(index)}
-                      className={`h-2 rounded-full transition-all ${index === currentPhotoIndex
-                        ? "w-6 bg-white"
-                        : "w-2 bg-white/60"
-                        }`}
-                    />
-                  ))}
+                {/* Photo counter + dots */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-sm text-white text-xs font-medium">
+                    {currentPhotoIndex + 1} / {listing.photos.length}
+                  </span>
                 </div>
               </>
             )}
+
+            {/* Overlaid title & price on hero */}
+            <div className="absolute bottom-12 left-4 right-4 text-white pointer-events-none hidden sm:block">
+              <p className="text-2xl font-bold drop-shadow-lg">{formatCurrency(listing.rentAmount)}<span className="text-base font-normal opacity-80"> {t.listings.perMonth}</span></p>
+              <h1 className="text-lg font-semibold drop-shadow-md mt-1">{listing.title}</h1>
+            </div>
           </>
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <span className="text-6xl">🏠</span>
+          <div className="flex h-full items-center justify-center bg-slate-100">
+            <div className="text-center">
+              <span className="text-6xl">🏠</span>
+              <p className="text-slate-400 text-sm mt-2">{language === "fr" ? "Aucune photo" : "No photos"}</p>
+            </div>
           </div>
         )}
 
         {/* Top Actions */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between">
+        <div className="absolute top-4 left-4 right-4 flex justify-between z-10">
           <button
             onClick={() => router.back()}
-            className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg"
+            className="h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md hover:bg-white transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 text-slate-700" />
           </button>
 
           <div className="flex gap-2">
             <button
               onClick={handleShare}
-              className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg"
+              className="h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md hover:bg-white transition-colors"
             >
-              <Share2 className="h-5 w-5" />
+              <Share2 className="h-5 w-5 text-slate-700" />
             </button>
             <button
               onClick={handleFavorite}
-              className="h-10 w-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg"
+              className="h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md hover:bg-white transition-colors active:scale-95"
             >
-              <Heart className={`h-5 w-5 ${isFavorited ? "fill-red-500 text-red-500" : ""}`} />
+              <Heart className={`h-5 w-5 transition-colors ${isFavorited ? "fill-red-500 text-red-500" : "text-slate-700"}`} />
             </button>
           </div>
         </div>
 
         {/* Badges */}
-        <div className="absolute bottom-4 left-4 flex gap-2">
+        <div className="absolute top-16 left-4 flex flex-wrap gap-2 z-10">
+          {listing.amenities?.includes("Furnished") && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-600/90 backdrop-blur-sm text-white text-xs font-medium">
+              <Armchair className="h-3.5 w-3.5" />
+              {language === "fr" ? "Meublé" : "Furnished"}
+            </span>
+          )}
           {(listing.videoTour || listing.videoTourUrl) && (
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-600 text-white text-xs font-medium">
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-600/90 backdrop-blur-sm text-white text-xs font-medium">
               <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-              Virtual Tour
+              {language === "fr" ? "Visite virtuelle" : "Virtual Tour"}
             </span>
           )}
           {listing.verified && (
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500 text-white text-xs font-medium">
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-medium">
               <CheckCircle className="h-3.5 w-3.5" />
               {t.listings.verified}
             </span>
           )}
           {listing.featured && (
-            <span className="px-2.5 py-1 rounded-full bg-amber-500 text-white text-xs font-medium">
+            <span className="px-2.5 py-1 rounded-full bg-amber-500/90 backdrop-blur-sm text-white text-xs font-medium">
               {t.listings.featured}
             </span>
           )}
@@ -558,7 +609,7 @@ export default function ListingDetailPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
               <div className="w-2 h-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-pulse" />
-              {listing.virtualTourProvider === '360' ? '360° Virtual Tour' : 'Virtual Tour'}
+              {listing.virtualTourProvider === '360' ? t.listings.virtualTour360 : t.listings.virtualTour}
             </h3>
             {/* Only show toggle for legacy listings without a clear provider */}
             {(!listing.virtualTourProvider || (listing.virtualTourProvider !== '360' && listing.virtualTourProvider !== 'video')) && (
@@ -568,7 +619,7 @@ export default function ListingDetailPage() {
                 onClick={() => setIs3DTourMode(!is3DTourMode)}
                 className="rounded-xl"
               >
-                {is3DTourMode ? "360° Mode" : "Video Mode"}
+                {is3DTourMode ? t.listings.mode360 : t.listings.videoMode}
               </Button>
             )}
           </div>
@@ -622,19 +673,19 @@ export default function ListingDetailPage() {
           {/* Tour info chips */}
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div className="bg-white rounded-lg p-2 text-center">
-              <div className="text-xs text-slate-500 mb-1">Experience</div>
+              <div className="text-xs text-slate-500 mb-1">{t.listings.experience}</div>
               <div className="text-sm font-medium text-slate-900">
-                {listing.virtualTourProvider === '360' ? '360° View' : 'Standard'}
+                {listing.virtualTourProvider === '360' ? t.listings.view360 : t.listings.standard}
               </div>
             </div>
             <div className="bg-white rounded-lg p-2 text-center">
-              <div className="text-xs text-slate-500 mb-1">Controls</div>
+              <div className="text-xs text-slate-500 mb-1">{t.listings.controls}</div>
               <div className="text-sm font-medium text-slate-900">
-                {listing.virtualTourProvider === '360' ? 'Interactive' : 'Play/Pause'}
+                {listing.virtualTourProvider === '360' ? t.listings.interactive : t.listings.playPause}
               </div>
             </div>
             <div className="bg-white rounded-lg p-2 text-center">
-              <div className="text-xs text-slate-500 mb-1">Quality</div>
+              <div className="text-xs text-slate-500 mb-1">{t.listings.quality}</div>
               <div className="text-sm font-medium text-slate-900">HD</div>
             </div>
           </div>
@@ -650,8 +701,8 @@ export default function ListingDetailPage() {
                 <Users className="h-5 w-5" />
               </div>
               <div>
-                <p className="font-medium text-sm">{mutualMatches.length} Roommate Match{mutualMatches.length > 1 ? "es" : ""}</p>
-                <p className="text-xs text-white/80">Share this listing with a match</p>
+                <p className="font-medium text-sm">{mutualMatches.length} {mutualMatches.length > 1 ? t.listingDetail.roommateMatches : t.listingDetail.roommateMatch}</p>
+                <p className="text-xs text-white/80">{t.listingDetail.shareListingMatch}</p>
               </div>
             </div>
             <Button
@@ -659,156 +710,201 @@ export default function ListingDetailPage() {
               className="bg-white text-indigo-700 hover:bg-white/90"
               onClick={() => { setIsShareRoomOpen(true); if (mutualMatches.length === 0) fetchMutualMatches() }}
             >
-              Share
+              {t.common.share}
             </Button>
           </div>
         </div>
       )}
 
       {/* Content */}
-      <div className="p-4 space-y-6">
-        {/* Price & Title */}
-        <div>
-          <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-2xl font-bold text-slate-900">
-              {formatCurrency(listing.rentAmount)}
-            </span>
-            <span className="text-slate-500">{t.listings.perMonth}</span>
-          </div>
-          <h1 className="text-xl font-semibold text-slate-900">{listing.title}</h1>
-          <div className="flex items-center gap-1 mt-1 text-slate-500">
-            <MapPin className="h-4 w-4" />
-            <span className="text-sm">
-              {listing.neighborhood}, {listing.city}
-            </span>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="flex gap-4 py-4 border-y border-slate-100">
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
-              <Bed className="h-5 w-5 text-blue-600" />
+      <div className="bg-white rounded-t-3xl -mt-6 relative z-10">
+        <div className="p-5 space-y-6 max-w-2xl mx-auto">
+          {/* Price & Title (shown on mobile, hidden on sm+ where it's overlaid) */}
+          <div>
+            <div className="flex items-baseline gap-2 mb-1 sm:hidden">
+              <span className="text-2xl font-bold text-slate-900">
+                {formatCurrency(listing.rentAmount)}
+              </span>
+              <span className="text-slate-400 text-sm">{t.listings.perMonth}</span>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">{listing.bedrooms}</p>
+            <h1 className="text-xl font-bold text-slate-900 sm:hidden">{listing.title}</h1>
+            {/* Desktop: simpler heading since hero shows price */}
+            <div className="hidden sm:block">
+              <h1 className="text-2xl font-bold text-slate-900">{listing.title}</h1>
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 text-slate-500">
+              <MapPin className="h-4 w-4 text-blue-500" />
+              <span className="text-sm font-medium">
+                {listing.neighborhood}, {listing.city}
+              </span>
+            </div>
+            {listing.viewsCount > 0 && (
+              <div className="flex items-center gap-1.5 mt-1 text-slate-400">
+                <Eye className="h-3.5 w-3.5" />
+                <span className="text-xs">{listing.viewsCount} {language === "fr" ? "vues" : "views"}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-blue-50 rounded-2xl p-3 text-center">
+              <Bed className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+              <p className="text-lg font-bold text-slate-900">{listing.bedrooms}</p>
               <p className="text-xs text-slate-500">{t.listings.bedrooms}</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
-              <Bath className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-900">{listing.bathrooms}</p>
+            <div className="bg-blue-50 rounded-2xl p-3 text-center">
+              <Bath className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+              <p className="text-lg font-bold text-slate-900">{listing.bathrooms}</p>
               <p className="text-xs text-slate-500">{t.listings.bathrooms}</p>
             </div>
-          </div>
-          {(listing.squareMeters || listing.size) && (listing.squareMeters || listing.size)! > 0 && (
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                <Maximize className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-900">{listing.squareMeters || listing.size}</p>
+            {(listing.squareMeters || listing.size) && (listing.squareMeters || listing.size)! > 0 ? (
+              <div className="bg-blue-50 rounded-2xl p-3 text-center">
+                <Maximize className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                <p className="text-lg font-bold text-slate-900">{listing.squareMeters || listing.size}</p>
                 <p className="text-xs text-slate-500">m²</p>
               </div>
-            </div>
-          )}
-        </div>
-
-        {/* Description */}
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900 mb-2">
-            {t.listings.description}
-          </h2>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            {listing.description}
-          </p>
-        </div>
-
-        {/* Amenities */}
-        {listing.amenities && listing.amenities.length > 0 && (
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-3">
-              {t.listings.amenities}
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {listing.amenities.map((amenity) => (
-                <span
-                  key={amenity}
-                  className="px-3 py-1.5 rounded-full bg-slate-100 text-sm text-slate-700"
-                >
-                  {amenity}
-                </span>
-              ))}
-            </div>
+            ) : (
+              <div className="bg-slate-50 rounded-2xl p-3 text-center">
+                <Armchair className="h-5 w-5 text-slate-400 mx-auto mb-1" />
+                <p className="text-sm font-semibold text-slate-700">{listing.amenities?.includes("Furnished") ? (language === "fr" ? "Meublé" : "Furnished") : (language === "fr" ? "Non meublé" : "Unfurnished")}</p>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Landlord */}
-        <div className="bg-slate-50 rounded-2xl p-4">
-          <h2 className="text-lg font-semibold text-slate-900 mb-3">
-            Landlord
-          </h2>
-          {(listing.landlord || listing.landlordId) ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={listing.landlord?.profilePhotoUrl || undefined} />
-                  <AvatarFallback className="bg-blue-100 text-blue-600">
-                    {listing.landlord?.firstName?.[0] || listing.landlordName?.[0] || "L"}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium text-slate-900">
-                    {listing.landlord ? `${listing.landlord.firstName} ${listing.landlord.lastName}` : listing.landlordName}
-                  </p>
-                  {listing.landlord?.verified && (
-                    <p className="text-xs text-emerald-600 flex items-center gap-1">
-                      <Shield className="h-3 w-3" />
-                      Verified Landlord
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Link href={`/messages/${listing.landlord?.id || listing.landlordId}`}>
-                <Button variant="outline" size="sm" className="rounded-xl">
-                  <MessageCircle className="h-4 w-4 mr-1" />
-                  Message
-                </Button>
-              </Link>
+          {/* Living Space Icons */}
+          {matchedSpaces.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {matchedSpaces.map((amenity) => {
+                const info = LIVING_SPACE_ICONS[amenity]
+                if (!info) return null
+                return (
+                  <div
+                    key={amenity}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100"
+                  >
+                    <span className="text-blue-600">{info.icon}</span>
+                    <span className="text-xs font-medium text-slate-700">
+                      {language === "fr" ? info.labelFr : info.labelEn}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
-          ) : (
-            <p className="text-slate-500 text-sm">Landlord information unavailable</p>
           )}
-        </div>
 
-        {/* Reviews Summary */}
-        {listing.reviewsCount && listing.reviewsCount > 0 && (
-          <Link href={`/listings/${listing.id}/reviews`}>
-            <div className="flex items-center justify-between py-4 border-t border-slate-100">
-              <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
-                <span className="font-semibold text-slate-900">
-                  {listing.averageRating?.toFixed(1)}
-                </span>
-                <span className="text-slate-500">
-                  ({listing.reviewsCount} {t.reviews.title.toLowerCase()})
-                </span>
+          {/* Description */}
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 mb-2">
+              {t.listings.description}
+            </h2>
+            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
+              {listing.description}
+            </p>
+          </div>
+
+          {/* Amenities */}
+          {listing.amenities && listing.amenities.length > 0 && (
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 mb-3">
+                {t.listings.amenities}
+              </h2>
+              <div className="grid grid-cols-2 gap-2">
+                {listing.amenities.map((amenity) => {
+                  const info = LIVING_SPACE_ICONS[amenity]
+                  return (
+                    <div
+                      key={amenity}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100"
+                    >
+                      <span className="text-blue-600 shrink-0">
+                        {info ? info.icon : <CheckCircle className="h-4 w-4" />}
+                      </span>
+                      <span className="text-sm text-slate-700">
+                        {info ? (language === "fr" ? info.labelFr : info.labelEn) : amenity}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-400" />
             </div>
-          </Link>
-        )}
+          )}
+
+          {/* Landlord Card */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900 mb-3">
+              {language === "fr" ? "Propriétaire" : "Landlord"}
+            </h2>
+            {(listing.landlord || listing.landlordId) ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12 ring-2 ring-slate-100">
+                    <AvatarImage src={listing.landlord?.profilePhotoUrl || undefined} />
+                    <AvatarFallback className="bg-blue-100 text-blue-600 font-semibold">
+                      {listing.landlord?.firstName?.[0] || listing.landlordName?.[0] || "L"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="font-semibold text-slate-900">
+                      {listing.landlord ? `${listing.landlord.firstName} ${listing.landlord.lastName}` : listing.landlordName}
+                    </p>
+                    {listing.landlord?.verified && (
+                      <p className="text-xs text-emerald-600 flex items-center gap-1 font-medium">
+                        <Shield className="h-3 w-3" />
+                        {language === "fr" ? "Propriétaire vérifié" : "Verified Landlord"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Link href={`/messages/${listing.landlord?.id || listing.landlordId}`}>
+                  <Button variant="outline" size="sm" className="rounded-xl hover:bg-blue-50 transition-colors">
+                    <MessageCircle className="h-4 w-4 mr-1.5" />
+                    {language === "fr" ? "Message" : "Message"}
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm">{language === "fr" ? "Information du propriétaire non disponible" : "Landlord information unavailable"}</p>
+            )}
+          </div>
+
+          {/* Reviews Summary */}
+          {listing.reviewsCount && listing.reviewsCount > 0 && (
+            <Link href={`/listings/${listing.id}/reviews`}>
+              <div className="flex items-center justify-between py-4 border-t border-slate-100 hover:bg-slate-50 -mx-5 px-5 rounded-xl transition-colors">
+                <div className="flex items-center gap-2">
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                  <span className="font-bold text-slate-900">
+                    {listing.averageRating?.toFixed(1)}
+                  </span>
+                  <span className="text-slate-500 text-sm">
+                    ({listing.reviewsCount} {t.reviews.title.toLowerCase()})
+                  </span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-slate-400" />
+              </div>
+            </Link>
+          )}
+
+          {/* Report listing */}
+          <div className="flex justify-center pt-2 pb-4">
+            <button
+              onClick={() => handleFlagContent(listing.id)}
+              className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-red-500 transition-colors"
+            >
+              <Flag className="h-3.5 w-3.5" />
+              {language === "fr" ? "Signaler cette annonce" : "Report this listing"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Fixed Bottom CTA */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-slate-200 p-4 safe-area-bottom">
-        <div className="flex gap-3 max-w-lg mx-auto">
-          <div className="flex-1">
-            <p className="text-xs text-slate-500">Deposit</p>
-            <p className="font-semibold text-slate-900">
+      <div className="fixed bottom-16 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 p-4 safe-area-bottom shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div className="flex gap-3 max-w-lg mx-auto items-center">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-slate-500">{language === "fr" ? "Caution" : "Deposit"}</p>
+            <p className="font-bold text-slate-900 truncate">
               {formatCurrency(listing.deposit || listing.depositAmount || listing.rentAmount)}
             </p>
           </div>
@@ -831,20 +927,20 @@ export default function ListingDetailPage() {
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   <CalendarDays className="h-5 w-5 text-blue-600" />
-                  Schedule a Viewing
+                  {t.listingDetail.scheduleViewing}
                 </SheetTitle>
               </SheetHeader>
 
               <div className="mt-6 space-y-4">
                 <div className="bg-blue-50 rounded-xl p-4">
                   <p className="text-sm text-blue-800">
-                    Request a viewing appointment. The landlord will confirm the time with you via message.
+                    {t.listingDetail.viewingHint}
                   </p>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-2 block">
-                    Preferred Date *
+                    {t.listingDetail.preferredDate} *
                   </label>
                   <Input
                     type="date"
@@ -857,7 +953,7 @@ export default function ListingDetailPage() {
 
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-2 block">
-                    Preferred Time *
+                    {t.listingDetail.preferredTime} *
                   </label>
                   <Input
                     type="time"
@@ -869,10 +965,10 @@ export default function ListingDetailPage() {
 
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-2 block">
-                    Additional Message (Optional)
+                    {t.listingDetail.additionalMessage}
                   </label>
                   <Textarea
-                    placeholder="Any specific requests or questions..."
+                    placeholder={t.listingDetail.viewingPlaceholder}
                     value={viewingMessage}
                     onChange={(e) => setViewingMessage(e.target.value)}
                     className="min-h-[80px] rounded-xl"
@@ -884,7 +980,7 @@ export default function ListingDetailPage() {
                   onClick={handleScheduleViewing}
                   disabled={isScheduling || !viewingDate || !viewingTime || Boolean(existingApplication) || listing?.status !== "ACTIVE"}
                 >
-                  {isScheduling ? "Sending Request..." : "Request Viewing"}
+                  {isScheduling ? t.listingDetail.sendingRequest : t.listingDetail.requestViewing}
                 </Button>
               </div>
             </SheetContent>
@@ -898,7 +994,7 @@ export default function ListingDetailPage() {
                 className="h-12 rounded-xl px-4"
                 onClick={() => { setIsShareRoomOpen(true); if (mutualMatches.length === 0) fetchMutualMatches() }}
                 disabled={Boolean(existingApplication) || listing?.status !== "ACTIVE"}
-                title="Share with a matched roommate"
+                title={t.listingDetail.shareRoomTitle}
               >
                 <Users className="h-5 w-5" />
               </Button>
@@ -907,13 +1003,13 @@ export default function ListingDetailPage() {
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   <UserPlus className="h-5 w-5 text-blue-600" />
-                  Share with Roommate
+                  {t.listingDetail.shareWithRoommate}
                 </SheetTitle>
               </SheetHeader>
               <div className="mt-6 space-y-4">
                 <div className="bg-indigo-50 rounded-xl p-4">
                   <p className="text-sm text-indigo-800">
-                    Send this listing to one of your matched roommates. They can view it and decide if they want to move in together.
+                    {t.listingDetail.shareRoommateHint}
                   </p>
                 </div>
                 {isLoadingMatches ? (
@@ -923,10 +1019,10 @@ export default function ListingDetailPage() {
                 ) : mutualMatches.length === 0 ? (
                   <div className="text-center py-8">
                     <Users className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-                    <p className="text-slate-600 font-medium">No matched roommates yet</p>
-                    <p className="text-sm text-slate-500 mt-1">Match with someone first to share a room</p>
+                    <p className="text-slate-600 font-medium">{t.listingDetail.noMatchedRoommates}</p>
+                    <p className="text-sm text-slate-500 mt-1">{t.listingDetail.matchFirst}</p>
                     <Link href="/matches">
-                      <Button variant="outline" className="mt-4 rounded-xl">Find Roommates</Button>
+                      <Button variant="outline" className="mt-4 rounded-xl">{t.listingDetail.findRoommates}</Button>
                     </Link>
                   </div>
                 ) : (
@@ -947,7 +1043,7 @@ export default function ListingDetailPage() {
                             <p className="font-medium text-slate-900">
                               {match.matchedUser?.firstName} {match.matchedUser?.lastName}
                             </p>
-                            <p className="text-sm text-slate-500">{match.compatibilityScore}% compatible</p>
+                            <p className="text-sm text-slate-500">{match.compatibilityScore}% {t.listingDetail.compatible}</p>
                           </div>
                           <MessageCircle className="h-5 w-5 text-blue-600" />
                         </div>
@@ -969,7 +1065,7 @@ export default function ListingDetailPage() {
                 className="flex-1 h-12 rounded-xl text-base"
                 disabled={Boolean(existingApplication) || listing?.status !== "ACTIVE" || isCheckingApplication}
               >
-                {existingApplication ? "Applied" : t.listings.applyNow}
+                {existingApplication ? t.listingDetail.applied : t.listings.applyNow}
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl overflow-y-auto">
@@ -981,7 +1077,7 @@ export default function ListingDetailPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-2 block">
-                      Move-in Date *
+                      {t.listingDetail.moveInDate} *
                     </label>
                     <Input
                       type="date"
@@ -993,7 +1089,7 @@ export default function ListingDetailPage() {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-slate-700 mb-2 block">
-                      Lease Duration *
+                      {t.listingDetail.leaseDuration} *
                     </label>
                     <select
                       value={leaseDuration}
@@ -1002,7 +1098,7 @@ export default function ListingDetailPage() {
                     >
                       {[1, 2, 3, 6, 9, 12, 18, 24].map((months) => (
                         <option key={months} value={months}>
-                          {months} {months === 1 ? "month" : "months"}
+                          {months} {months === 1 ? t.listingDetail.month : t.listingDetail.months}
                         </option>
                       ))}
                     </select>
@@ -1011,13 +1107,13 @@ export default function ListingDetailPage() {
 
                 <div>
                   <label className="text-sm font-medium text-slate-700 mb-2 block">
-                    {t.applications.message} * <span className="text-slate-400 font-normal">(min 50 characters)</span>
+                    {t.applications.message} * <span className="text-slate-400 font-normal">(min 50 {t.listingDetail.charsMinimum})</span>
                   </label>
 
                   {/* Message Templates */}
                   {!applicationMessage && (
                     <div className="mb-3">
-                      <p className="text-xs text-slate-500 mb-2">Quick templates:</p>
+                      <p className="text-xs text-slate-500 mb-2">{t.listingDetail.quickTemplates}</p>
                       <div className="flex flex-wrap gap-2">
                         {MESSAGE_TEMPLATES.map((tpl) => (
                           <button
@@ -1034,14 +1130,14 @@ export default function ListingDetailPage() {
                   )}
 
                   <Textarea
-                    placeholder="Tell the landlord about yourself, why you're interested in this property, your occupation, etc."
+                    placeholder={t.listingDetail.messagePlaceholder}
                     value={applicationMessage}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setApplicationMessage(e.target.value)}
                     className="min-h-[120px] rounded-xl"
                   />
                   <div className="flex items-center justify-between mt-1">
                     <p className="text-xs text-slate-400">
-                      {applicationMessage.length}/50 characters minimum
+                      {applicationMessage.length}/50 {t.listingDetail.charsMinimum}
                     </p>
                     {applicationMessage && (
                       <button
@@ -1049,7 +1145,7 @@ export default function ListingDetailPage() {
                         onClick={() => setApplicationMessage("")}
                         className="text-xs text-slate-400 hover:text-slate-600"
                       >
-                        Clear
+                        {t.common.clear}
                       </button>
                     )}
                   </div>
@@ -1064,7 +1160,7 @@ export default function ListingDetailPage() {
                         className="text-red-600 p-0 h-auto mt-1"
                         onClick={() => router.push("/applications")}
                       >
-                        View my applications →
+                        {t.listingDetail.viewMyApplications} →
                       </Button>
                     )}
                   </div>
@@ -1073,14 +1169,14 @@ export default function ListingDetailPage() {
                 {existingApplication && (
                   <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                     <p className="text-sm text-blue-700">
-                      You already applied to this listing. Track your application status from your applications page.
+                      {t.listingDetail.alreadyAppliedTrack}
                     </p>
                     <Button
                       variant="link"
                       className="text-blue-700 p-0 h-auto mt-1"
                       onClick={() => router.push("/applications")}
                     >
-                      View my applications →
+                      {t.listingDetail.viewMyApplications} →
                     </Button>
                   </div>
                 )}
@@ -1113,10 +1209,10 @@ export default function ListingDetailPage() {
                 <Shield className="h-8 w-8 text-amber-600" />
               </div>
               <h3 className="text-lg font-bold text-slate-900 mb-2">
-                Verify your identity to stand out!
+                {t.listingDetail.verifyTitle}
               </h3>
               <p className="text-sm text-slate-500 mb-6">
-                Your application was submitted successfully! Verified applicants are <span className="font-semibold text-slate-700">3x more likely</span> to be accepted by landlords.
+                {t.listingDetail.verifyDesc}
               </p>
               <div className="flex flex-col gap-2">
                 <Button
@@ -1127,7 +1223,7 @@ export default function ListingDetailPage() {
                   }}
                 >
                   <Shield className="h-4 w-4 mr-2" />
-                  Verify Now
+                  {t.listingDetail.verifyNow}
                 </Button>
                 <Button
                   variant="ghost"
@@ -1137,7 +1233,7 @@ export default function ListingDetailPage() {
                     router.push("/applications")
                   }}
                 >
-                  Maybe Later
+                  {t.listingDetail.maybeLater}
                 </Button>
               </div>
             </div>

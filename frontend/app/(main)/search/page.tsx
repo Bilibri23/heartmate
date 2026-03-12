@@ -12,7 +12,7 @@ import {
   Search, X, ChevronLeft, ChevronRight, List, Map,
   Navigation, Bookmark, BookmarkPlus, Bell, Sparkles,
   SlidersHorizontal, ChevronDown, MapPin, BedDouble,
-  Home, DollarSign, Check, Loader2, Clapperboard,
+  Home, DollarSign, Check, Loader2, Clapperboard, Armchair,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -209,7 +209,7 @@ const DEFAULT_FILTERS: Filters = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SearchPage() {
-  const { formatCurrency } = useLanguage()
+  const { formatCurrency, language, t } = useLanguage()
   const { user } = useAuth()
   const router = useRouter()
 
@@ -373,14 +373,14 @@ export default function SearchPage() {
       return `${Math.round(filters.minPrice / 1000)}k–${Math.round(filters.maxPrice / 1000)}k`
     if (filters.maxPrice < 500000) return `≤${Math.round(filters.maxPrice / 1000)}k`
     if (filters.minPrice > 0) return `≥${Math.round(filters.minPrice / 1000)}k`
-    return "Price"
+    return t.listings.price
   }
-  const bedsLabel = () => filters.bedrooms > 0 ? `${filters.bedrooms}+ beds` : "Beds"
+  const bedsLabel = () => filters.bedrooms > 0 ? `${filters.bedrooms}+ ${t.search.beds}` : t.search.beds
   const typeLabel = () => {
-    const t = PROPERTY_TYPES.find(p => p.value === filters.propertyType)
-    return t ? t.label : "Type"
+    const pt = PROPERTY_TYPES.find(p => p.value === filters.propertyType)
+    return pt ? pt.label : t.search.type
   }
-  const amenLabel = () => filters.amenities.length > 0 ? `${filters.amenities.length} amenities` : "Amenities"
+  const amenLabel = () => filters.amenities.length > 0 ? `${filters.amenities.length} ${t.listings.amenities.toLowerCase()}` : t.listings.amenities
 
   // location label for results header
   const locationLabel = filters.neighborhood || filters.city || (parsedQuery.remainingText ?? "")
@@ -406,7 +406,7 @@ export default function SearchPage() {
         {/* Sticky Apply button — always visible */}
         <div className="p-4 pt-2 border-t border-slate-100 bg-white">
           <Button className="w-full h-12 rounded-xl" onClick={close}>
-            Apply
+            {t.common.apply}
           </Button>
         </div>
       </div>
@@ -416,14 +416,14 @@ export default function SearchPage() {
       <>{backdrop}{panel(
         <div>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Price Range</h3>
+            <h3 className="text-lg font-bold text-slate-900">{t.search.priceRange}</h3>
             <button onClick={() => setFilters(prev => ({ ...prev, minPrice: 0, maxPrice: 500000 }))}
-              className="text-sm text-blue-600 font-medium">Clear</button>
+              className="text-sm text-blue-600 font-medium">{t.common.clear}</button>
           </div>
           <div className="space-y-4">
             {[
-              { label: "Any price", min: 0, max: 500000 },
-              { label: "Under 50,000", min: 0, max: 50000 },
+              { label: t.search.anyPrice, min: 0, max: 500000 },
+              { label: language === "fr" ? "Moins de 50 000" : "Under 50,000", min: 0, max: 50000 },
               { label: "50k – 100k", min: 50000, max: 100000 },
               { label: "100k – 200k", min: 100000, max: 200000 },
               { label: "200k – 350k", min: 200000, max: 350000 },
@@ -448,16 +448,16 @@ export default function SearchPage() {
       <>{backdrop}{panel(
         <div>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Bedrooms</h3>
+            <h3 className="text-lg font-bold text-slate-900">{t.listings.bedrooms}</h3>
             <button onClick={() => setFilters(prev => ({ ...prev, bedrooms: 0 }))}
-              className="text-sm text-blue-600 font-medium">Clear</button>
+              className="text-sm text-blue-600 font-medium">{t.common.clear}</button>
           </div>
           <div className="grid grid-cols-5 gap-2">
             {[0, 1, 2, 3, 4].map(n => (
               <button key={n}
                 onClick={() => setFilters(prev => ({ ...prev, bedrooms: n }))}
                 className={`py-3 rounded-xl border-2 font-semibold text-sm transition-colors ${filters.bedrooms === n ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-700 hover:border-slate-300"}`}>
-                {n === 0 ? "Any" : `${n}+`}
+                {n === 0 ? t.common.any : `${n}+`}
               </button>
             ))}
           </div>
@@ -469,12 +469,12 @@ export default function SearchPage() {
       <>{backdrop}{panel(
         <div>
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900">Property Type</h3>
+            <h3 className="text-lg font-bold text-slate-900">{t.listings.propertyType}</h3>
             <button onClick={() => setFilters(prev => ({ ...prev, propertyType: "" }))}
-              className="text-sm text-blue-600 font-medium">Clear</button>
+              className="text-sm text-blue-600 font-medium">{t.common.clear}</button>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {[{ value: "", label: "Any Type", emoji: "🏘️" }, ...PROPERTY_TYPES.map(p => ({
+            {[{ value: "", label: t.search.anyType, emoji: "🏘️" }, ...PROPERTY_TYPES.map(p => ({
               value: p.value, label: p.label,
               emoji: p.value === "STUDIO" ? "🏢" : p.value === "APARTMENT" ? "🏬" : p.value === "HOUSE" ? "🏠" : "🛏️"
             }))].map(opt => {
@@ -500,9 +500,9 @@ export default function SearchPage() {
         <>{backdrop}{panel(
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-slate-900">Amenities</h3>
+              <h3 className="text-lg font-bold text-slate-900">{t.listings.amenities}</h3>
               <button onClick={() => setFilters(prev => ({ ...prev, amenities: [] }))}
-                className="text-sm text-blue-600 font-medium">Clear all</button>
+                className="text-sm text-blue-600 font-medium">{t.common.clearAll}</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {QUICK.map(a => {
@@ -531,7 +531,7 @@ export default function SearchPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <MobileHeader title="Search" />
+      <MobileHeader title={t.common.search} />
 
       {/* ── Saved search chips ── */}
       {user && savedSearches.length > 0 && (
@@ -563,7 +563,7 @@ export default function SearchPage() {
               onChange={e => setRawQuery(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") handleSearch() }}
               onFocus={() => rawQuery && setShowAutocomplete(autocompleteItems.length > 0)}
-              placeholder='Try "2 beds in Bastos under 80k furnished"'
+              placeholder={t.search.searchPlaceholder}
               className="flex-1 bg-transparent text-sm text-slate-800 placeholder:text-slate-400 outline-none"
             />
             {rawQuery ? (
@@ -642,9 +642,21 @@ export default function SearchPage() {
             icon={<Sparkles className="h-3.5 w-3.5" />}
             onClick={() => setActiveSheet("amenities")}
           />
+          {/* Furnished toggle */}
+          <FilterPill
+            label={filters.amenities.includes("Furnished") ? (language === "fr" ? "Meublé" : "Furnished") : (language === "fr" ? "Meublé ?" : "Furnished?")}
+            active={filters.amenities.includes("Furnished")}
+            icon={<Armchair className="h-3.5 w-3.5" />}
+            onClick={() => setFilters(prev => ({
+              ...prev,
+              amenities: prev.amenities.includes("Furnished")
+                ? prev.amenities.filter(a => a !== "Furnished")
+                : [...prev.amenities, "Furnished"]
+            }))}
+          />
           {/* Near me */}
           <FilterPill
-            label={isLoadingLocation ? "Locating…" : userLocation ? "Near me ✓" : "Near me"}
+            label={isLoadingLocation ? t.search.locating : userLocation ? `${t.search.nearMeActive} ✓` : t.search.nearMe}
             active={!!userLocation}
             icon={isLoadingLocation ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
             onClick={getUserLocation}
@@ -653,7 +665,7 @@ export default function SearchPage() {
           {activeFiltersCount > 0 && (
             <button onClick={clearAll}
               className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap text-slate-500 hover:text-slate-800 transition-colors shrink-0">
-              <X className="h-3 w-3" /> Clear all
+              <X className="h-3 w-3" /> {t.common.clearAll}
             </button>
           )}
         </div>
@@ -666,11 +678,11 @@ export default function SearchPage() {
         {/* Results bar: count + sort + view toggle */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 gap-3">
           <p className="text-sm font-medium text-slate-600 shrink-0">
-            {isLoading ? "Searching…" : (
+            {isLoading ? t.search.searching : (
               <>
                 <span className="font-bold text-slate-900">{totalElements}</span>
-                {" "}home{totalElements !== 1 ? "s" : ""}
-                {locationLabel ? <> in <span className="text-blue-700">{locationLabel}</span></> : ""}
+                {" "}{totalElements !== 1 ? t.search.homes : t.search.home}
+                {locationLabel ? <> {t.search.inLocation} <span className="text-blue-700">{locationLabel}</span></> : ""}
               </>
             )}
           </p>
@@ -684,9 +696,9 @@ export default function SearchPage() {
                   setFilters(prev => ({ ...prev, sortBy, sortDir }))
                 }}
                 className="appearance-none bg-slate-100 text-xs font-medium text-slate-700 pl-3 pr-7 py-1.5 rounded-full focus:outline-none cursor-pointer">
-                <option value="createdAt-DESC">Newest</option>
-                <option value="rentAmount-ASC">Cheapest</option>
-                <option value="rentAmount-DESC">Most Expensive</option>
+                <option value="createdAt-DESC">{t.search.newest}</option>
+                <option value="rentAmount-ASC">{t.search.cheapest}</option>
+                <option value="rentAmount-DESC">{t.search.mostExpensive}</option>
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
             </div>
@@ -723,7 +735,7 @@ export default function SearchPage() {
           <div className="h-[calc(100vh-200px)] bg-black rounded-xl flex items-center justify-center">
             <div className="text-center">
               <Clapperboard className="h-12 w-12 text-white/30 mx-auto mb-3" />
-              <p className="text-white/50 text-sm">Loading feed…</p>
+              <p className="text-white/50 text-sm">{t.search.loadingFeed}</p>
             </div>
           </div>
         )}
@@ -766,12 +778,12 @@ export default function SearchPage() {
             {!isLoading && listings.length === 0 && (
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">No results found</h3>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">{t.search.noResults}</h3>
                 <p className="text-slate-500 text-sm max-w-xs mx-auto mb-6">
-                  Try a different search — e.g. "apartment Douala 2 beds under 100k"
+                  {t.search.noResultsHint}
                 </p>
                 <Button variant="outline" onClick={clearAll} className="rounded-xl">
-                  Clear filters
+                  {t.search.clearFilters}
                 </Button>
               </div>
             )}
@@ -804,14 +816,14 @@ export default function SearchPage() {
                   <div className="flex items-center justify-center gap-3 py-6">
                     <Button variant="outline" size="sm" className="rounded-full"
                       disabled={currentPage === 0} onClick={() => fetchListings(currentPage - 1)}>
-                      <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                      <ChevronLeft className="h-4 w-4 mr-1" /> {t.search.prev}
                     </Button>
                     <span className="text-sm text-slate-500 font-medium">
                       {currentPage + 1} / {totalPages}
                     </span>
                     <Button variant="outline" size="sm" className="rounded-full"
                       disabled={currentPage >= totalPages - 1} onClick={() => fetchListings(currentPage + 1)}>
-                      Next <ChevronRight className="h-4 w-4 ml-1" />
+                      {t.common.next} <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
                   </div>
                 )}
@@ -824,7 +836,7 @@ export default function SearchPage() {
                 <button onClick={() => setShowSaveSearch(true)}
                   className="inline-flex items-center gap-2 text-sm text-blue-600 font-medium hover:text-blue-700">
                   <BookmarkPlus className="h-4 w-4" />
-                  Save this search
+                  {t.search.saveSearch}
                 </button>
               </div>
             )}
@@ -839,10 +851,10 @@ export default function SearchPage() {
       {showSaveSearch && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
           <div className="bg-white rounded-3xl p-6 w-full max-w-md animate-in slide-in-from-bottom">
-            <h3 className="text-lg font-bold mb-1">Save this search</h3>
-            <p className="text-sm text-slate-500 mb-4">Get notified when new listings match</p>
+            <h3 className="text-lg font-bold mb-1">{t.search.saveSearch}</h3>
+            <p className="text-sm text-slate-500 mb-4">{t.search.saveSearchDesc}</p>
             <input
-              placeholder="e.g. 2BR in Bastos under 80k"
+              placeholder={language === "fr" ? "ex. 2CH à Bastos moins de 80k" : "e.g. 2BR in Bastos under 80k"}
               value={saveSearchName}
               onChange={e => setSaveSearchName(e.target.value)}
               className="w-full h-12 rounded-xl border border-slate-200 px-4 text-sm mb-4 focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none"
@@ -850,10 +862,10 @@ export default function SearchPage() {
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1 h-12 rounded-xl"
                 onClick={() => { setShowSaveSearch(false); setSaveSearchName("") }}>
-                Cancel
+                {t.common.cancel}
               </Button>
               <Button className="flex-1 h-12 rounded-xl" disabled={!saveSearchName.trim()} onClick={saveCurrentSearch}>
-                <BookmarkPlus className="h-4 w-4 mr-2" /> Save
+                <BookmarkPlus className="h-4 w-4 mr-2" /> {t.common.save}
               </Button>
             </div>
           </div>

@@ -80,7 +80,7 @@ interface VideoTour {
 }
 
 export default function EditListingPage() {
-  const { t, formatCurrency } = useLanguage()
+  const { t, formatCurrency, language } = useLanguage()
   const { user } = useAuth()
   const router = useRouter()
   const params = useParams()
@@ -534,6 +534,39 @@ export default function EditListingPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* Furnished Toggle */}
+          <div className="space-y-3">
+            <h3 className="font-semibold text-slate-900">{language === "fr" ? "Meublé ?" : "Furnished?"}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({
+                  ...prev,
+                  amenities: prev.amenities.includes("Furnished") ? prev.amenities : [...prev.amenities, "Furnished"]
+                }))}
+                className={`p-4 rounded-xl border-2 text-center transition-all ${formData.amenities.includes("Furnished") ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-slate-300"}`}
+              >
+                <span className="text-2xl block mb-1">🛋️</span>
+                <span className={`font-medium text-sm ${formData.amenities.includes("Furnished") ? "text-blue-700" : "text-slate-700"}`}>
+                  {language === "fr" ? "Meublé" : "Furnished"}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({
+                  ...prev,
+                  amenities: prev.amenities.filter(a => a !== "Furnished")
+                }))}
+                className={`p-4 rounded-xl border-2 text-center transition-all ${!formData.amenities.includes("Furnished") ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-slate-300"}`}
+              >
+                <span className="text-2xl block mb-1">🏠</span>
+                <span className={`font-medium text-sm ${!formData.amenities.includes("Furnished") ? "text-blue-700" : "text-slate-700"}`}>
+                  {language === "fr" ? "Non meublé" : "Unfurnished"}
+                </span>
+              </button>
             </div>
           </div>
 
