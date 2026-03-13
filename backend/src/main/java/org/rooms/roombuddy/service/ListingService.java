@@ -8,6 +8,7 @@ import org.rooms.roombuddy.dto.response.ListingResponse;
 import org.rooms.roombuddy.dto.response.PhotoDTO;
 import org.rooms.roombuddy.entity.ListingFavorite;
 import org.rooms.roombuddy.entity.ListingPhoto;
+import org.rooms.roombuddy.entity.ListingSearchOutbox;
 import org.rooms.roombuddy.entity.PropertyListing;
 import org.rooms.roombuddy.entity.User;
 import org.rooms.roombuddy.exception.BadRequestException;
@@ -21,8 +22,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,6 +46,7 @@ public class ListingService {
     private final NotificationService notificationService;
     private final ListingPreferencesRepository preferencesRepository;
     private final RoomApplicationRepository applicationRepository;
+    private final ListingSearchOutboxRepository listingSearchOutboxRepository;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -98,6 +103,7 @@ public class ListingService {
         
         PropertyListing saved = listingRepository.save(listing);
         log.info("Listing created successfully: {}", saved.getId());
+        enqueueSearchOutbox(saved, ListingSearchOutbox.EVENT_CREATED);
         
         // Evict cache for new listing
         // CacheEvict annotation handles this automatically
@@ -223,6 +229,7 @@ public class ListingService {
         
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing updated successfully: {}", listingId);
+        enqueueSearchOutbox(updated, ListingSearchOutbox.EVENT_UPDATED);
         
         return mapToResponse(updated, landlordId);
     }
@@ -237,9 +244,60 @@ public class ListingService {
         if (!listing.getLandlord().getId().equals(landlordId)) {
             throw new BadRequestException("Only the listing owner can delete it");
         }
-        
+        enqueueSearchOutbox(listing, ListingSearchOutbox.EVENT_DELETED);
         listingRepository.delete(listing);
         log.info("Listing deleted successfully: {}", listingId);
+    }
+    
+    /** Enqueues all ACTIVE listings for search index (used when ES index is empty on startup). */
+    @Transactional
+    public int bulkEnqueueActiveListingsForSearch() {
+        List<PropertyListing> active = listingRepository.findByStatusAndVerified(
+                PropertyListing.Status.ACTIVE, true);
+        for (PropertyListing listing : active) {
+            enqueueSearchOutbox(listing, ListingSearchOutbox.EVENT_UPDATED);
+        }
+        log.info("Enqueued {} ACTIVE listings for search index", active.size());
+        return active.size();
+    }
+
+    /** Builds the search-index payload and appends a row to the transactional outbox. */
+    private void enqueueSearchOutbox(PropertyListing listing, String eventType) {
+        Map<String, Object> payload = buildSearchPayload(listing);
+        ListingSearchOutbox outbox = ListingSearchOutbox.builder()
+                .listingId(listing.getId())
+                .eventType(eventType)
+                .payload(payload)
+                .build();
+        listingSearchOutboxRepository.save(outbox);
+    }
+    
+    /** Snapshot of a listing for the search index (id, title, description, city, neighborhood, amenities, furnished, price, propertyType, location, verified, featured). */
+    private static Map<String, Object> buildSearchPayload(PropertyListing l) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", l.getId() != null ? l.getId().toString() : null);
+        map.put("title", l.getTitle());
+        map.put("description", l.getDescription());
+        map.put("city", l.getCity());
+        map.put("neighborhood", l.getNeighborhood());
+        map.put("amenities", l.getAmenities());
+        map.put("furnished", l.getAmenities() != null && l.getAmenities().contains("Furnished"));
+        map.put("price", l.getRentAmount());
+        map.put("propertyType", l.getPropertyType() != null ? l.getPropertyType().name() : null);
+        map.put("bedrooms", l.getBedrooms());
+        map.put("bathrooms", l.getBathrooms());
+        if (l.getLatitude() != null && l.getLongitude() != null) {
+            map.put("latitude", l.getLatitude().doubleValue());
+            map.put("longitude", l.getLongitude().doubleValue());
+        }
+        map.put("verified", Boolean.TRUE.equals(l.getVerified()));
+        map.put("featured", Boolean.TRUE.equals(l.getFeatured()));
+        map.put("status", l.getStatus() != null ? l.getStatus().name() : null);
+        if (l.getCreatedAt() != null) {
+            map.put("createdAt", l.getCreatedAt().toString());
+        }
+        map.put("viewsCount", l.getViewsCount() != null ? l.getViewsCount() : 0);
+        return map;
     }
     
     @Transactional(readOnly = true)
@@ -566,6 +624,9 @@ public class ListingService {
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing {} {} by admin {}", listingId, status, adminId);
         
+        // Re-index search so approved/rejected listings appear in search (ES filters by ACTIVE)
+        enqueueSearchOutbox(updated, ListingSearchOutbox.EVENT_UPDATED);
+        
         // Send notification to landlord
         if (status == PropertyListing.Status.ACTIVE) {
             notificationService.createNotification(
@@ -623,6 +684,11 @@ public class ListingService {
         }
     }
     
+    /** Public method for mapping listing to response (used by ElasticsearchSearchService). */
+    public ListingResponse toListingResponse(PropertyListing listing, UUID userId) {
+        return mapToResponse(listing, userId);
+    }
+
     private ListingResponse mapToResponse(PropertyListing listing, UUID userId) {
         List<ListingPhoto> photos = photoRepository.findByListingIdOrderByDisplayOrderAsc(listing.getId());
         List<PhotoDTO> photoDTOs = photos.stream()

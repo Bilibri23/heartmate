@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import api from "@/lib/api"
+import api, { uploadApi } from "@/lib/api"
 import { toast } from "sonner"
-import { Settings, Bell, Shield, Database, Mail, Globe, Save, RefreshCw, LogOut, Users } from "lucide-react"
+import { Settings, Bell, Shield, Database, Mail, Globe, Save, RefreshCw, LogOut, Users, Search } from "lucide-react"
 import Link from "next/link"
 
 export default function AdminSettingsPage() {
@@ -31,6 +31,8 @@ export default function AdminSettingsPage() {
   })
 
   const [authLoading, setAuthLoading] = useState(true)
+  const [isReindexing, setIsReindexing] = useState(false)
+  const [searchStatus, setSearchStatus] = useState<{ elasticsearchActive: boolean; indexDocumentCount: number; hint: string } | null>(null)
 
   useEffect(() => {
     if (user === null && authLoading) {
@@ -44,6 +46,34 @@ export default function AdminSettingsPage() {
       router.push("/login")
     }
   }, [user, router, authLoading])
+
+  const fetchSearchStatus = async () => {
+    try {
+      // Use direct backend URL (same as reindex) - avoids Next.js proxy 404
+      const res = await uploadApi.get("/admin/search/status")
+      setSearchStatus(res.data)
+    } catch {
+      setSearchStatus(null)
+    }
+  }
+
+  useEffect(() => {
+    if (user?.role === "ADMIN") fetchSearchStatus()
+  }, [user?.role])
+
+  const handleReindexSearch = async () => {
+    setIsReindexing(true)
+    try {
+      const res = await uploadApi.post("/admin/search/reindex")
+      const msg = res.data?.message || res.data?.data
+      toast.success(msg || "Reindex started. Listings will appear in search within ~15 seconds.")
+      setTimeout(() => fetchSearchStatus(), 20000) // Refresh status after indexer runs
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Reindex failed")
+    } finally {
+      setIsReindexing(false)
+    }
+  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -132,6 +162,31 @@ export default function AdminSettingsPage() {
               <Label>Platform Fee (%)</Label>
               <Input type="number" value={settings.platformFeePercent} onChange={(e) => setSettings(s => ({...s, platformFeePercent: parseInt(e.target.value)}))} className="rounded-xl mt-1" />
             </div>
+          </div>
+        </div>
+
+        {/* Search Index (Elasticsearch) */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Search className="h-5 w-5 text-blue-600" /> Search Index
+          </h3>
+          {searchStatus ? (
+            <p className={`text-sm mb-2 ${searchStatus.indexDocumentCount > 0 ? "text-green-600" : "text-amber-600"}`}>
+              {searchStatus.elasticsearchActive
+                ? `${searchStatus.indexDocumentCount} documents in index`
+                : "Elasticsearch disabled or unavailable"}
+            </p>
+          ) : (
+            <p className="text-sm mb-2 text-slate-400">Status unavailable — restart backend if you just added this.</p>
+          )}
+          <p className="text-sm text-slate-500 mb-4">If search shows no results, reindex to sync ACTIVE listings to Elasticsearch.</p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleReindexSearch} disabled={isReindexing} className="rounded-xl">
+              {isReindexing ? "Reindexing…" : "Reindex Search"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={fetchSearchStatus} className="rounded-xl">
+              Refresh status
+            </Button>
           </div>
         </div>
 

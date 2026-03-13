@@ -55,7 +55,7 @@ export const listingService = {
 
   // General operations
   searchListings: async (params: any) => {
-    const response = await api.get<any>('/listings', { params });
+    const response = await api.get<any>('/search', { params });
     return response.data;
   },
 

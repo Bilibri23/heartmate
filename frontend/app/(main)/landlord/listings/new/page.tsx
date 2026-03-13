@@ -107,66 +107,36 @@ export default function NewListingPage() {
         })
       }
 
-      // Step 3: Upload virtual tour file (video or 360° image) if present
+      // Step 3: Upload virtual tour (video walkthrough or 360° image) if present
       if (virtualTour?.file) {
-        console.log('📤 Uploading virtual tour:', {
-          fileName: virtualTour.file.name,
-          fileSize: virtualTour.file.size,
-          fileType: virtualTour.file.type,
-          tourType: virtualTour.type
-        })
-        
         const tourFormData = new FormData()
         tourFormData.append("file", virtualTour.file)
         try {
+          // Use video-tour endpoint for videos; photos endpoint only accepts images
           const tourRes = await uploadApi.post(
-            `/listings/${listingId}/photos`,
+            `/listings/${listingId}/video-tour`,
             tourFormData,
             {
-              params: { landlordId: user.id, isPrimary: false },
+              params: { landlordId: user.id },
               onUploadProgress: (e) => {
                 if (e.total) setTourUploadProgress(Math.round((e.loaded * 100) / e.total))
               }
             }
           )
-          
-          console.log('✅ Tour file uploaded to Cloudinary:', tourRes.data)
-          
-          // Get Cloudinary URL from response
-          // Backend returns ListingResponse with photos array - get the last added photo
-          const photos = tourRes.data?.photos || []
-          const lastPhoto = photos[photos.length - 1]
-          const tourUrl = lastPhoto?.photoUrl || tourRes.data?.photoUrl || tourRes.data?.url
-          console.log('🔗 Extracted tour URL:', tourUrl, 'from photos:', photos.length)
-          
-          if (tourUrl) {
-            // Backend requires full ListingRequest with validation, so we need to send all required fields
-            const updateData = {
+          // Backend sets videoTourUrl and returns full ListingResponse
+          if (tourRes.data?.videoTourUrl) {
+            // Update virtualTourProvider via PUT (video-tour endpoint doesn't set it)
+            await api.put(`/listings/${listingId}`, {
               title: formData.title,
               rentAmount: parseInt(formData.rentAmount),
-              videoTourUrl: tourUrl,
               virtualTourProvider: virtualTour.type,
-            }
-            console.log('📝 Updating listing with tour data:', updateData)
-            
-            const updateRes = await api.put(`/listings/${listingId}`, updateData, { 
-              params: { landlordId: user.id } 
-            })
-            
-            console.log('✅ Listing updated successfully:', updateRes.data)
-          } else {
-            console.error('❌ No tour URL in upload response:', tourRes.data)
+            }, { params: { landlordId: user.id } })
           }
         } catch (tourErr: any) {
           // Non-fatal: listing still created, tour just won't show
-          console.error("❌ Tour upload failed:", {
-            error: tourErr,
-            message: tourErr?.response?.data?.message || tourErr?.message,
-            status: tourErr?.response?.status
-          })
+          const msg = tourErr?.response?.data?.message || tourErr?.message || "Video upload failed"
+          console.error("❌ Tour upload failed:", msg)
         }
-      } else {
-        console.log('ℹ️ No virtual tour file to upload')
       }
 
       router.push("/landlord")

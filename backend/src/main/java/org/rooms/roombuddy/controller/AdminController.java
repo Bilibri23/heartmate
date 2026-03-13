@@ -11,17 +11,22 @@ import org.rooms.roombuddy.dto.request.ListingApprovalRequest;
 import org.rooms.roombuddy.dto.request.VerificationApprovalRequest;
 import org.rooms.roombuddy.dto.response.LandlordVerificationResponse;
 import org.rooms.roombuddy.dto.response.ListingResponse;
+import org.rooms.roombuddy.dto.response.ApiResponse;
 import org.rooms.roombuddy.dto.response.StatisticsResponse;
 import org.rooms.roombuddy.dto.response.VerificationResponse;
 import org.rooms.roombuddy.entity.AuditLog;
 import org.rooms.roombuddy.entity.StudentVerification;
 import org.rooms.roombuddy.security.SecurityUtils;
+import org.rooms.roombuddy.search.ElasticsearchSearchService;
 import org.rooms.roombuddy.service.AuditLogService;
 import org.rooms.roombuddy.service.LandlordVerificationService;
 import org.rooms.roombuddy.service.ListingService;
 import org.rooms.roombuddy.service.StatisticsService;
 import org.rooms.roombuddy.service.VerificationService;
 import org.springframework.data.domain.Page;
+
+import java.util.Map;
+import java.util.Optional;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -45,6 +50,7 @@ public class AdminController {
     private final ListingService listingService;
     private final StatisticsService statisticsService;
     private final AuditLogService auditLogService;
+    private final Optional<ElasticsearchSearchService> elasticsearchSearchService;
     
     @GetMapping("/statistics")
     @Operation(summary = "Get platform statistics", description = "Get platform statistics (Admin only)")
@@ -127,6 +133,29 @@ public class AdminController {
         UUID adminId = SecurityUtils.getCurrentUserId();
         ListingResponse response = listingService.approveOrRejectListing(listingId, adminId, request);
         return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/search/status")
+    @Operation(summary = "Search index status", description = "Check if Elasticsearch is active and how many documents are indexed. Admin only.")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> searchStatus() {
+        boolean active = elasticsearchSearchService.isPresent();
+        long indexCount = elasticsearchSearchService.map(ElasticsearchSearchService::count).orElse(0L);
+        return ResponseEntity.ok(Map.of(
+                "elasticsearchActive", active,
+                "indexDocumentCount", indexCount,
+                "hint", indexCount == 0 && active ? "Index is empty. Click Reindex Search in Admin Settings." : (active ? "OK" : "Elasticsearch disabled or unavailable.")
+        ));
+    }
+
+    @PostMapping("/search/reindex")
+    @Operation(summary = "Reindex search", description = "Enqueue all ACTIVE listings for search index (fixes empty ES index). Admin only.")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Integer>> reindexSearch() {
+        log.info("Admin {} triggering search reindex", SecurityUtils.getCurrentUserId());
+        int enqueued = listingService.bulkEnqueueActiveListingsForSearch();
+        return ResponseEntity.ok(ApiResponse.success(enqueued,
+                "Enqueued " + enqueued + " listings. Indexer will process within ~15 seconds."));
     }
     
     // ==================== LANDLORD VERIFICATION MANAGEMENT ====================

@@ -16,8 +16,8 @@ services:
   # ==================== BACKEND (Development Mode) ====================
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: ../backend
+      dockerfile: ../backend/Dockerfile
     # Override to use development profile
     environment:
       SPRING_PROFILES_ACTIVE: dev

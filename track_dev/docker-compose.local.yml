@@ -35,8 +35,8 @@ services:
   # ==================== BACKEND API ====================
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile.simple
+      context: ..
+      dockerfile: ../backend/Dockerfile.simple
     container_name: roombuddy-backend
     restart: unless-stopped
     depends_on:

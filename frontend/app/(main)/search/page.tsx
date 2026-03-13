@@ -114,8 +114,8 @@ function parseNaturalQuery(raw: string): ParsedQuery {
     }
   }
 
-  // Bedrooms "2 bedroom" / "3 bed" / "2 chambres"
-  const bedMatch = text.match(/(\d+)\s*(?:bedroom|bed|chambre|pièce)s?/i)
+  // Bedrooms "2 bedroom" / "2-bedroom" / "3 bed" / "2 chambres"
+  const bedMatch = text.match(/(\d+)\s*[-]?\s*(?:bedroom|bed|chambre|pièce)s?/i)
   if (bedMatch) {
     result.bedrooms = parseInt(bedMatch[1])
     text = text.replace(bedMatch[0], "")
@@ -171,6 +171,18 @@ function parseNaturalQuery(raw: string): ParsedQuery {
       text = text.replace(neighMatch[0], "")
     }
   }
+  // Fallback: match known neighborhood names (e.g. "bastos" without "in")
+  if (!result.neighborhood) {
+    const allNeighborhoods = Object.values(NEIGHBORHOODS).flat()
+    for (const n of allNeighborhoods) {
+      const re = new RegExp(`\\b${n.replace(/[éèê]/g, "[eéèê]")}\\b`, "i")
+      if (re.test(text)) {
+        result.neighborhood = n
+        text = text.replace(re, "")
+        break
+      }
+    }
+  }
 
   result.remainingText = text.replace(/[,\s]+/g, " ").trim()
   return result
@@ -194,9 +206,14 @@ interface Filters {
 }
 
 interface UserLocation { lat: number; lon: number }
+// API returns flat fields (city, neighborhood, etc.), not nested filters
 interface SavedSearch {
-  id: string; name: string; filters: Filters
-  userLocation?: UserLocation; notifyNewListings: boolean
+  id: string; name: string
+  city?: string; neighborhood?: string; propertyType?: string
+  minPrice?: number; maxPrice?: number; bedrooms?: number; bathrooms?: number
+  amenities?: string[]; maxDistance?: number; availableFrom?: string
+  userLat?: number; userLon?: number
+  notifyNewListings: boolean
 }
 
 const DEFAULT_FILTERS: Filters = {
@@ -240,6 +257,8 @@ export default function SearchPage() {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
   const [showSaveSearch, setShowSaveSearch] = useState(false)
   const [saveSearchName, setSaveSearchName] = useState("")
+
+  const safeFilters = filters ?? DEFAULT_FILTERS
 
   // ── Autocomplete ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -289,27 +308,30 @@ export default function SearchPage() {
 
   // ── Fetch listings ────────────────────────────────────────────────────────
   const fetchListings = useCallback(async (page = 0) => {
+    const f = filters ?? DEFAULT_FILTERS
     setIsLoading(true)
     try {
       const params: Record<string, any> = {
-        size: 12, page, sortBy: filters.sortBy, sortDir: filters.sortDir,
+        size: 12, page, sortBy: f.sortBy, sortDir: f.sortDir,
       }
-      if (filters.city && filters.city !== "all") params.city = filters.city
-      if (filters.neighborhood) params.neighborhood = filters.neighborhood
-      if (filters.propertyType && filters.propertyType !== "all") params.propertyType = filters.propertyType
-      if (filters.minPrice > 0) params.minPrice = filters.minPrice
-      if (filters.maxPrice < 500000) params.maxPrice = filters.maxPrice
-      if (filters.bedrooms > 0) params.bedrooms = filters.bedrooms
-      if (filters.bathrooms > 0) params.bathrooms = filters.bathrooms
-      if (filters.amenities.length > 0) params.amenities = filters.amenities
-      if (filters.maxDistance > 0 && userLocation) {
-        params.maxDistance = filters.maxDistance
+      if (f.city && f.city !== "all") params.city = f.city
+      if (f.neighborhood) params.neighborhood = f.neighborhood
+      if (f.propertyType && f.propertyType !== "all") params.propertyType = f.propertyType
+      if (f.minPrice > 0) params.minPrice = f.minPrice
+      if (f.maxPrice < 500000) params.maxPrice = f.maxPrice
+      if (f.bedrooms > 0) params.bedrooms = f.bedrooms
+      if (f.bathrooms > 0) params.bathrooms = f.bathrooms
+      if ((f.amenities ?? []).length > 0) params.amenities = f.amenities
+      if (f.maxDistance > 0 && userLocation) {
+        params.maxDistance = f.maxDistance
         params.userLat = userLocation.lat
         params.userLon = userLocation.lon
       }
       if (user?.id) params.userId = user.id
+      if (rawQuery?.trim()) params.query = rawQuery
+      params.lang = language === "fr" ? "fr" : "en"
 
-      const res = await api.get("/listings", { params })
+      const res = await api.get("/search", { params })
       const data = res.data
       const content = data?.content || data || []
       setListings(content)
@@ -319,7 +341,7 @@ export default function SearchPage() {
     } catch (e) {
       console.error("Failed to fetch listings:", e)
     } finally { setIsLoading(false) }
-  }, [filters, userLocation, user?.id])
+  }, [filters, userLocation, user?.id, rawQuery, language])
 
   useEffect(() => { fetchListings() }, [fetchListings])
 
@@ -345,7 +367,7 @@ export default function SearchPage() {
     if (!user?.id || !saveSearchName.trim()) return
     try {
       await api.post(`/saved-searches?userId=${user.id}`, {
-        name: saveSearchName, ...filters,
+        name: saveSearchName, ...safeFilters,
         userLat: userLocation?.lat, userLon: userLocation?.lon,
         notifyNewListings: true, notifyPriceDrops: false,
       })
@@ -362,28 +384,28 @@ export default function SearchPage() {
   }
 
   const activeFiltersCount = [
-    filters.city, filters.neighborhood, filters.propertyType,
-    filters.minPrice > 0, filters.maxPrice < 500000,
-    filters.bedrooms > 0, filters.bathrooms > 0,
-    filters.amenities.length > 0,
+    safeFilters.city, safeFilters.neighborhood, safeFilters.propertyType,
+    (safeFilters.minPrice ?? 0) > 0, (safeFilters.maxPrice ?? 500000) < 500000,
+    (safeFilters.bedrooms ?? 0) > 0, (safeFilters.bathrooms ?? 0) > 0,
+    (safeFilters.amenities ?? []).length > 0,
   ].filter(Boolean).length
 
   const priceLabel = () => {
-    if (filters.minPrice > 0 && filters.maxPrice < 500000)
-      return `${Math.round(filters.minPrice / 1000)}k–${Math.round(filters.maxPrice / 1000)}k`
-    if (filters.maxPrice < 500000) return `≤${Math.round(filters.maxPrice / 1000)}k`
-    if (filters.minPrice > 0) return `≥${Math.round(filters.minPrice / 1000)}k`
+    if ((safeFilters.minPrice ?? 0) > 0 && (safeFilters.maxPrice ?? 500000) < 500000)
+      return `${Math.round((safeFilters.minPrice ?? 0) / 1000)}k–${Math.round((safeFilters.maxPrice ?? 500000) / 1000)}k`
+    if ((safeFilters.maxPrice ?? 500000) < 500000) return `≤${Math.round((safeFilters.maxPrice ?? 500000) / 1000)}k`
+    if (safeFilters.minPrice && safeFilters.minPrice > 0) return `≥${Math.round(safeFilters.minPrice / 1000)}k`
     return t.listings.price
   }
-  const bedsLabel = () => filters.bedrooms > 0 ? `${filters.bedrooms}+ ${t.search.beds}` : t.search.beds
+  const bedsLabel = () => (safeFilters.bedrooms ?? 0) > 0 ? `${safeFilters.bedrooms}+ ${t.search.beds}` : t.search.beds
   const typeLabel = () => {
-    const pt = PROPERTY_TYPES.find(p => p.value === filters.propertyType)
+    const pt = PROPERTY_TYPES.find(p => p.value === safeFilters.propertyType)
     return pt ? pt.label : t.search.type
   }
-  const amenLabel = () => filters.amenities.length > 0 ? `${filters.amenities.length} ${t.listings.amenities.toLowerCase()}` : t.listings.amenities
+  const amenLabel = () => (safeFilters.amenities ?? []).length > 0 ? `${(safeFilters.amenities ?? []).length} ${t.listings.amenities.toLowerCase()}` : t.listings.amenities
 
   // location label for results header
-  const locationLabel = filters.neighborhood || filters.city || (parsedQuery.remainingText ?? "")
+  const locationLabel = safeFilters.neighborhood || safeFilters.city || (parsedQuery.remainingText ?? "")
 
   // ── Mini sheets ───────────────────────────────────────────────────────────
   const renderSheet = () => {
@@ -429,7 +451,7 @@ export default function SearchPage() {
               { label: "200k – 350k", min: 200000, max: 350000 },
               { label: "350k+", min: 350000, max: 500000 },
             ].map(opt => {
-              const active = filters.minPrice === opt.min && filters.maxPrice === opt.max
+              const active = safeFilters.minPrice === opt.min && safeFilters.maxPrice === opt.max
               return (
                 <button key={opt.label}
                   onClick={() => setFilters(prev => ({ ...prev, minPrice: opt.min, maxPrice: opt.max }))}
@@ -456,7 +478,7 @@ export default function SearchPage() {
             {[0, 1, 2, 3, 4].map(n => (
               <button key={n}
                 onClick={() => setFilters(prev => ({ ...prev, bedrooms: n }))}
-                className={`py-3 rounded-xl border-2 font-semibold text-sm transition-colors ${filters.bedrooms === n ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-700 hover:border-slate-300"}`}>
+                className={`py-3 rounded-xl border-2 font-semibold text-sm transition-colors ${safeFilters.bedrooms === n ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 text-slate-700 hover:border-slate-300"}`}>
                 {n === 0 ? t.common.any : `${n}+`}
               </button>
             ))}
@@ -478,7 +500,7 @@ export default function SearchPage() {
               value: p.value, label: p.label,
               emoji: p.value === "STUDIO" ? "🏢" : p.value === "APARTMENT" ? "🏬" : p.value === "HOUSE" ? "🏠" : "🛏️"
             }))].map(opt => {
-              const active = filters.propertyType === opt.value
+              const active = safeFilters.propertyType === opt.value
               return (
                 <button key={opt.value}
                   onClick={() => setFilters(prev => ({ ...prev, propertyType: opt.value }))}
@@ -506,7 +528,7 @@ export default function SearchPage() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               {QUICK.map(a => {
-                const active = filters.amenities.includes(a)
+                const active = (safeFilters.amenities ?? []).includes(a)
                 return (
                   <button key={a}
                     onClick={() => setFilters(prev => ({
@@ -540,7 +562,22 @@ export default function SearchPage() {
             <Bookmark className="h-4 w-4 text-blue-600 shrink-0" />
             {savedSearches.map(s => (
               <button key={s.id}
-                onClick={() => { setFilters(s.filters); if (s.userLocation) setUserLocation(s.userLocation) }}
+                onClick={() => {
+                  setFilters({
+                    ...DEFAULT_FILTERS,
+                    city: s.city ?? "",
+                    neighborhood: s.neighborhood ?? "",
+                    propertyType: s.propertyType ?? "",
+                    minPrice: s.minPrice ?? 0,
+                    maxPrice: s.maxPrice ?? 500000,
+                    bedrooms: s.bedrooms ?? 0,
+                    bathrooms: s.bathrooms ?? 0,
+                    amenities: s.amenities ?? [],
+                    maxDistance: s.maxDistance ?? 0,
+                    availableFrom: s.availableFrom ?? "",
+                  })
+                  if (s.userLat != null && s.userLon != null) setUserLocation({ lat: s.userLat, lon: s.userLon })
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-full text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors whitespace-nowrap">
                 {s.name}
                 {s.notifyNewListings && <Bell className="h-3 w-3" />}
@@ -617,35 +654,35 @@ export default function SearchPage() {
           {/* Price */}
           <FilterPill
             label={priceLabel()}
-            active={filters.minPrice > 0 || filters.maxPrice < 500000}
+            active={(safeFilters.minPrice ?? 0) > 0 || (safeFilters.maxPrice ?? 500000) < 500000}
             icon={<DollarSign className="h-3.5 w-3.5" />}
             onClick={() => setActiveSheet("price")}
           />
           {/* Beds */}
           <FilterPill
             label={bedsLabel()}
-            active={filters.bedrooms > 0}
+            active={(safeFilters.bedrooms ?? 0) > 0}
             icon={<BedDouble className="h-3.5 w-3.5" />}
             onClick={() => setActiveSheet("beds")}
           />
           {/* Type */}
           <FilterPill
             label={typeLabel()}
-            active={!!filters.propertyType}
+            active={!!safeFilters.propertyType}
             icon={<Home className="h-3.5 w-3.5" />}
             onClick={() => setActiveSheet("type")}
           />
           {/* Amenities */}
           <FilterPill
             label={amenLabel()}
-            active={filters.amenities.length > 0}
+            active={(safeFilters.amenities ?? []).length > 0}
             icon={<Sparkles className="h-3.5 w-3.5" />}
             onClick={() => setActiveSheet("amenities")}
           />
           {/* Furnished toggle */}
           <FilterPill
-            label={filters.amenities.includes("Furnished") ? (language === "fr" ? "Meublé" : "Furnished") : (language === "fr" ? "Meublé ?" : "Furnished?")}
-            active={filters.amenities.includes("Furnished")}
+            label={(safeFilters.amenities ?? []).includes("Furnished") ? (language === "fr" ? "Meublé" : "Furnished") : (language === "fr" ? "Meublé ?" : "Furnished?")}
+            active={(safeFilters.amenities ?? []).includes("Furnished")}
             icon={<Armchair className="h-3.5 w-3.5" />}
             onClick={() => setFilters(prev => ({
               ...prev,
@@ -690,7 +727,7 @@ export default function SearchPage() {
             {/* Sort */}
             <div className="relative">
               <select
-                value={`${filters.sortBy}-${filters.sortDir}`}
+                value={`${safeFilters.sortBy}-${safeFilters.sortDir}`}
                 onChange={e => {
                   const [sortBy, sortDir] = e.target.value.split("-")
                   setFilters(prev => ({ ...prev, sortBy, sortDir }))
@@ -749,7 +786,7 @@ export default function SearchPage() {
                 city: l.city, rentAmount: l.rentAmount,
                 photoUrl: l.photos?.find(p => p.isPrimary)?.photoUrl || l.photos?.[0]?.photoUrl,
               }))}
-              selectedCity={filters.city || "Douala"}
+              selectedCity={safeFilters.city || "Douala"}
               onListingClick={id => router.push(`/listings/${id}`)}
               className="h-[calc(100vh-260px)]"
               formatCurrency={formatCurrency}
@@ -849,8 +886,8 @@ export default function SearchPage() {
 
       {/* ── Save search dialog ── */}
       {showSaveSearch && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md animate-in slide-in-from-bottom">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4 sm:pb-4" style={{ paddingBottom: "max(7rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))" }}>
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md max-h-[80vh] overflow-y-auto animate-in slide-in-from-bottom shadow-xl">
             <h3 className="text-lg font-bold mb-1">{t.search.saveSearch}</h3>
             <p className="text-sm text-slate-500 mb-4">{t.search.saveSearchDesc}</p>
             <input
