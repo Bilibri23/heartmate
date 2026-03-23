@@ -99,6 +99,10 @@ public class FileUploadService {
     public String uploadStudentIdPhoto(MultipartFile file) {
         return uploadImage(file, "student-ids");
     }
+
+    public String uploadVerificationDocument(MultipartFile file) {
+        return uploadImage(file, "tenant-verifications");
+    }
     
     public String uploadProfilePhoto(MultipartFile file) {
         return uploadImage(file, "profile-photos");

@@ -62,8 +62,8 @@ jobs:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/roombuddy_test
           SPRING_DATASOURCE_USERNAME: test
           SPRING_DATASOURCE_PASSWORD: test
-          SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
-          SPRING_FLYWAY_ENABLED: false
+          SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+          SPRING_FLYWAY_ENABLED: true
 
       - name: Upload test results
         if: always()
@@ -74,6 +74,42 @@ jobs:
 
       - name: Build JAR
         run: mvn package -DskipTests -B
+
+  # ==================== MIGRATION VALIDATION ====================
+  migration-check:
+    name: Migration Check (Flyway)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: roombuddy_migration
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: maven
+      - name: Validate migration boot path
+        run: mvn -B test -Dtest=RoombuddyApplicationTests
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5433/roombuddy_migration
+          SPRING_DATASOURCE_USERNAME: test
+          SPRING_DATASOURCE_PASSWORD: test
+          SPRING_FLYWAY_ENABLED: true
+          SPRING_JPA_HIBERNATE_DDL_AUTO: validate
 
   # ==================== FRONTEND BUILD ====================
   frontend:
@@ -99,8 +135,7 @@ jobs:
         run: npm ci
 
       - name: Run ESLint
-        run: npm run lint || echo "Linting completed with warnings"
-        continue-on-error: true
+        run: npm run lint
 
       - name: Build production bundle
         run: npm run build
@@ -139,7 +174,7 @@ jobs:
   summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, migration-check, frontend]
     if: always()
     
     steps:
@@ -150,4 +185,5 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Backend | ${{ needs.backend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Migration Check | ${{ needs.migration-check.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${{ needs.frontend.result }} |" >> $GITHUB_STEP_SUMMARY

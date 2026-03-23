@@ -11,6 +11,7 @@ import org.rooms.roombuddy.dto.request.RoomApplicationRequest;
 import org.rooms.roombuddy.dto.response.RoomApplicationResponse;
 import org.rooms.roombuddy.entity.RoomApplication;
 import org.rooms.roombuddy.exception.ResourceNotFoundException;
+import org.rooms.roombuddy.security.RequiresCompletion;
 import org.rooms.roombuddy.security.RequiresVerification;
 import org.rooms.roombuddy.security.SecurityUtils;
 import org.rooms.roombuddy.service.ApplicationService;
@@ -42,6 +43,7 @@ public class ApplicationController {
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
     @RequiresVerification(role = "STUDENT", verificationType = "STUDENT_ID")
+    @RequiresCompletion(operation = "APPLY")
     @Operation(summary = "Apply to a listing", description = "Create a new application to a property listing (Students only)")
     public ResponseEntity<RoomApplicationResponse> createApplication(
             @Valid @RequestBody RoomApplicationRequest request) {

@@ -14,10 +14,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class VerificationRequest {
     
-    @NotBlank(message = "University is required")
     private String university;
     
-    @NotBlank(message = "Student ID is required")
     private String studentId;
     
     private String faculty;
@@ -28,6 +26,14 @@ public class VerificationRequest {
     @Max(value = 10, message = "Year of study must be at most 10")
     private Integer yearOfStudy;
     
-    private String studentIdPhotoUrl; // Will be set after Cloudinary upload
+    private String studentIdPhotoUrl;
+
+    private String idType;
+
+    private String idNumber;
+
+    private String idPhotoUrl;
+
+    private String selfiePhotoUrl;
 }
 

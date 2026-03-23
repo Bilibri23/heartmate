@@ -38,6 +38,7 @@ interface Payment {
   recipientName?: string
   leaseId?: string
   leaseReferenceCode?: string
+  listingTitle?: string
   momoTransactionId?: string
   createdAt: string
   // Legacy nested fields (for backwards compatibility)
@@ -80,8 +81,8 @@ export default function LandlordPaymentsPage() {
       setPayments(paymentsData)
       
       // Calculate stats from payments data
-      const completed = paymentsData.filter((p: Payment) => p.status === "COMPLETED")
-      const pending = paymentsData.filter((p: Payment) => p.status === "PENDING")
+      const completed = paymentsData.filter((p: Payment) => p.status === "VERIFIED" || p.status === "COMPLETED")
+      const pending = paymentsData.filter((p: Payment) => p.status === "PENDING" || p.status === "SUBMITTED")
       const now = new Date()
       const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
       const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -126,8 +127,11 @@ export default function LandlordPaymentsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case "VERIFIED":
       case "COMPLETED": return <CheckCircle className="h-4 w-4 text-emerald-500" />
-      case "PENDING": return <Clock className="h-4 w-4 text-amber-500" />
+      case "PENDING":
+      case "SUBMITTED": return <Clock className="h-4 w-4 text-amber-500" />
+      case "REJECTED":
       case "FAILED": return <AlertCircle className="h-4 w-4 text-red-500" />
       default: return null
     }
@@ -135,8 +139,11 @@ export default function LandlordPaymentsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "VERIFIED":
       case "COMPLETED": return "bg-emerald-100 text-emerald-700"
-      case "PENDING": return "bg-amber-100 text-amber-700"
+      case "PENDING":
+      case "SUBMITTED": return "bg-amber-100 text-amber-700"
+      case "REJECTED":
       case "FAILED": return "bg-red-100 text-red-700"
       default: return "bg-slate-100 text-slate-600"
     }
@@ -200,9 +207,10 @@ export default function LandlordPaymentsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setStatusFilter("ALL")}>All</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("COMPLETED")}>Completed</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("VERIFIED")}>Verified</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("PENDING")}>Pending</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("FAILED")}>Failed</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("SUBMITTED")}>Awaiting Verification</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("REJECTED")}>Rejected</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -238,7 +246,7 @@ export default function LandlordPaymentsPage() {
                           {payment.payerName || (payment.tenant ? `${payment.tenant.firstName} ${payment.tenant.lastName}` : "Unknown")}
                         </p>
                         <p className="text-xs text-slate-500 line-clamp-1">
-                          {payment.leaseReferenceCode || payment.listing?.title || "Lease Payment"}
+                          {payment.leaseReferenceCode || payment.listingTitle || payment.listing?.title || "Lease Payment"}
                         </p>
                         <p className="text-xs text-slate-400 mt-1">
                           {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString()}

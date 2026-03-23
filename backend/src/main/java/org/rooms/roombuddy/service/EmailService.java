@@ -38,6 +38,11 @@ public class EmailService {
             throw new RuntimeException("Failed to send password reset email: " + e.getMessage());
         }
     }
+
+    public void sendEmailVerificationEmail(String toEmail, String verificationToken) {
+        log.info("Sending email verification email to: {}", toEmail);
+        sendEmail(toEmail, "Verify Your Email - RoomBuddy", buildEmailVerificationBody(verificationToken));
+    }
     
     public void sendVerificationStatusEmail(String toEmail, String status, String reason) {
         log.info("Sending verification status email to: {}", toEmail);
@@ -46,7 +51,7 @@ public class EmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
             message.setTo(toEmail);
-            message.setSubject("Student Verification Status - RoomConnect");
+            message.setSubject("Tenant Verification Status - RoomConnect");
             message.setText(buildVerificationStatusEmailBody(status, reason));
             
             mailSender.send(message);
@@ -69,6 +74,18 @@ public class EmailService {
                 "If you did not request a password reset, please ignore this email.\n\n" +
                 "Best regards,\n" +
                 "RoomConnect Team";
+    }
+
+    private String buildEmailVerificationBody(String token) {
+        String verificationLink = baseUrl + "/api/auth/verify-email?token=" + token;
+        return "Hello,\n\n" +
+                "Welcome to RoomBuddy! Please verify your email address to secure your account.\n\n" +
+                "Click the link below to verify your email:\n" +
+                verificationLink + "\n\n" +
+                "This link expires in 24 hours.\n\n" +
+                "If you did not create this account, you can ignore this email.\n\n" +
+                "Best regards,\n" +
+                "RoomBuddy Team";
     }
     
     private String buildVerificationStatusEmailBody(String status, String reason) {

@@ -12,10 +12,13 @@ import org.rooms.roombuddy.dto.request.ResetPasswordRequest;
 import org.rooms.roombuddy.dto.request.ChangePasswordRequest;
 import org.rooms.roombuddy.dto.response.AuthResponse;
 import org.rooms.roombuddy.dto.response.ApiResponse;
+import org.rooms.roombuddy.dto.response.ProfileCompletionResponse;
 import org.rooms.roombuddy.service.AuthService;
+import org.rooms.roombuddy.service.ProfileCompletionService;
 import org.rooms.roombuddy.security.SecurityUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final ProfileCompletionService profileCompletionService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user", description = "Register a new student user")
@@ -46,9 +50,41 @@ public class AuthController {
     @PostMapping("/refresh")
     @Operation(summary = "Refresh token", description = "Refresh access token using refresh token")
     public ResponseEntity<AuthResponse> refreshToken(@RequestHeader("Authorization") String authHeader) {
-        String refreshToken = authHeader.replace("Bearer ", "");
+        String refreshToken = extractBearerToken(authHeader);
         AuthResponse response = authService.refreshToken(refreshToken);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Logout", description = "Invalidate refresh session for the current token")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        String refreshToken = extractBearerToken(authHeader);
+        authService.logout(refreshToken);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Logout completed")
+                .build());
+    }
+
+    @GetMapping("/verify-email")
+    @Operation(summary = "Verify email", description = "Verify email address using token")
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token) {
+        authService.verifyEmailToken(token);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Email verified successfully")
+                .build());
+    }
+
+    @PostMapping("/resend-verification-email")
+    @Operation(summary = "Resend email verification", description = "Resend verification link to authenticated user")
+    public ResponseEntity<ApiResponse<Void>> resendVerificationEmail() {
+        var userId = SecurityUtils.getCurrentUserId();
+        authService.resendEmailVerification(userId);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Verification email sent")
+                .build());
     }
 
     @PostMapping("/forgot-password")
@@ -107,5 +143,19 @@ public class AuthController {
                 .success(true)
                 .message("Account deleted successfully")
                 .build());
+    }
+
+    @GetMapping("/me/completion-status")
+    @Operation(summary = "Get profile completion status", description = "Get role-specific completion score and missing steps")
+    public ResponseEntity<ProfileCompletionResponse> getCompletionStatus() {
+        var userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(profileCompletionService.getCompletionStatus(userId));
+    }
+
+    private String extractBearerToken(String authHeader) {
+        if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        return authHeader.substring(7);
     }
 }

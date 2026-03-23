@@ -1,0 +1,186 @@
+"use client"
+
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Send, Loader2, ExternalLink, Copy } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
+import { aiAssistantService, type AiCitation, type AiPersona } from "@/services/ai-assistant"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+
+type ChatRole = "user" | "assistant"
+
+type ChatMessage = {
+  id: string
+  role: ChatRole
+  content: string
+  citations?: AiCitation[]
+  suggestedActions?: {
+    id: string
+    label: string
+    type: "NAVIGATE" | "COPY_TEXT"
+    actionUrl?: string
+    copyText?: string
+  }[]
+  createdAt: number
+}
+
+function uid() {
+  return Math.random().toString(16).slice(2) + Date.now().toString(16)
+}
+
+export function AssistantChat({ persona }: { persona: AiPersona }) {
+  const router = useRouter()
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    {
+      id: uid(),
+      role: "assistant",
+      content:
+        persona === "LANDLORD"
+          ? "Hi! I’m your RoomBuddy assistant. Ask me about listing approval, applications, leases, payments, or how to use the landlord dashboard."
+          : "Hi! I’m your RoomBuddy assistant. Ask me about searching, applying, verification, roommate matching, leases, or payments.",
+      createdAt: Date.now(),
+    },
+  ])
+  const [input, setInput] = useState("")
+  const [isSending, setIsSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const bottomRef = useRef<HTMLDivElement | null>(null)
+
+  const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages.length])
+
+  const send = async () => {
+    const text = input.trim()
+    if (!text || isSending) return
+    setInput("")
+    setError(null)
+
+    const userMsg: ChatMessage = { id: uid(), role: "user", content: text, createdAt: Date.now() }
+    setMessages((prev) => [...prev, userMsg])
+    setIsSending(true)
+
+    try {
+      const res = await aiAssistantService.chat({ message: text, persona })
+      const asstMsg: ChatMessage = {
+        id: uid(),
+        role: "assistant",
+        content: res.answer,
+        citations: res.citations,
+        suggestedActions: res.suggestedActions,
+        createdAt: Date.now(),
+      }
+      setMessages((prev) => [...prev, asstMsg])
+    } catch (e: any) {
+      setError(e?.response?.data?.message || "Assistant is unavailable. Please try again.")
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50">
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={cn(
+              "max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
+              m.role === "user"
+                ? "ml-auto bg-blue-600 text-white"
+                : "mr-auto bg-white text-slate-800 border border-slate-200"
+            )}
+          >
+            <div className="whitespace-pre-wrap">{m.content}</div>
+            {m.role === "assistant" && m.citations && m.citations.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-1">
+                <p className="text-xs font-medium text-slate-500">Sources</p>
+                <div className="flex flex-wrap gap-2">
+                  {m.citations.slice(0, 6).map((c) => (
+                    <span
+                      key={c.chunkId}
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] text-slate-600"
+                      title={c.title || c.source}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      {c.title || c.source || "doc"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {m.role === "assistant" && m.suggestedActions && m.suggestedActions.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-2">
+                <p className="text-xs font-medium text-slate-500">Suggested next steps</p>
+                <div className="flex flex-wrap gap-2">
+                  {m.suggestedActions.slice(0, 3).map((a) => (
+                    <Button
+                      key={a.id}
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={() => {
+                        if (a.type === "NAVIGATE" && a.actionUrl) {
+                          router.push(a.actionUrl)
+                          return
+                        }
+                        if (a.type === "COPY_TEXT" && a.copyText) {
+                          navigator.clipboard.writeText(a.copyText).then(
+                            () => toast.success("Copied"),
+                            () => toast.error("Copy failed")
+                          )
+                        }
+                      }}
+                    >
+                      {a.type === "COPY_TEXT" ? <Copy className="h-3.5 w-3.5 mr-1" /> : null}
+                      {a.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {isSending && (
+          <div className="mr-auto bg-white border border-slate-200 text-slate-700 max-w-[92%] rounded-2xl px-4 py-3 text-sm shadow-sm inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Thinking…
+          </div>
+        )}
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">
+            {error}
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="p-4 bg-white border-t border-slate-200">
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            send()
+          }}
+        >
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask a question…"
+            className="h-12 rounded-xl"
+          />
+          <Button type="submit" className="h-12 rounded-xl" disabled={!canSend}>
+            <Send className="h-4 w-4 mr-2" />
+            Send
+          </Button>
+        </form>
+      </div>
+    </div>
+  )
+}
+

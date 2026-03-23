@@ -29,6 +29,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { uploadApi } from "@/lib/api"
+import { useProfileCompletion } from "@/hooks/use-profile-completion"
+import { CompletionBanner } from "@/components/profile/completion-banner"
 
 interface Payment {
   id: string
@@ -94,6 +96,8 @@ function PaymentsContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [currentLeaseId, setCurrentLeaseId] = useState<string | null>(null)
   const [cancelPaymentId, setCancelPaymentId] = useState<string | null>(null)
+  const { status: completionStatus } = useProfileCompletion()
+  const canPay = completionStatus?.operationEligibility?.PAYMENT !== false
 
   const fetchPayments = useCallback(async () => {
     if (!user?.id) return
@@ -151,6 +155,7 @@ function PaymentsContent() {
   const [paymentError, setPaymentError] = useState<string | null>(null)
 
   const initiatePayment = async (leaseId: string) => {
+    if (!canPay) return
     setPaymentError(null)
     setCurrentLeaseId(leaseId)
 
@@ -225,6 +230,7 @@ function PaymentsContent() {
   }
 
   const submitPaymentProof = async () => {
+    if (!canPay) return
     if (!paymentInstructions || !transactionId) return
 
     setIsSubmitting(true)
@@ -289,6 +295,7 @@ function PaymentsContent() {
         />
 
         <div className="p-4 space-y-3">
+          {completionStatus && !canPay && <CompletionBanner status={completionStatus} />}
           {/* Loading */}
           {isLoading && (
             <>

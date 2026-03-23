@@ -27,10 +27,9 @@ public class StudentVerification {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @Column(nullable = false)
     private String university;
 
-    @Column(name = "student_id", nullable = false)
+    @Column(name = "student_id")
     private String studentId;
 
     private String faculty;
@@ -42,6 +41,18 @@ public class StudentVerification {
 
     @Column(name = "student_id_photo_url")
     private String studentIdPhotoUrl;
+
+    @Column(name = "id_type")
+    private String idType;
+
+    @Column(name = "id_number")
+    private String idNumber;
+
+    @Column(name = "id_photo_url")
+    private String idPhotoUrl;
+
+    @Column(name = "selfie_photo_url")
+    private String selfiePhotoUrl;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default

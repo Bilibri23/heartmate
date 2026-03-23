@@ -19,15 +19,29 @@ export const uploadApi = axios.create({
   baseURL: BACKEND_URL,
 });
 
+type RetriableRequest = {
+  _retry?: boolean;
+  headers?: Record<string, string>;
+};
+
+const clearAuthStorage = () => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+};
+
+const attachToken = (config: any) => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+};
+
 // Add token interceptor to uploadApi as well
 uploadApi.interceptors.request.use(
-  (config) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config) => attachToken(config),
   (error) => {
     return Promise.reject(error);
   }
@@ -35,13 +49,7 @@ uploadApi.interceptors.request.use(
 
 // Add a request interceptor to attach the token
 api.interceptors.request.use(
-  (config) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config) => attachToken(config),
   (error) => {
     return Promise.reject(error);
   }
@@ -50,13 +58,33 @@ api.interceptors.request.use(
 // Add a response interceptor to handle auth errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Handle unauthorized access (e.g., redirect to login)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        // Optional: Redirect to login page
-        // window.location.href = '/login';
+  async (error) => {
+    const originalRequest = (error.config || {}) as RetriableRequest;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      if (!refreshToken) {
+        clearAuthStorage();
+        return Promise.reject(error);
+      }
+
+      originalRequest._retry = true;
+      try {
+        const refreshResponse = await axios.post(
+          `${API_URL}/auth/refresh`,
+          {},
+          { headers: { Authorization: `Bearer ${refreshToken}` } }
+        );
+        const { accessToken, refreshToken: rotatedRefreshToken } = refreshResponse.data;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', accessToken);
+          localStorage.setItem('refreshToken', rotatedRefreshToken);
+        }
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        clearAuthStorage();
+        return Promise.reject(refreshError);
       }
     }
     return Promise.reject(error);

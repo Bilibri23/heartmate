@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.rooms.roombuddy.entity.Match;
 import org.rooms.roombuddy.entity.RoommatePreferences;
 import org.rooms.roombuddy.entity.User;
+import org.rooms.roombuddy.dto.request.MatchActionRequest;
 import org.rooms.roombuddy.repository.MatchRepository;
 import org.rooms.roombuddy.repository.RoommatePreferencesRepository;
 import org.rooms.roombuddy.repository.UserRepository;
@@ -41,6 +42,9 @@ class MatchingServiceTest {
     
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private SecurityAuditService securityAuditService;
     
     @InjectMocks
     private MatchingService matchingService;
@@ -50,7 +54,6 @@ class MatchingServiceTest {
     private User user1;
     private User user2;
     private RoommatePreferences prefs1;
-    private RoommatePreferences prefs2;
     
     @BeforeEach
     void setUp() {
@@ -78,12 +81,6 @@ class MatchingServiceTest {
             .maxBudget(100000)
             .build();
         
-        prefs2 = RoommatePreferences.builder()
-            .user(user2)
-            .lookingForRoommate(true)
-            .minBudget(60000)
-            .maxBudget(110000)
-            .build();
     }
     
     @Test
@@ -121,6 +118,29 @@ class MatchingServiceTest {
         // Then
         assertEquals(1, matches.size());
         assertEquals(85, matches.get(0).getCompatibilityScore());
+    }
+
+    @Test
+    void testAcceptOrRejectMatch_SecondAcceptTriggersMutualNotification() {
+        Match match = Match.builder()
+                .id(UUID.randomUUID())
+                .user1(user1)
+                .user2(user2)
+                .status(Match.Status.PENDING)
+                .user1Action(Match.UserAction.ACCEPT)
+                .build();
+        MatchActionRequest request = new MatchActionRequest();
+        request.setAction("ACCEPT");
+
+        when(matchRepository.findById(match.getId())).thenReturn(Optional.of(match));
+        when(matchRepository.save(any(Match.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(profileRepository.findByUserId(any())).thenReturn(Optional.empty());
+
+        var response = matchingService.acceptOrRejectMatch(userId2, match.getId(), request);
+
+        assertEquals("MUTUAL", response.getStatus());
+        verify(notificationService, times(1)).notifyMutualMatch(eq(userId1), eq(match.getId()), anyString());
+        verify(notificationService, times(1)).notifyMutualMatch(eq(userId2), eq(match.getId()), anyString());
     }
 }
 

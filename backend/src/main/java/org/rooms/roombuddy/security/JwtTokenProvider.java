@@ -33,21 +33,25 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(userId.toString())
+                .claim("type", "access")
                 .claim("email", email)
                 .claim("role", role)
+                .claim("jti", UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
                 .compact();
     }
 
-    public String generateRefreshToken(UUID userId) {
+    public String generateRefreshToken(UUID userId, UUID sessionId, UUID tokenId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + refreshTokenExpiration);
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("type", "refresh")
+                .claim("sid", sessionId.toString())
+                .claim("jti", tokenId.toString())
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(getSigningKey())
@@ -93,5 +97,19 @@ public class JwtTokenProvider {
             log.error("Invalid JWT token: {}", e.getMessage());
             return false;
         }
+    }
+
+    public String getTokenType(String token) {
+        return getClaimsFromToken(token).get("type", String.class);
+    }
+
+    public UUID getTokenId(String token) {
+        String value = getClaimsFromToken(token).get("jti", String.class);
+        return value != null ? UUID.fromString(value) : null;
+    }
+
+    public UUID getSessionId(String token) {
+        String value = getClaimsFromToken(token).get("sid", String.class);
+        return value != null ? UUID.fromString(value) : null;
     }
 }

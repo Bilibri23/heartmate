@@ -8,10 +8,14 @@ import org.rooms.roombuddy.dto.request.ResetPasswordRequest;
 import org.rooms.roombuddy.dto.request.ChangePasswordRequest;
 import org.rooms.roombuddy.dto.response.AuthResponse;
 import org.rooms.roombuddy.entity.PasswordResetToken;
+import org.rooms.roombuddy.entity.EmailVerificationToken;
+import org.rooms.roombuddy.entity.RefreshTokenSession;
 import org.rooms.roombuddy.entity.User;
 import org.rooms.roombuddy.exception.BadRequestException;
 import org.rooms.roombuddy.exception.ResourceNotFoundException;
 import org.rooms.roombuddy.repository.PasswordResetTokenRepository;
+import org.rooms.roombuddy.repository.EmailVerificationTokenRepository;
+import org.rooms.roombuddy.repository.RefreshTokenSessionRepository;
 import org.rooms.roombuddy.repository.UserRepository;
 import org.rooms.roombuddy.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -32,10 +36,13 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final RefreshTokenSessionRepository refreshTokenSessionRepository;
     private final EmailService emailService;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
     private static final int TOKEN_EXPIRATION_HOURS = 1;
+    private static final int EMAIL_VERIFICATION_EXPIRATION_HOURS = 24;
 
     public AuthResponse register(RegisterRequest request) {
         log.info("Registering new user with email: {}", request.getEmail());
@@ -83,6 +90,7 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
         log.info("User registered successfully with ID: {}", savedUser.getId());
+        sendEmailVerification(savedUser);
 
         // Generate tokens
         String accessToken = jwtTokenProvider.generateAccessToken(
@@ -90,7 +98,7 @@ public class AuthService {
                 savedUser.getEmail(),
                 savedUser.getRole().name()
         );
-        String refreshToken = jwtTokenProvider.generateRefreshToken(savedUser.getId());
+        String refreshToken = issueRefreshToken(savedUser);
 
         return AuthResponse.builder()
                 .userId(savedUser.getId())
@@ -126,6 +134,12 @@ public class AuthService {
                 user.getAccountStatus() != User.AccountStatus.PENDING) {
             throw new BadRequestException("Account is " + user.getAccountStatus());
         }
+        if (!Boolean.TRUE.equals(user.getEmailVerified())) {
+            throw new BadRequestException("Please verify your email before logging in.");
+        }
+        if (!Boolean.TRUE.equals(user.getPhoneVerified())) {
+            throw new BadRequestException("Please verify your phone number before logging in.");
+        }
 
         // Update last active
         user.setLastActive(LocalDateTime.now());
@@ -137,7 +151,7 @@ public class AuthService {
                 user.getEmail(),
                 user.getRole().name()
         );
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+        String refreshToken = issueRefreshToken(user);
 
         log.info("User logged in successfully: {}", user.getId());
 
@@ -152,14 +166,27 @@ public class AuthService {
                 .build();
     }
 
-    public AuthResponse  refreshToken(String refreshToken) {
+    public AuthResponse refreshToken(String refreshToken) {
         if (!jwtTokenProvider.validateToken(refreshToken)) {
             throw new BadRequestException("Invalid refresh token");
+        }
+        if (!"refresh".equals(jwtTokenProvider.getTokenType(refreshToken))) {
+            throw new BadRequestException("Invalid token type for refresh");
+        }
+
+        UUID tokenId = jwtTokenProvider.getTokenId(refreshToken);
+        RefreshTokenSession session = refreshTokenSessionRepository.findByTokenId(tokenId)
+                .orElseThrow(() -> new BadRequestException("Refresh session not found"));
+        if (Boolean.TRUE.equals(session.getRevoked()) || session.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Refresh token has been revoked or expired");
         }
 
         UUID userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        session.setRevoked(true);
+        refreshTokenSessionRepository.save(session);
 
         // Generate new tokens
         String newAccessToken = jwtTokenProvider.generateAccessToken(
@@ -167,7 +194,7 @@ public class AuthService {
                 user.getEmail(),
                 user.getRole().name()
         );
-        String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
+        String newRefreshToken = issueRefreshToken(user);
 
         return AuthResponse.builder()
                 .userId(user.getId())
@@ -207,6 +234,30 @@ public class AuthService {
         
         log.info("Password reset token generated and email sent for user: {}", user.getId());
     }
+
+    public void verifyEmailToken(String token) {
+        EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
+                .orElseThrow(() -> new BadRequestException("Invalid verification token"));
+        if (!verificationToken.isValid()) {
+            throw new BadRequestException("Verification token is expired or already used");
+        }
+
+        User user = verificationToken.getUser();
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        verificationToken.setUsed(true);
+        emailVerificationTokenRepository.save(verificationToken);
+    }
+
+    public void resendEmailVerification(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            return;
+        }
+        sendEmailVerification(user);
+    }
     
     public void resetPassword(ResetPasswordRequest request) {
         log.info("Password reset attempt with token: {}", request.getToken());
@@ -243,6 +294,7 @@ public class AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        refreshTokenSessionRepository.revokeAllActiveByUserId(userId);
 
         log.info("Password changed successfully for user: {}", userId);
     }
@@ -255,6 +307,7 @@ public class AuthService {
 
         user.setAccountStatus(User.AccountStatus.DEACTIVATED);
         userRepository.save(user);
+        refreshTokenSessionRepository.revokeAllActiveByUserId(userId);
 
         log.info("Account deactivated for user: {}", userId);
     }
@@ -274,7 +327,55 @@ public class AuthService {
         user.setProfileCompleted(false);
 
         userRepository.save(user);
+        refreshTokenSessionRepository.revokeAllActiveByUserId(userId);
 
         log.info("Account soft-deleted for user: {}", userId);
+    }
+
+    public void logout(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            return;
+        }
+        if (!"refresh".equals(jwtTokenProvider.getTokenType(refreshToken))) {
+            return;
+        }
+
+        UUID tokenId = jwtTokenProvider.getTokenId(refreshToken);
+        refreshTokenSessionRepository.findByTokenId(tokenId).ifPresent(session -> {
+            session.setRevoked(true);
+            refreshTokenSessionRepository.save(session);
+        });
+    }
+
+    private String issueRefreshToken(User user) {
+        UUID sessionId = UUID.randomUUID();
+        UUID tokenId = UUID.randomUUID();
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), sessionId, tokenId);
+        refreshTokenSessionRepository.save(
+                RefreshTokenSession.builder()
+                        .id(sessionId)
+                        .user(user)
+                        .tokenId(tokenId)
+                        .expiresAt(LocalDateTime.now().plusDays(7))
+                        .revoked(false)
+                        .build()
+        );
+        return refreshToken;
+    }
+
+    private void sendEmailVerification(User user) {
+        emailVerificationTokenRepository.markAllUsedByUserId(user.getId());
+        String token = UUID.randomUUID().toString();
+        EmailVerificationToken verificationToken = EmailVerificationToken.builder()
+                .user(user)
+                .token(token)
+                .expiresAt(LocalDateTime.now().plusHours(EMAIL_VERIFICATION_EXPIRATION_HOURS))
+                .used(false)
+                .build();
+        emailVerificationTokenRepository.save(verificationToken);
+        emailService.sendEmailVerificationEmail(user.getEmail(), token);
     }
 }

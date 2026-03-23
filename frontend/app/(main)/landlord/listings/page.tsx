@@ -42,6 +42,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import Link from "next/link"
 import api from "@/lib/api"
+import { useProfileCompletion } from "@/hooks/use-profile-completion"
+import { CompletionBanner } from "@/components/profile/completion-banner"
 
 interface Listing {
   id: string
@@ -67,6 +69,8 @@ export default function LandlordListingsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL")
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const { status: completionStatus } = useProfileCompletion()
+  const canPublish = completionStatus?.operationEligibility?.LISTING_PUBLISH !== false
 
   const fetchListings = useCallback(async () => {
     if (!user?.id) return
@@ -152,6 +156,7 @@ export default function LandlordListingsPage() {
         />
 
         <div className="p-4 space-y-4">
+          {completionStatus && !canPublish && <CompletionBanner status={completionStatus} />}
           {/* Search & Filter */}
           <div className="flex gap-2">
             <div className="flex-1 relative">
@@ -188,7 +193,7 @@ export default function LandlordListingsPage() {
 
           {/* Add New Button */}
           <Link href="/landlord/listings/new">
-            <Button className="w-full h-12 rounded-xl">
+            <Button className="w-full h-12 rounded-xl" disabled={!canPublish}>
               <Plus className="h-5 w-5 mr-2" />
               Add New Listing
             </Button>
@@ -213,7 +218,7 @@ export default function LandlordListingsPage() {
               </p>
               {!searchQuery && statusFilter === "ALL" && (
                 <Link href="/landlord/listings/new">
-                  <Button size="sm">Create Your First Listing</Button>
+                  <Button size="sm" disabled={!canPublish}>Create Your First Listing</Button>
                 </Link>
               )}
             </div>

@@ -58,6 +58,9 @@ import { VirtualTourEmbed } from "@/components/ui/virtual-tour-embed"
 import api from "@/lib/api"
 import Link from "next/link"
 import { toast } from "sonner"
+import { shareListingService } from "@/services/share-listing"
+import { useProfileCompletion } from "@/hooks/use-profile-completion"
+import { CompletionBanner } from "@/components/profile/completion-banner"
 
 interface ListingDetail {
   id: string
@@ -116,6 +119,67 @@ interface ExistingApplication {
   status: string
 }
 
+function ShareRoommateRow({
+  match,
+  listingId,
+  listingTitle,
+  t,
+  onShareSuccess,
+}: {
+  match: { id: string; matchedUser?: { id: string; firstName?: string; lastName?: string; profilePhotoUrl?: string }; compatibilityScore?: number }
+  listingId: string
+  listingTitle: string
+  t: { compatible: string }
+  onShareSuccess: () => void
+}) {
+  const [isSharing, setIsSharing] = useState(false)
+  const roommateId = match.matchedUser?.id
+  const handleShare = async () => {
+    if (!roommateId) return
+    setIsSharing(true)
+    try {
+      await shareListingService.shareListing({ listingId, roommateId })
+      toast.success("Listing shared! Your roommate will receive a notification.")
+      onShareSuccess()
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to share listing")
+    } finally {
+      setIsSharing(false)
+    }
+  }
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
+      <Avatar className="h-12 w-12">
+        <AvatarImage src={match.matchedUser?.profilePhotoUrl} />
+        <AvatarFallback className="bg-blue-100 text-blue-600">
+          {match.matchedUser?.firstName?.[0] || "?"}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-slate-900">
+          {match.matchedUser?.firstName} {match.matchedUser?.lastName}
+        </p>
+        <p className="text-sm text-slate-500">{match.compatibilityScore}% {t.compatible}</p>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          className="rounded-xl"
+          onClick={handleShare}
+          disabled={isSharing}
+        >
+          {isSharing ? "..." : "Share"}
+        </Button>
+        <Link href={`/messages/${roommateId}?shareListingId=${listingId}&shareListingTitle=${encodeURIComponent(listingTitle)}`}>
+          <Button size="sm" variant="outline" className="rounded-xl">
+            <MessageCircle className="h-4 w-4" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 export default function ListingDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -139,6 +203,7 @@ export default function ListingDetailPage() {
   const [existingApplication, setExistingApplication] = useState<ExistingApplication | null>(null)
   const [isCheckingApplication, setIsCheckingApplication] = useState(false)
   const [showVerifyPrompt, setShowVerifyPrompt] = useState(false)
+  const { status: completionStatus } = useProfileCompletion()
 
   const MESSAGE_TEMPLATES = [
     {
@@ -284,6 +349,8 @@ export default function ListingDetailPage() {
   }
 
   const [applicationError, setApplicationError] = useState<string | null>(null)
+  const canApply = completionStatus?.operationEligibility?.APPLY !== false
+  const canMessage = completionStatus?.operationEligibility?.MESSAGE !== false
 
   const handleApply = async () => {
     if (!user?.id) {
@@ -857,7 +924,7 @@ export default function ListingDetailPage() {
                   </div>
                 </div>
                 <Link href={`/messages/${listing.landlord?.id || listing.landlordId}`}>
-                  <Button variant="outline" size="sm" className="rounded-xl hover:bg-blue-50 transition-colors">
+                  <Button variant="outline" size="sm" disabled={!canMessage} className="rounded-xl hover:bg-blue-50 transition-colors">
                     <MessageCircle className="h-4 w-4 mr-1.5" />
                     {language === "fr" ? "Message" : "Message"}
                   </Button>
@@ -932,6 +999,7 @@ export default function ListingDetailPage() {
               </SheetHeader>
 
               <div className="mt-6 space-y-4">
+                {completionStatus && !canApply && <CompletionBanner status={completionStatus} />}
                 <div className="bg-blue-50 rounded-xl p-4">
                   <p className="text-sm text-blue-800">
                     {t.listingDetail.viewingHint}
@@ -1028,26 +1096,14 @@ export default function ListingDetailPage() {
                 ) : (
                   <div className="space-y-2">
                     {mutualMatches.map((match) => (
-                      <Link
+                      <ShareRoommateRow
                         key={match.id}
-                        href={`/messages/${match.matchedUser?.id}?shareListingId=${listing.id}&shareListingTitle=${encodeURIComponent(listing.title)}`}
-                      >
-                        <div className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={match.matchedUser?.profilePhotoUrl} />
-                            <AvatarFallback className="bg-blue-100 text-blue-600">
-                              {match.matchedUser?.firstName?.[0] || "?"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <p className="font-medium text-slate-900">
-                              {match.matchedUser?.firstName} {match.matchedUser?.lastName}
-                            </p>
-                            <p className="text-sm text-slate-500">{match.compatibilityScore}% {t.listingDetail.compatible}</p>
-                          </div>
-                          <MessageCircle className="h-5 w-5 text-blue-600" />
-                        </div>
-                      </Link>
+                        match={match}
+                        listingId={listing.id}
+                        listingTitle={listing.title}
+                        t={t.listingDetail}
+                        onShareSuccess={() => setIsShareRoomOpen(false)}
+                      />
                     ))}
                   </div>
                 )}
@@ -1189,7 +1245,8 @@ export default function ListingDetailPage() {
                     !moveInDate ||
                     applicationMessage.length < 50 ||
                     Boolean(existingApplication) ||
-                    listing?.status !== "ACTIVE"
+                    listing?.status !== "ACTIVE" ||
+                    !canApply
                   }
                 >
                   {isSubmitting ? t.common.loading : t.applications.apply}

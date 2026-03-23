@@ -32,8 +32,7 @@ import {
   Search,
   ChevronRight,
   UserCheck,
-  Building,
-  Gavel
+  Building
 } from "lucide-react"
 
 interface Statistics {
@@ -57,7 +56,9 @@ interface PendingVerification {
   userId: string
   userName: string
   userEmail: string
-  documentUrl: string
+  documentUrl?: string
+  idPhotoUrl?: string
+  studentIdPhotoUrl?: string
   status: string
   createdAt: string
 }
@@ -270,7 +271,7 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <UserCheck className="h-5 w-5 text-blue-600" />
-                        <span className="text-slate-700">Students</span>
+                        <span className="text-slate-700">Tenants</span>
                       </div>
                       <span className="font-semibold text-slate-900">{statistics.totalStudents}</span>
                     </div>
@@ -293,15 +294,6 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-3">
                           <Users className="h-5 w-5 text-blue-600" />
                           <span className="text-slate-700">Manage Users</span>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-slate-400" />
-                      </div>
-                    </Link>
-                    <Link href="/admin/disputes">
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                        <div className="flex items-center gap-3">
-                          <Gavel className="h-5 w-5 text-amber-600" />
-                          <span className="text-slate-700">Handle Disputes</span>
                         </div>
                         <ChevronRight className="h-5 w-5 text-slate-400" />
                       </div>
@@ -347,9 +339,9 @@ export default function AdminDashboardPage() {
                         </span>
                       </div>
                       
-                      {verification.documentUrl && (
+                      {(verification.idPhotoUrl || verification.studentIdPhotoUrl) && (
                         <a 
-                          href={verification.documentUrl} 
+                          href={verification.idPhotoUrl || verification.studentIdPhotoUrl} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 text-sm hover:underline mb-3 block"

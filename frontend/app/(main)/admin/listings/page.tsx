@@ -27,16 +27,21 @@ import {
   Home,
   CheckCircle,
   XCircle,
-  Clock,
-  Eye,
   MapPin,
   User,
   Calendar,
-  DollarSign,
-  ChevronLeft,
   Star,
+  ExternalLink,
+  ImageIcon,
   AlertTriangle
 } from "lucide-react"
+
+interface ListingPhoto {
+  id: string
+  photoUrl: string
+  isPrimary?: boolean
+  displayOrder?: number
+}
 
 interface Listing {
   id: string
@@ -48,8 +53,10 @@ interface Listing {
   status: string
   landlordId: string
   landlordName: string
-  landlordEmail: string
-  images: string[]
+  landlordEmail?: string
+  photos?: ListingPhoto[]
+  images?: string[]
+  primaryPhotoUrl?: string
   bedrooms: number
   bathrooms: number
   amenities: string[]
@@ -250,9 +257,9 @@ export default function AdminListingsPage() {
                 }}
               >
                 <div className="flex gap-4">
-                  {listing.images?.[0] ? (
+                  {(listing.primaryPhotoUrl || listing.photos?.[0]?.photoUrl || listing.images?.[0]) ? (
                     <img 
-                      src={listing.images[0]} 
+                      src={listing.primaryPhotoUrl || listing.photos?.[0]?.photoUrl || listing.images?.[0]} 
                       alt={listing.title}
                       className="w-24 h-24 rounded-xl object-cover"
                     />
@@ -298,19 +305,42 @@ export default function AdminListingsPage() {
           
           {selectedListing && (
             <div className="mt-4 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pb-8">
-              {/* Images */}
-              {selectedListing.images?.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {selectedListing.images.map((img, idx) => (
-                    <img 
-                      key={idx}
-                      src={img} 
-                      alt={`${selectedListing.title} ${idx + 1}`}
-                      className="w-40 h-28 rounded-xl object-cover flex-shrink-0"
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Listing Photos - Admin must view all before approve/reject */}
+              {(() => {
+                const photoUrls = selectedListing.photos?.map(p => p.photoUrl) || selectedListing.images || 
+                  (selectedListing.primaryPhotoUrl ? [selectedListing.primaryPhotoUrl] : [])
+                return photoUrls.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4" /> Uploaded Photos ({photoUrls.length})
+                    </p>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {photoUrls.map((url, idx) => (
+                        <div key={idx} className="relative flex-shrink-0">
+                          <img 
+                            src={url} 
+                            alt={`${selectedListing.title} ${idx + 1}`}
+                            className="w-40 h-28 rounded-xl object-cover border border-slate-200"
+                          />
+                          <a 
+                            href={url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="absolute top-1 right-1 bg-white/90 backdrop-blur-sm p-1.5 rounded-lg shadow-sm flex items-center gap-1 text-xs text-slate-600 hover:bg-white"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 rounded-xl p-4 flex items-center gap-2 text-amber-700">
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                    <p className="text-sm">No photos uploaded. Consider rejecting or asking landlord to add photos.</p>
+                  </div>
+                )
+              })()}
 
               {/* Info */}
               <div className="space-y-3">
@@ -358,7 +388,9 @@ export default function AdminListingsPage() {
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-sm text-slate-500 mb-2">Landlord</p>
                   <p className="font-semibold">{selectedListing.landlordName}</p>
-                  <p className="text-sm text-slate-500">{selectedListing.landlordEmail}</p>
+                  {selectedListing.landlordEmail && (
+                    <p className="text-sm text-slate-500">{selectedListing.landlordEmail}</p>
+                  )}
                 </div>
 
                 <div className="text-sm text-slate-500">

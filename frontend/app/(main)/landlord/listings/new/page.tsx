@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import api, { uploadApi } from "@/lib/api"
+import { useProfileCompletion } from "@/hooks/use-profile-completion"
+import { CompletionBanner } from "@/components/profile/completion-banner"
 
 const CAMEROON_CITIES = ["Douala", "Yaounde", "Bamenda", "Bafoussam", "Garoua", "Maroua", "Ngaoundere", "Bertoua", "Limbe", "Buea", "Kribi", "Ebolowa"]
 const PROPERTY_TYPES = [
@@ -52,6 +54,8 @@ export default function NewListingPage() {
   const [virtualTour, setVirtualTour] = useState<VirtualTourItem | null>(null)
   const [tourUploadProgress, setTourUploadProgress] = useState<number>(0)
   const [formData, setFormData] = useState({ title: "", description: "", propertyType: "", city: "", neighborhood: "", address: "", rentAmount: "", depositAmount: "", bedrooms: "1", bathrooms: "1", size: "", amenities: [] as string[] })
+  const { status: completionStatus } = useProfileCompletion()
+  const canPublish = completionStatus?.operationEligibility?.LISTING_PUBLISH !== false
 
   const handlePhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -77,6 +81,7 @@ export default function NewListingPage() {
 
   const handleSubmit = async () => {
     if (!user?.id) return
+    if (!canPublish) return
     setIsSubmitting(true)
     try {
       // Step 1: Create listing (no tour URL yet)
@@ -187,6 +192,11 @@ export default function NewListingPage() {
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="max-w-lg mx-auto">
+              {completionStatus && !canPublish && (
+                <div className="mb-4">
+                  <CompletionBanner status={completionStatus} />
+                </div>
+              )}
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.addPhotos}</h2><p className="text-sm text-slate-500">{t.landlordForm.uploadPhotos}</p></div>
@@ -458,7 +468,7 @@ export default function NewListingPage() {
             )}
             <div className="max-w-lg mx-auto flex gap-3">
               {currentStep > 1 && <Button variant="outline" onClick={prevStep} className="flex-1 h-12 rounded-xl"><ArrowLeft className="h-4 w-4 mr-2" />{t.common.back}</Button>}
-              {currentStep < 5 ? (<Button onClick={() => { setSubmitError(null); nextStep() }} disabled={!canProceed()} className="flex-1 h-12 rounded-xl">{t.common.next}<ArrowRight className="h-4 w-4 ml-2" /></Button>) : (<Button onClick={handleSubmit} disabled={isSubmitting || !canProceed()} className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700">{isSubmitting ? t.landlordForm.publishing : t.landlordForm.publishListing}</Button>)}
+              {currentStep < 5 ? (<Button onClick={() => { setSubmitError(null); nextStep() }} disabled={!canProceed() || !canPublish} className="flex-1 h-12 rounded-xl">{t.common.next}<ArrowRight className="h-4 w-4 ml-2" /></Button>) : (<Button onClick={handleSubmit} disabled={isSubmitting || !canProceed() || !canPublish} className="flex-1 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700">{isSubmitting ? t.landlordForm.publishing : t.landlordForm.publishListing}</Button>)}
             </div>
           </div>
         </div>

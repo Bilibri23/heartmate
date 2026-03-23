@@ -17,6 +17,7 @@ export default function AdminSettingsPage() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [isSaving, setIsSaving] = useState(false)
+  const [isAiIngesting, setIsAiIngesting] = useState(false)
   const [settings, setSettings] = useState({
     maintenanceMode: false,
     allowNewRegistrations: true,
@@ -86,6 +87,21 @@ export default function AdminSettingsPage() {
       toast.error("Failed to save settings")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleAiIngest = async (force: boolean) => {
+    setIsAiIngesting(true)
+    try {
+      const res = await uploadApi.post(`/ai/admin/ingest?force=${force ? "true" : "false"}`)
+      const data = res.data
+      toast.success(
+        `AI docs ingested: ${data?.documentsProcessed ?? 0} docs, ${data?.chunksInserted ?? 0} chunks`
+      )
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "AI ingest failed")
+    } finally {
+      setIsAiIngesting(false)
     }
   }
 
@@ -186,6 +202,35 @@ export default function AdminSettingsPage() {
             </Button>
             <Button variant="ghost" size="sm" onClick={fetchSearchStatus} className="rounded-xl">
               Refresh status
+            </Button>
+          </div>
+        </div>
+
+        {/* AI Assistant (RAG) */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Globe className="h-5 w-5 text-indigo-600" /> AI Assistant
+          </h3>
+          <p className="text-sm text-slate-500 mb-4">
+            Ingest `docs/*.md` into pgvector so the assistant can answer questions with citations.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => handleAiIngest(false)}
+              disabled={isAiIngesting}
+              className="rounded-xl"
+            >
+              {isAiIngesting ? "Ingesting…" : "Ingest Docs"}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => handleAiIngest(true)}
+              disabled={isAiIngesting}
+              className="rounded-xl"
+              title="Re-embed everything even if unchanged"
+            >
+              Force Re-ingest
             </Button>
           </div>
         </div>

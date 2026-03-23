@@ -8,6 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombuddy.dto.request.ListingRequest;
 import org.rooms.roombuddy.dto.response.ApiResponse;
 import org.rooms.roombuddy.dto.response.ListingResponse;
+import org.rooms.roombuddy.security.AuthorizationPolicyService;
+import org.rooms.roombuddy.security.RequiresCompletion;
+import org.rooms.roombuddy.security.SecurityUtils;
 import org.rooms.roombuddy.service.FileUploadService;
 import org.rooms.roombuddy.service.ListingService;
 import org.rooms.roombuddy.util.InputSanitizer;
@@ -34,14 +37,17 @@ public class ListingController {
     private final ListingService listingService;
     private final FileUploadService fileUploadService;
     private final InputSanitizer inputSanitizer;
+    private final AuthorizationPolicyService authorizationPolicyService;
     
     @PostMapping
+    @RequiresCompletion(operation = "LISTING_PUBLISH")
     @Operation(summary = "Create listing", description = "Create a new property listing (Landlord only)")
     // TODO: Re-enable verification requirement after development
     // @RequiresVerification(role = "LANDLORD", verificationType = "IDENTITY")
     public ResponseEntity<ListingResponse> createListing(
             @Valid @RequestBody ListingRequest request,
-            @RequestParam UUID landlordId) {
+            @RequestParam(required = false) UUID ignoredLandlordId) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Creating listing for landlord: {}", landlordId);
         ListingResponse response = listingService.createListing(landlordId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -63,8 +69,9 @@ public class ListingController {
     // @RequiresVerification(role = "LANDLORD", verificationType = "IDENTITY")
     public ResponseEntity<ListingResponse> updateListing(
             @PathVariable UUID listingId,
-            @RequestParam UUID landlordId,
+            @RequestParam(required = false) UUID ignoredLandlordId,
             @Valid @RequestBody ListingRequest request) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Updating listing: {} for landlord: {}", listingId, landlordId);
         ListingResponse response = listingService.updateListing(listingId, landlordId, request);
         return ResponseEntity.ok(response);
@@ -74,7 +81,8 @@ public class ListingController {
     @Operation(summary = "Delete listing", description = "Delete a property listing (Landlord only)")
     public ResponseEntity<Void> deleteListing(
             @PathVariable UUID listingId,
-            @RequestParam UUID landlordId) {
+            @RequestParam(required = false) UUID ignoredLandlordId) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Deleting listing: {} by landlord: {}", listingId, landlordId);
         listingService.deleteListing(listingId, landlordId);
         return ResponseEntity.noContent().build();
@@ -155,6 +163,7 @@ public class ListingController {
     @GetMapping("/landlord/{landlordId}")
     @Operation(summary = "Get landlord listings", description = "Get all listings for a landlord")
     public ResponseEntity<List<ListingResponse>> getLandlordListings(@PathVariable UUID landlordId) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(landlordId);
         log.info("Getting listings for landlord: {}", landlordId);
         List<ListingResponse> listings = listingService.getLandlordListings(landlordId);
         return ResponseEntity.ok(listings);
@@ -166,9 +175,10 @@ public class ListingController {
     // @RequiresVerification(role = "LANDLORD", verificationType = "IDENTITY")
     public ResponseEntity<ListingResponse> addPhoto(
             @PathVariable UUID listingId,
-            @RequestParam UUID landlordId,
+            @RequestParam(required = false) UUID ignoredLandlordId,
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false, defaultValue = "false") Boolean isPrimary) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Adding photo to listing: {}", listingId);
         
         // Upload photo to Cloudinary
@@ -182,8 +192,9 @@ public class ListingController {
     @Operation(summary = "Upload video tour", description = "Upload a video tour for a listing (Landlord only)")
     public ResponseEntity<ListingResponse> uploadVideoTour(
             @PathVariable UUID listingId,
-            @RequestParam UUID landlordId,
+            @RequestParam(required = false) UUID ignoredLandlordId,
             @RequestParam("file") MultipartFile file) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Uploading video tour for listing: {}", listingId);
         
         String videoUrl = fileUploadService.uploadVideoTour(file);
@@ -195,7 +206,8 @@ public class ListingController {
     @Operation(summary = "Remove photo from listing", description = "Remove a photo from a listing (Landlord only)")
     public ResponseEntity<Void> removePhoto(
             @PathVariable UUID photoId,
-            @RequestParam UUID landlordId) {
+            @RequestParam(required = false) UUID ignoredLandlordId) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Removing photo: {}", photoId);
         listingService.removePhoto(photoId, landlordId);
         return ResponseEntity.noContent().build();
@@ -205,7 +217,8 @@ public class ListingController {
     @Operation(summary = "Toggle favorite", description = "Add or remove listing from favorites")
     public ResponseEntity<ApiResponse<ListingResponse>> toggleFavorite(
             @PathVariable UUID listingId,
-            @RequestParam UUID userId) {
+            @RequestParam(required = false) UUID ignoredUserId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Toggling favorite for listing: {} by user: {}", listingId, userId);
         ListingResponse response = listingService.toggleFavorite(listingId, userId);
         return ResponseEntity.ok(ApiResponse.<ListingResponse>builder()
@@ -215,9 +228,10 @@ public class ListingController {
                 .build());
     }
     
-    @GetMapping("/favorites/{userId}")
+    @GetMapping("/favorites")
     @Operation(summary = "Get favorites", description = "Get all favorite listings for a user")
-    public ResponseEntity<List<ListingResponse>> getFavorites(@PathVariable UUID userId) {
+    public ResponseEntity<List<ListingResponse>> getFavorites() {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Getting favorites for user: {}", userId);
         List<ListingResponse> favorites = listingService.getFavorites(userId);
         return ResponseEntity.ok(favorites);
@@ -227,17 +241,20 @@ public class ListingController {
     @Operation(summary = "Mark as rented", description = "Mark a listing as rented (Landlord only)")
     public ResponseEntity<ListingResponse> markAsRented(
             @PathVariable UUID listingId,
-            @RequestParam UUID landlordId) {
+            @RequestParam(required = false) UUID ignoredLandlordId) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Marking listing {} as rented by landlord: {}", listingId, landlordId);
         ListingResponse response = listingService.markAsRented(listingId, landlordId);
         return ResponseEntity.ok(response);
     }
     
     @PostMapping("/{listingId}/mark-available")
+    @RequiresCompletion(operation = "LISTING_PUBLISH")
     @Operation(summary = "Mark as available", description = "Mark a listing as available again (Landlord only)")
     public ResponseEntity<ListingResponse> markAsAvailable(
             @PathVariable UUID listingId,
-            @RequestParam UUID landlordId) {
+            @RequestParam(required = false) UUID ignoredLandlordId) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Marking listing {} as available by landlord: {}", listingId, landlordId);
         ListingResponse response = listingService.markAsAvailable(listingId, landlordId);
         return ResponseEntity.ok(response);
@@ -256,9 +273,11 @@ public class ListingController {
     @GetMapping("/landlord/{landlordId}/statistics")
     @Operation(summary = "Get landlord statistics", description = "Get statistics for a landlord's listings")
     public ResponseEntity<Map<String, Object>> getLandlordStatistics(@PathVariable UUID landlordId) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(landlordId);
         log.info("Getting statistics for landlord: {}", landlordId);
         Map<String, Object> statistics = listingService.getLandlordStatistics(landlordId);
         return ResponseEntity.ok(statistics);
     }
+
 }
 

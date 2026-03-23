@@ -45,12 +45,12 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 
 function RegisterContent() {
   const searchParams = useSearchParams()
-  const roleFromUrl = searchParams.get("role") as "STUDENT" | "LANDLORD" | null
+  const roleFromUrl = searchParams.get("role") as "TENANT" | "LANDLORD" | null
   const { register: registerUser } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<"STUDENT" | "LANDLORD">(roleFromUrl || "STUDENT")
+  const [selectedRole, setSelectedRole] = useState<"TENANT" | "LANDLORD">(roleFromUrl || "TENANT")
   const defaultCountry = getDefaultCountry()
   const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry)
 
@@ -81,7 +81,7 @@ function RegisterContent() {
         email: data.email,
         phone: fullPhone,
         password: data.password,
-        role: selectedRole,
+        role: selectedRole === "TENANT" ? "STUDENT" : selectedRole,
         gender: data.gender,
       })
     } catch (err: any) {
@@ -91,7 +91,7 @@ function RegisterContent() {
     }
   }
 
-  const isStudent = selectedRole === "STUDENT"
+  const isTenant = selectedRole === "TENANT"
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 p-6">
@@ -106,12 +106,12 @@ function RegisterContent() {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-8 text-center">
-            <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl ${isStudent ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
-              {isStudent ? <Search className="h-7 w-7" /> : <Building2 className="h-7 w-7" />}
+            <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl ${isTenant ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+              {isTenant ? <Search className="h-7 w-7" /> : <Building2 className="h-7 w-7" />}
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
             <p className="mt-2 text-sm text-slate-500">
-              {isStudent ? "Find your perfect home" : "List your properties"}
+              {isTenant ? "Find your perfect home" : "List your properties"}
             </p>
           </div>
 
@@ -119,20 +119,20 @@ function RegisterContent() {
           <div className="mb-6 flex rounded-xl bg-slate-100 p-1">
             <button
               type="button"
-              onClick={() => setSelectedRole("STUDENT")}
+              onClick={() => setSelectedRole("TENANT")}
               className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                isStudent 
+                isTenant 
                   ? 'bg-white text-slate-900 shadow-sm' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Student
+              Tenant
             </button>
             <button
               type="button"
               onClick={() => setSelectedRole("LANDLORD")}
               className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                !isStudent 
+                !isTenant 
                   ? 'bg-white text-slate-900 shadow-sm' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
@@ -344,7 +344,7 @@ function RegisterContent() {
               <Button 
                 type="submit" 
                 className={`h-11 w-full rounded-xl text-sm font-medium ${
-                  isStudent 
+                  isTenant 
                     ? 'bg-slate-900 hover:bg-slate-800' 
                     : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}

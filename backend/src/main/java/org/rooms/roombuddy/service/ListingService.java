@@ -15,16 +15,11 @@ import org.rooms.roombuddy.exception.BadRequestException;
 import org.rooms.roombuddy.exception.ResourceNotFoundException;
 import org.rooms.roombuddy.repository.*;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -47,6 +42,7 @@ public class ListingService {
     private final ListingPreferencesRepository preferencesRepository;
     private final RoomApplicationRepository applicationRepository;
     private final ListingSearchOutboxRepository listingSearchOutboxRepository;
+    private final SecurityAuditService securityAuditService;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -103,6 +99,7 @@ public class ListingService {
         
         PropertyListing saved = listingRepository.save(listing);
         log.info("Listing created successfully: {}", saved.getId());
+        securityAuditService.logAction("listing.create", landlordId, saved.getId(), "LISTING");
         enqueueSearchOutbox(saved, ListingSearchOutbox.EVENT_CREATED);
         
         // Evict cache for new listing
@@ -111,17 +108,12 @@ public class ListingService {
         return mapToResponse(saved, null);
     }
     
-    @Cacheable(value = "listings", key = "#listingId")
     @Transactional(readOnly = true)
     public ListingResponse getListing(UUID listingId, UUID userId) {
         log.info("Fetching listing: {}", listingId);
         
         PropertyListing listing = listingRepository.findById(listingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Listing not found with id: " + listingId));
-        
-        // Increment views count (async to not block cache)
-        listing.setViewsCount(listing.getViewsCount() + 1);
-        listingRepository.save(listing);
         
         return mapToResponse(listing, userId);
     }
@@ -229,6 +221,7 @@ public class ListingService {
         
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing updated successfully: {}", listingId);
+        securityAuditService.logAction("listing.update", landlordId, listingId, "LISTING");
         enqueueSearchOutbox(updated, ListingSearchOutbox.EVENT_UPDATED);
         
         return mapToResponse(updated, landlordId);
@@ -245,6 +238,7 @@ public class ListingService {
             throw new BadRequestException("Only the listing owner can delete it");
         }
         enqueueSearchOutbox(listing, ListingSearchOutbox.EVENT_DELETED);
+        securityAuditService.logAction("listing.delete", landlordId, listingId, "LISTING");
         listingRepository.delete(listing);
         log.info("Listing deleted successfully: {}", listingId);
     }
@@ -320,74 +314,16 @@ public class ListingService {
         log.info("Advanced search - query: {}, city: {}, bedrooms: {}, bathrooms: {}, maxDistance: {}", 
                 query, city, bedrooms, bathrooms, maxDistance);
         
-        boolean needsInMemoryFiltering = (amenities != null && !amenities.isEmpty())
-                || (maxDistance != null && userLat != null && userLon != null);
-
-        if (!needsInMemoryFiltering) {
-            // Fast path: push everything to the database
-            var spec = ListingSpecifications.buildSearchSpec(
-                    query, city, neighborhood, propertyType,
-                    minPrice, maxPrice, bedrooms, bathrooms,
-                    amenities, availableFrom);
-            Page<PropertyListing> page = listingRepository.findAll(spec, pageable);
-            return page.map(listing -> mapToResponse(listing, userId));
+        if (maxDistance != null && userLat != null && userLon != null) {
+            throw new BadRequestException("Distance filtering is temporarily disabled until DB-native geospatial search is enabled");
         }
 
-        // Slow path: fetch DB-filtered results unpaginated, then apply amenities/distance in memory
         var spec = ListingSpecifications.buildSearchSpec(
                 query, city, neighborhood, propertyType,
                 minPrice, maxPrice, bedrooms, bathrooms,
-                null, availableFrom);
-        List<PropertyListing> listings = listingRepository.findAll(spec);
-        
-        // Amenities filter (JSON array containment not easily expressed in JPA Criteria)
-        if (amenities != null && !amenities.isEmpty()) {
-            listings = listings.stream()
-                    .filter(listing -> listing.getAmenities() != null && 
-                            listing.getAmenities().containsAll(amenities))
-                    .collect(Collectors.toList());
-        }
-        
-        // Distance filter (Haversine — requires PostGIS for DB-side, kept in-memory for now)
-        if (maxDistance != null && userLat != null && userLon != null) {
-            listings = listings.stream()
-                    .filter(listing -> {
-                        if (listing.getLatitude() == null || listing.getLongitude() == null) {
-                            return false;
-                        }
-                        double distance = calculateDistance(
-                                userLat, userLon,
-                                listing.getLatitude().doubleValue(),
-                                listing.getLongitude().doubleValue());
-                        return distance <= maxDistance;
-                    })
-                    .collect(Collectors.toList());
-        }
-        
-        // Convert to responses
-        List<ListingResponse> responses = listings.stream()
-                .map(listing -> mapToResponse(listing, userId))
-                .collect(Collectors.toList());
-        
-        // Apply pagination manually
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), responses.size());
-        List<ListingResponse> pageContent = start >= responses.size() ? 
-                new ArrayList<>() : responses.subList(start, end);
-        
-        return new PageImpl<>(pageContent, pageable, responses.size());
-    }
-    
-    // Calculate distance between two coordinates using Haversine formula (in km)
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371; // Radius of the earth in km
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
+                amenities, availableFrom);
+        Page<PropertyListing> page = listingRepository.findAll(spec, pageable);
+        return page.map(listing -> mapToResponse(listing, userId));
     }
     
     @Transactional(readOnly = true)
@@ -623,6 +559,7 @@ public class ListingService {
         
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing {} {} by admin {}", listingId, status, adminId);
+        securityAuditService.logAction("admin.listing.review", adminId, listingId, "LISTING");
         
         // Re-index search so approved/rejected listings appear in search (ES filters by ACTIVE)
         enqueueSearchOutbox(updated, ListingSearchOutbox.EVENT_UPDATED);
@@ -925,6 +862,9 @@ public class ListingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Listing not found"));
         listing.setViewsCount(listing.getViewsCount() + 1);
         listingRepository.save(listing);
+        if (userId != null) {
+            securityAuditService.logAction("listing.view", userId, listingId, "LISTING");
+        }
     }
 
     // Get statistics

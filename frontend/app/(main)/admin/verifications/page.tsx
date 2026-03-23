@@ -11,14 +11,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import api from "@/lib/api"
 import { Search, Shield, CheckCircle, XCircle, GraduationCap, Calendar, ExternalLink, Building2, User } from "lucide-react"
 
-interface StudentVerification {
+interface TenantVerification {
   id: string
   userId: string
   userName: string
   userEmail: string
-  university: string
-  studentId: string
-  studentIdPhotoUrl: string
+  university?: string
+  studentId?: string
+  studentIdPhotoUrl?: string
+  idType?: string
+  idNumber?: string
+  idPhotoUrl?: string
+  selfiePhotoUrl?: string
   status: string
   rejectionReason?: string
   createdAt: string
@@ -41,16 +45,16 @@ interface LandlordVerification {
 export default function AdminVerificationsPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const [studentVerifications, setStudentVerifications] = useState<StudentVerification[]>([])
+  const [tenantVerifications, setTenantVerifications] = useState<TenantVerification[]>([])
   const [landlordVerifications, setLandlordVerifications] = useState<LandlordVerification[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedStudent, setSelectedStudent] = useState<StudentVerification | null>(null)
+  const [selectedTenant, setSelectedTenant] = useState<TenantVerification | null>(null)
   const [selectedLandlord, setSelectedLandlord] = useState<LandlordVerification | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [rejectionReason, setRejectionReason] = useState("")
   const [authLoading, setAuthLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"students" | "landlords">("students")
+  const [activeTab, setActiveTab] = useState<"tenants" | "landlords">("tenants")
 
   useEffect(() => {
     if (user === null && authLoading) {
@@ -73,13 +77,13 @@ export default function AdminVerificationsPage() {
         api.get("/admin/verifications"),
         api.get("/admin/landlord-verifications")
       ])
-      setStudentVerifications(studentRes.data?.content || studentRes.data || [])
+      setTenantVerifications(studentRes.data?.content || studentRes.data || [])
       setLandlordVerifications(landlordRes.data?.content || landlordRes.data || [])
     } catch (err) { console.error(err) }
     finally { setIsLoading(false) }
   }
 
-  const handleStudentAction = async (id: string, approved: boolean) => {
+  const handleTenantAction = async (id: string, approved: boolean) => {
     try {
       await api.post(`/admin/verifications/${id}/approve`, {
         status: approved ? "VERIFIED" : "REJECTED",
@@ -104,7 +108,7 @@ export default function AdminVerificationsPage() {
     } catch (err) { console.error(err) }
   }
 
-  const filteredStudents = studentVerifications.filter(v =>
+  const filteredTenants = tenantVerifications.filter(v =>
     v.userName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     v.userEmail?.toLowerCase().includes(searchQuery.toLowerCase())
   )
@@ -125,15 +129,15 @@ export default function AdminVerificationsPage() {
 
   if (user?.role !== "ADMIN") return null
 
-  const currentList = activeTab === "students" ? filteredStudents : filteredLandlords
-  const pendingCount = activeTab === "students" 
-    ? studentVerifications.filter(v => v.status === "PENDING").length
+  const currentList = activeTab === "tenants" ? filteredTenants : filteredLandlords
+  const pendingCount = activeTab === "tenants" 
+    ? tenantVerifications.filter(v => v.status === "PENDING").length
     : landlordVerifications.filter(v => v.identityStatus === "PENDING").length
-  const verifiedCount = activeTab === "students"
-    ? studentVerifications.filter(v => v.status === "VERIFIED").length
+  const verifiedCount = activeTab === "tenants"
+    ? tenantVerifications.filter(v => v.status === "VERIFIED").length
     : landlordVerifications.filter(v => v.identityStatus === "VERIFIED").length
-  const rejectedCount = activeTab === "students"
-    ? studentVerifications.filter(v => v.status === "REJECTED").length
+  const rejectedCount = activeTab === "tenants"
+    ? tenantVerifications.filter(v => v.status === "REJECTED").length
     : landlordVerifications.filter(v => v.identityStatus === "REJECTED").length
 
   return (
@@ -143,12 +147,12 @@ export default function AdminVerificationsPage() {
         {/* Tab Switcher */}
         <div className="flex gap-2 bg-white rounded-xl p-1">
           <button
-            onClick={() => setActiveTab("students")}
+            onClick={() => setActiveTab("tenants")}
             className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-              activeTab === "students" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+              activeTab === "tenants" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
             }`}
           >
-            <GraduationCap className="h-4 w-4" /> Students
+            <GraduationCap className="h-4 w-4" /> Tenants
           </button>
           <button
             onClick={() => setActiveTab("landlords")}
@@ -187,10 +191,10 @@ export default function AdminVerificationsPage() {
             <Shield className="h-12 w-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-600">No {activeTab} verifications found</p>
           </div>
-        ) : activeTab === "students" ? (
+        ) : activeTab === "tenants" ? (
           <div className="space-y-4 pb-24">
-            {filteredStudents.map((v) => (
-              <div key={v.id} className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer" onClick={() => { setSelectedStudent(v); setSelectedLandlord(null); setIsDetailOpen(true) }}>
+            {filteredTenants.map((v) => (
+              <div key={v.id} className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer" onClick={() => { setSelectedTenant(v); setSelectedLandlord(null); setIsDetailOpen(true) }}>
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="font-semibold text-slate-900">{v.userName}</p>
@@ -199,7 +203,7 @@ export default function AdminVerificationsPage() {
                   {getStatusBadge(v.status)}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-slate-500">
-                  <span className="flex items-center gap-1"><GraduationCap className="h-4 w-4" />{v.university}</span>
+                  <span className="flex items-center gap-1"><GraduationCap className="h-4 w-4" />{v.idType ? `${v.idType} • ${v.idNumber}` : v.university || "—"}</span>
                   <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(v.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -226,59 +230,90 @@ export default function AdminVerificationsPage() {
         )}
       </div>
 
-      {/* Student Verification Detail Sheet */}
-      <Sheet open={isDetailOpen && selectedStudent !== null} onOpenChange={(open) => { if (!open) { setIsDetailOpen(false); setSelectedStudent(null) } }}>
+      {/* Tenant Verification Detail Sheet */}
+      <Sheet open={isDetailOpen && selectedTenant !== null} onOpenChange={(open) => { if (!open) { setIsDetailOpen(false); setSelectedTenant(null) } }}>
         <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
-          <SheetHeader><SheetTitle>Student Verification Details</SheetTitle></SheetHeader>
-          {selectedStudent && (
+          <SheetHeader><SheetTitle>Tenant Verification Details</SheetTitle></SheetHeader>
+          {selectedTenant && (
             <div className="mt-4 space-y-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl font-bold">{selectedStudent.userName}</h2>
-                  <p className="text-slate-500">{selectedStudent.userEmail}</p>
+                  <h2 className="text-xl font-bold">{selectedTenant.userName}</h2>
+                  <p className="text-slate-500">{selectedTenant.userEmail}</p>
                 </div>
-                {getStatusBadge(selectedStudent.status)}
+                {getStatusBadge(selectedTenant.status)}
               </div>
               <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                <p><span className="text-slate-500">University:</span> {selectedStudent.university}</p>
-                <p><span className="text-slate-500">Student ID:</span> {selectedStudent.studentId}</p>
-                <p><span className="text-slate-500">Submitted:</span> {new Date(selectedStudent.createdAt).toLocaleString()}</p>
+                {selectedTenant.idType ? (
+                  <>
+                    <p><span className="text-slate-500">ID Type:</span> {selectedTenant.idType.replace(/_/g, " ")}</p>
+                    <p><span className="text-slate-500">ID Number:</span> {selectedTenant.idNumber}</p>
+                  </>
+                ) : (
+                  <>
+                    <p><span className="text-slate-500">University:</span> {selectedTenant.university || "—"}</p>
+                    <p><span className="text-slate-500">Student ID:</span> {selectedTenant.studentId || "—"}</p>
+                  </>
+                )}
+                <p><span className="text-slate-500">Submitted:</span> {new Date(selectedTenant.createdAt).toLocaleString()}</p>
               </div>
-              {selectedStudent.studentIdPhotoUrl && (
+              {(selectedTenant.idPhotoUrl || selectedTenant.studentIdPhotoUrl) && (
                 <div className="space-y-3">
                   <div className="bg-slate-50 rounded-xl p-4">
-                    <p className="text-sm font-medium text-slate-700 mb-2">Student ID Document</p>
-                    <div className="relative group">
+                    <p className="text-sm font-medium text-slate-700 mb-2">ID Document</p>
+                    <div className="relative">
                       <img 
-                        src={selectedStudent.studentIdPhotoUrl} 
-                        alt="Student ID Document" 
-                        className="w-full h-64 object-contain rounded-lg border border-slate-200"
+                        src={selectedTenant.idPhotoUrl || selectedTenant.studentIdPhotoUrl} 
+                        alt="ID Document" 
+                        className="w-full h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"
                       />
                       <a 
-                        href={selectedStudent.studentIdPhotoUrl} 
+                        href={selectedTenant.idPhotoUrl || selectedTenant.studentIdPhotoUrl} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-sm flex items-center gap-1 text-xs text-slate-600 hover:bg-white"
                       >
-                        <ExternalLink className="h-4 w-4 text-slate-600" />
+                        <ExternalLink className="h-4 w-4" /> Open
                       </a>
                     </div>
                   </div>
                 </div>
               )}
-              {selectedStudent.rejectionReason && (
-                <div className="bg-red-50 rounded-xl p-4">
-                  <p className="text-sm text-red-600"><strong>Rejection Reason:</strong> {selectedStudent.rejectionReason}</p>
+              {selectedTenant.selfiePhotoUrl && (
+                <div className="space-y-3">
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-sm font-medium text-slate-700 mb-2">Selfie</p>
+                    <div className="relative">
+                      <img 
+                        src={selectedTenant.selfiePhotoUrl} 
+                        alt="Selfie" 
+                        className="w-full h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"
+                      />
+                      <a 
+                        href={selectedTenant.selfiePhotoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-sm flex items-center gap-1 text-xs text-slate-600 hover:bg-white"
+                      >
+                        <ExternalLink className="h-4 w-4" /> Open
+                      </a>
+                    </div>
+                  </div>
                 </div>
               )}
-              {selectedStudent.status === "PENDING" && (
+              {selectedTenant.rejectionReason && (
+                <div className="bg-red-50 rounded-xl p-4">
+                  <p className="text-sm text-red-600"><strong>Rejection Reason:</strong> {selectedTenant.rejectionReason}</p>
+                </div>
+              )}
+              {selectedTenant.status === "PENDING" && (
                 <div className="space-y-3 pt-4 border-t">
                   <Input placeholder="Rejection reason (if rejecting)" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="rounded-xl" />
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1 rounded-xl border-red-200 text-red-600" onClick={() => handleStudentAction(selectedStudent.id, false)}>
+                    <Button variant="outline" className="flex-1 rounded-xl border-red-200 text-red-600" onClick={() => handleTenantAction(selectedTenant.id, false)}>
                       <XCircle className="h-4 w-4 mr-1" /> Reject
                     </Button>
-                    <Button className="flex-1 rounded-xl bg-green-600 hover:bg-green-700" onClick={() => handleStudentAction(selectedStudent.id, true)}>
+                    <Button className="flex-1 rounded-xl bg-green-600 hover:bg-green-700" onClick={() => handleTenantAction(selectedTenant.id, true)}>
                       <CheckCircle className="h-4 w-4 mr-1" /> Approve
                     </Button>
                   </div>
@@ -311,19 +346,19 @@ export default function AdminVerificationsPage() {
                 <div className="space-y-3">
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-sm font-medium text-slate-700 mb-2">ID Front Photo</p>
-                    <div className="relative group">
+                    <div className="relative">
                       <img 
                         src={selectedLandlord.idFrontPhotoUrl} 
                         alt="ID Front Photo" 
-                        className="w-full h-64 object-contain rounded-lg border border-slate-200"
+                        className="w-full h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"
                       />
                       <a 
                         href={selectedLandlord.idFrontPhotoUrl} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-sm flex items-center gap-1 text-xs text-slate-600 hover:bg-white"
                       >
-                        <ExternalLink className="h-4 w-4 text-slate-600" />
+                        <ExternalLink className="h-4 w-4" /> Open
                       </a>
                     </div>
                   </div>
@@ -333,19 +368,19 @@ export default function AdminVerificationsPage() {
                 <div className="space-y-3">
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-sm font-medium text-slate-700 mb-2">Selfie with ID</p>
-                    <div className="relative group">
+                    <div className="relative">
                       <img 
                         src={selectedLandlord.selfieWithIdUrl} 
                         alt="Selfie with ID" 
-                        className="w-full h-64 object-contain rounded-lg border border-slate-200"
+                        className="w-full h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"
                       />
                       <a 
                         href={selectedLandlord.selfieWithIdUrl} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-sm flex items-center gap-1 text-xs text-slate-600 hover:bg-white"
                       >
-                        <ExternalLink className="h-4 w-4 text-slate-600" />
+                        <ExternalLink className="h-4 w-4" /> Open
                       </a>
                     </div>
                   </div>

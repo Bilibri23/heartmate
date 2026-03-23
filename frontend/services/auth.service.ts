@@ -14,7 +14,12 @@ export const authService = {
 
   logout: () => {
     if (typeof window !== 'undefined') {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        api.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${refreshToken}` } }).catch(() => undefined);
+      }
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
     }
   },

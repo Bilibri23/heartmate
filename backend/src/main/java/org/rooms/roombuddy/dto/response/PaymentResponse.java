@@ -21,10 +21,12 @@ public class PaymentResponse {
     // Lease info
     private UUID leaseId;
     private String leaseReferenceCode;
+    private String listingTitle;
     
     // Parties
     private UUID payerId;
     private String payerName;
+    private String payerEmail;
     private UUID recipientId;
     private String recipientName;
     

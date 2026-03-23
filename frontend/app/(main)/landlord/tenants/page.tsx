@@ -57,34 +57,64 @@ export default function LandlordTenantsPage() {
     
     setIsLoading(true)
     try {
-      // Use the correct endpoint: /api/leases/as-landlord
-      const response = await api.get(`/leases/as-landlord`)
+      const response = await api.get(`/leases/as-landlord`, { params: { size: 100 } })
       const leases = response.data?.content || response.data || []
       
-      // Transform leases into tenant data
-      const tenantData: Tenant[] = leases
-        .filter((lease: any) => lease.status === "ACTIVE" || lease.status === "PENDING")
-        .map((lease: any) => ({
-          id: lease.student?.id || lease.studentId,
-          firstName: lease.student?.firstName || "Unknown",
-          lastName: lease.student?.lastName || "Tenant",
-          email: lease.student?.email || "",
-          phone: lease.student?.phone || "",
-          profilePhotoUrl: lease.student?.profilePhotoUrl,
-          listing: {
-            id: lease.listing?.id || lease.listingId,
-            title: lease.listing?.title || "Property",
-            neighborhood: lease.listing?.neighborhood || "",
-            city: lease.listing?.city || ""
-          },
-          lease: {
-            id: lease.id,
-            startDate: lease.startDate,
-            endDate: lease.endDate,
-            status: lease.status,
-            rentAmount: lease.rentAmount || lease.listing?.rentAmount || 0
-          }
-        }))
+      // Derive tenants from leases: primary tenant + co-tenant per lease
+      const tenantData: Tenant[] = []
+      const seen = new Set<string>()
+      
+      for (const lease of leases) {
+        const status = lease.status
+        if (!["ACTIVE", "PENDING_SIGNATURES", "PENDING_PAYMENT"].includes(status)) continue
+        
+        const listing = {
+          id: lease.listingId,
+          title: lease.listingTitle || "Property",
+          neighborhood: "",
+          city: ""
+        }
+        const leaseInfo = {
+          id: lease.id,
+          startDate: lease.startDate,
+          endDate: lease.endDate,
+          status,
+          rentAmount: lease.monthlyRent || 0
+        }
+        
+        // Primary tenant (student)
+        const studentId = lease.studentId
+        if (studentId && !seen.has(`${studentId}-${lease.id}`)) {
+          seen.add(`${studentId}-${lease.id}`)
+          const [firstName = "Unknown", ...rest] = (lease.studentName || "").split(" ")
+          tenantData.push({
+            id: studentId,
+            firstName,
+            lastName: rest.join(" ") || "Tenant",
+            email: lease.studentEmail || "",
+            phone: lease.studentPhone || "",
+            profilePhotoUrl: undefined,
+            listing,
+            lease: leaseInfo
+          })
+        }
+        
+        // Co-tenant (if shared lease)
+        if (lease.coTenantId && lease.isSharedLease && !seen.has(`${lease.coTenantId}-${lease.id}`)) {
+          seen.add(`${lease.coTenantId}-${lease.id}`)
+          const [firstName = "Unknown", ...rest] = (lease.coTenantName || "").split(" ")
+          tenantData.push({
+            id: lease.coTenantId,
+            firstName,
+            lastName: rest.join(" ") || "Tenant",
+            email: lease.coTenantEmail || "",
+            phone: lease.coTenantPhone || "",
+            profilePhotoUrl: undefined,
+            listing,
+            lease: leaseInfo
+          })
+        }
+      }
       
       setTenants(tenantData)
     } catch (err) {

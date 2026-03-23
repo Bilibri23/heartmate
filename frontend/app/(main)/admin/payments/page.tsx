@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import api, { uploadApi } from "@/lib/api"
-import { Search, DollarSign, CheckCircle, XCircle, Clock, User, Calendar, CreditCard, Building } from "lucide-react"
+import { Search, DollarSign, CheckCircle, XCircle, Clock, User, Calendar, CreditCard, Building, ExternalLink, Image } from "lucide-react"
 
 interface Payment {
   id: string
@@ -26,6 +26,7 @@ interface Payment {
   listingTitle: string
   createdAt: string
   paidAt?: string
+  paymentProofUrl?: string
 }
 
 export default function AdminPaymentsPage() {
@@ -200,6 +201,28 @@ export default function AdminPaymentsPage() {
                 {selected.transactionId && <p><span className="text-slate-500">Transaction ID:</span> {selected.transactionId}</p>}
                 <p><span className="text-slate-500">Date:</span> {new Date(selected.createdAt).toLocaleString()}</p>
               </div>
+              {selected.paymentProofUrl && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                    <Image className="h-4 w-4" /> Payment Proof
+                  </p>
+                  <div className="relative group">
+                    <img
+                      src={selected.paymentProofUrl}
+                      alt="Payment proof"
+                      className="w-full max-h-64 object-contain rounded-lg border border-slate-200 bg-slate-50"
+                    />
+                    <a
+                      href={selected.paymentProofUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <ExternalLink className="h-4 w-4 text-slate-600" />
+                    </a>
+                  </div>
+                </div>
+              )}
               {(selected.status === "SUBMITTED" || selected.status === "PENDING_VERIFICATION") && (
                 <div className="flex gap-3">
                   <Button 

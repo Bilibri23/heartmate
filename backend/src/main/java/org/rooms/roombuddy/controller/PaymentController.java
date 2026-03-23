@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombuddy.dto.request.PaymentSubmitRequest;
 import org.rooms.roombuddy.dto.response.PaymentResponse;
+import org.rooms.roombuddy.security.RequiresCompletion;
 import org.rooms.roombuddy.security.SecurityUtils;
 import org.rooms.roombuddy.service.PaymentService;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,7 @@ public class PaymentController {
     private final PaymentService paymentService;
     
     @PostMapping("/initiate/{leaseId}")
+    @RequiresCompletion(operation = "PAYMENT")
     @Operation(summary = "Initiate payment", description = "Get payment instructions for a lease")
     public ResponseEntity<PaymentResponse> initiatePayment(@PathVariable UUID leaseId) {
         UUID studentId = SecurityUtils.getCurrentUserId();
@@ -40,6 +42,7 @@ public class PaymentController {
     }
     
     @PostMapping("/submit")
+    @RequiresCompletion(operation = "PAYMENT")
     @Operation(summary = "Submit payment proof", description = "Submit Mobile Money payment proof for verification")
     public ResponseEntity<PaymentResponse> submitPaymentProof(@Valid @RequestBody PaymentSubmitRequest request) {
         UUID studentId = SecurityUtils.getCurrentUserId();

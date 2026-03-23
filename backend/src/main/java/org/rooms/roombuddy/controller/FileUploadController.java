@@ -42,6 +42,18 @@ public class FileUploadController {
                 .data(url)
                 .build());
     }
+
+    @PostMapping("/verification-document")
+    @Operation(summary = "Upload verification document", description = "Upload ID or selfie for tenant verification (max 10MB)")
+    public ResponseEntity<ApiResponse<String>> uploadVerificationDocument(@RequestParam("file") MultipartFile file) {
+        log.info("Uploading verification document");
+        String url = fileUploadService.uploadVerificationDocument(file);
+        return ResponseEntity.ok(ApiResponse.<String>builder()
+                .success(true)
+                .message("Verification document uploaded successfully")
+                .data(url)
+                .build());
+    }
     
     @DeleteMapping("/image")
     @Operation(summary = "Delete image", description = "Delete an image from Cloudinary")

@@ -17,18 +17,36 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import api, { uploadApi } from "@/lib/api"
 
 type VerificationStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED" | "VERIFIED"
 
+const ID_TYPES = [
+  { value: "PASSPORT", label: "Passport" },
+  { value: "NATIONAL_ID", label: "National ID" },
+  { value: "DRIVERS_LICENSE", label: "Driver's License" },
+] as const
+
 interface VerificationData {
   status: VerificationStatus
-  universityName?: string
-  studentIdNumber?: string
-  documentUrl?: string
+  idType?: string
+  idNumber?: string
+  idPhotoUrl?: string
+  selfiePhotoUrl?: string
+  university?: string
+  studentId?: string
+  studentIdPhotoUrl?: string
   rejectionReason?: string
   submittedAt?: string
+  createdAt?: string
 }
 
 export default function VerificationPage() {
@@ -39,11 +57,13 @@ export default function VerificationPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
-    universityName: "",
-    studentIdNumber: "",
-    documentFile: null as File | null,
+    idType: "" as string,
+    idNumber: "",
+    idPhotoFile: null as File | null,
+    selfieFile: null as File | null,
   })
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [idPreviewUrl, setIdPreviewUrl] = useState<string | null>(null)
+  const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchVerification = async () => {
@@ -51,12 +71,25 @@ export default function VerificationPage() {
       
       try {
         const response = await api.get(`/verifications/${user.id}`)
-        setVerification(response.data)
-        if (response.data.universityName) {
+        const data = response.data
+        setVerification({
+          status: data.status || "NONE",
+          idType: data.idType,
+          idNumber: data.idNumber,
+          idPhotoUrl: data.idPhotoUrl,
+          selfiePhotoUrl: data.selfiePhotoUrl,
+          university: data.university,
+          studentId: data.studentId,
+          studentIdPhotoUrl: data.studentIdPhotoUrl,
+          rejectionReason: data.rejectionReason,
+          submittedAt: data.createdAt,
+          createdAt: data.createdAt,
+        })
+        if (data.idType || data.idNumber) {
           setFormData(prev => ({
             ...prev,
-            universityName: response.data.universityName,
-            studentIdNumber: response.data.studentIdNumber || "",
+            idType: data.idType || "",
+            idNumber: data.idNumber || "",
           }))
         }
       } catch (err: any) {
@@ -71,14 +104,26 @@ export default function VerificationPage() {
     fetchVerification()
   }, [user?.id])
 
-  // Refetch verification status when page gains focus (user switches back from admin)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && user?.id) {
         const fetchVerification = async () => {
           try {
             const response = await api.get(`/verifications/${user.id}`)
-            setVerification(response.data)
+            const data = response.data
+            setVerification({
+              status: data.status || "NONE",
+              idType: data.idType,
+              idNumber: data.idNumber,
+              idPhotoUrl: data.idPhotoUrl,
+              selfiePhotoUrl: data.selfiePhotoUrl,
+              university: data.university,
+              studentId: data.studentId,
+              studentIdPhotoUrl: data.studentIdPhotoUrl,
+              rejectionReason: data.rejectionReason,
+              submittedAt: data.createdAt,
+              createdAt: data.createdAt,
+            })
           } catch (err: any) {
             if (err.response?.status === 404) {
               setVerification({ status: "NONE" })
@@ -93,30 +138,43 @@ export default function VerificationPage() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [user?.id])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleIdFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setFormData(prev => ({ ...prev, documentFile: file }))
-      setPreviewUrl(URL.createObjectURL(file))
+      setFormData(prev => ({ ...prev, idPhotoFile: file }))
+      setIdPreviewUrl(URL.createObjectURL(file))
+    }
+  }
+
+  const handleSelfieFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setFormData(prev => ({ ...prev, selfieFile: file }))
+      setSelfiePreviewUrl(URL.createObjectURL(file))
     }
   }
 
   const handleSubmit = async () => {
-    if (!user?.id || !formData.documentFile) return
+    if (!user?.id || !formData.idPhotoFile || !formData.selfieFile) return
 
     setIsSubmitting(true)
     try {
-      // Step 1: Upload the student ID photo first
       const uploadFormData = new FormData()
-      uploadFormData.append("file", formData.documentFile)
-      const uploadResponse = await uploadApi.post("/upload/student-id", uploadFormData)
-      const studentIdPhotoUrl = uploadResponse.data?.data || uploadResponse.data?.url || uploadResponse.data
+      
+      uploadFormData.append("file", formData.idPhotoFile)
+      const idUploadRes = await uploadApi.post("/upload/verification-document", uploadFormData)
+      const idPhotoUrl = idUploadRes.data?.data || idUploadRes.data?.url || idUploadRes.data
 
-      // Step 2: Submit verification with JSON body (backend expects university and studentId fields)
+      const selfieFormData = new FormData()
+      selfieFormData.append("file", formData.selfieFile)
+      const selfieUploadRes = await uploadApi.post("/upload/verification-document", selfieFormData)
+      const selfiePhotoUrl = selfieUploadRes.data?.data || selfieUploadRes.data?.url || selfieUploadRes.data
+
       await api.post(`/verifications?userId=${user.id}`, {
-        university: formData.universityName,
-        studentId: formData.studentIdNumber,
-        studentIdPhotoUrl: studentIdPhotoUrl
+        idType: formData.idType,
+        idNumber: formData.idNumber,
+        idPhotoUrl,
+        selfiePhotoUrl,
       })
 
       setVerification({ status: "PENDING" })
@@ -124,7 +182,6 @@ export default function VerificationPage() {
       console.error("Failed to submit verification:", err)
       const errorMessage = err?.response?.data?.message || ""
       if (errorMessage.includes("already exists") || errorMessage.includes("VERIFIED")) {
-        // Already verified, refresh status
         setVerification({ status: "VERIFIED" })
       }
     } finally {
@@ -141,7 +198,6 @@ export default function VerificationPage() {
       )
     }
 
-    // Already verified
     if (verification?.status === "VERIFIED") {
       return (
         <div className="text-center py-12 px-4">
@@ -152,14 +208,13 @@ export default function VerificationPage() {
             {t.verification.approved}
           </h2>
           <p className="text-slate-500 mb-6">
-            Your student ID has been verified. You can now access all features.
+            Your identity has been verified. You can now access all features.
           </p>
           
-          {/* Verified Benefits */}
           <div className="bg-emerald-50 rounded-xl p-6 mb-6 text-left">
             <h3 className="font-semibold text-emerald-800 mb-4 flex items-center justify-center">
               <Shield className="h-5 w-5 mr-2" />
-              Verified Student Benefits
+              Verified Tenant Benefits
             </h3>
             <div className="space-y-3 max-w-sm mx-auto">
               <div className="flex items-start gap-3">
@@ -180,7 +235,7 @@ export default function VerificationPage() {
                 <CheckCircle className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-slate-800">Increased Trust</p>
-                  <p className="text-xs text-slate-600">Landlords prefer verified students</p>
+                  <p className="text-xs text-slate-600">Landlords prefer verified tenants</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -201,13 +256,25 @@ export default function VerificationPage() {
       )
     }
 
-    // Pending verification
     if (verification?.status === "PENDING") {
       const refreshStatus = async () => {
         if (!user?.id) return
         try {
           const response = await api.get(`/verifications/${user.id}`)
-          setVerification(response.data)
+          const data = response.data
+          setVerification({
+            status: data.status || "NONE",
+            idType: data.idType,
+            idNumber: data.idNumber,
+            idPhotoUrl: data.idPhotoUrl,
+            selfiePhotoUrl: data.selfiePhotoUrl,
+            university: data.university,
+            studentId: data.studentId,
+            studentIdPhotoUrl: data.studentIdPhotoUrl,
+            rejectionReason: data.rejectionReason,
+            submittedAt: data.createdAt,
+            createdAt: data.createdAt,
+          })
         } catch (err: any) {
           if (err.response?.status === 404) {
             setVerification({ status: "NONE" })
@@ -236,7 +303,6 @@ export default function VerificationPage() {
       )
     }
 
-    // Rejected - show form again
     if (verification?.status === "REJECTED") {
       return (
         <div className="p-4">
@@ -254,7 +320,6 @@ export default function VerificationPage() {
       )
     }
 
-    // No verification - show form
     return (
       <div className="p-4">
         {renderForm()}
@@ -264,7 +329,6 @@ export default function VerificationPage() {
 
   const renderForm = () => (
     <div className="space-y-6">
-      {/* Info Banner */}
       <div className="bg-blue-50 rounded-2xl p-4">
         <div className="flex items-center gap-2 text-blue-600 mb-2">
           <Shield className="h-5 w-5" />
@@ -275,43 +339,44 @@ export default function VerificationPage() {
         </p>
       </div>
 
-      {/* University Name */}
       <div>
-        <Label className="text-slate-700 mb-2 block">University / Institution</Label>
+        <Label className="text-slate-700 mb-2 block">ID Type</Label>
+        <Select value={formData.idType} onValueChange={(v) => setFormData(prev => ({ ...prev, idType: v }))}>
+          <SelectTrigger className="h-12 rounded-xl">
+            <SelectValue placeholder="Select ID type" />
+          </SelectTrigger>
+          <SelectContent>
+            {ID_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-slate-700 mb-2 block">ID Number</Label>
         <Input
-          placeholder="e.g., University of Yaoundé I"
-          value={formData.universityName}
-          onChange={(e) => setFormData(prev => ({ ...prev, universityName: e.target.value }))}
+          placeholder="e.g., AB1234567"
+          value={formData.idNumber}
+          onChange={(e) => setFormData(prev => ({ ...prev, idNumber: e.target.value }))}
           className="h-12 rounded-xl"
         />
       </div>
 
-      {/* Student ID Number */}
       <div>
-        <Label className="text-slate-700 mb-2 block">Student ID Number</Label>
-        <Input
-          placeholder="e.g., 21A1234"
-          value={formData.studentIdNumber}
-          onChange={(e) => setFormData(prev => ({ ...prev, studentIdNumber: e.target.value }))}
-          className="h-12 rounded-xl"
-        />
-      </div>
-
-      {/* Document Upload */}
-      <div>
-        <Label className="text-slate-700 mb-2 block">{t.verification.uploadId}</Label>
+        <Label className="text-slate-700 mb-2 block">ID Document Photo</Label>
         <div className="relative">
-          {previewUrl ? (
+          {idPreviewUrl ? (
             <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-slate-200">
               <img 
-                src={previewUrl} 
+                src={idPreviewUrl} 
                 alt="ID Preview" 
                 className="w-full h-48 object-cover"
               />
               <button
                 onClick={() => {
-                  setPreviewUrl(null)
-                  setFormData(prev => ({ ...prev, documentFile: null }))
+                  setIdPreviewUrl(null)
+                  setFormData(prev => ({ ...prev, idPhotoFile: null }))
                 }}
                 className="absolute top-2 right-2 bg-white rounded-full p-2 shadow-lg"
               >
@@ -324,18 +389,14 @@ export default function VerificationPage() {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
                   <Camera className="h-6 w-6 text-blue-600" />
                 </div>
-                <p className="text-sm font-medium text-slate-700">
-                  Take a photo or upload
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  JPG, PNG up to 5MB
-                </p>
+                <p className="text-sm font-medium text-slate-700">Upload ID document</p>
+                <p className="text-xs text-slate-500 mt-1">JPG, PNG up to 5MB</p>
               </div>
               <input
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={handleFileChange}
+                onChange={handleIdFileChange}
                 className="hidden"
               />
             </label>
@@ -343,30 +404,69 @@ export default function VerificationPage() {
         </div>
       </div>
 
-      {/* Tips */}
+      <div>
+        <Label className="text-slate-700 mb-2 block">Selfie Photo</Label>
+        <div className="relative">
+          {selfiePreviewUrl ? (
+            <div className="relative rounded-2xl overflow-hidden border-2 border-dashed border-slate-200">
+              <img 
+                src={selfiePreviewUrl} 
+                alt="Selfie Preview" 
+                className="w-full h-48 object-cover"
+              />
+              <button
+                onClick={() => {
+                  setSelfiePreviewUrl(null)
+                  setFormData(prev => ({ ...prev, selfieFile: null }))
+                }}
+                className="absolute top-2 right-2 bg-white rounded-full p-2 shadow-lg"
+              >
+                <XCircle className="h-5 w-5 text-slate-600" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center h-48 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
+              <div className="flex flex-col items-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+                  <Camera className="h-6 w-6 text-blue-600" />
+                </div>
+                <p className="text-sm font-medium text-slate-700">Take a selfie</p>
+                <p className="text-xs text-slate-500 mt-1">JPG, PNG up to 5MB</p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                capture="user"
+                onChange={handleSelfieFileChange}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
+      </div>
+
       <div className="bg-slate-50 rounded-2xl p-4">
         <p className="text-sm font-medium text-slate-700 mb-2">Tips for a quick approval:</p>
         <ul className="text-sm text-slate-500 space-y-1">
           <li className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Make sure your name is clearly visible
+            Ensure your face and ID are clearly visible
           </li>
           <li className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Include the current academic year
+            Good lighting, no blur or glare
           </li>
           <li className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Ensure good lighting and no blur
+            Selfie should match your ID photo
           </li>
         </ul>
       </div>
 
-      {/* Submit Button */}
       <Button
         className="w-full h-12 rounded-xl"
         onClick={handleSubmit}
-        disabled={isSubmitting || !formData.universityName || !formData.documentFile}
+        disabled={isSubmitting || !formData.idType || !formData.idNumber || !formData.idPhotoFile || !formData.selfieFile}
       >
         {isSubmitting ? t.common.loading : t.common.submit}
       </Button>

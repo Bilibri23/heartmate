@@ -37,6 +37,7 @@ public class MatchingService {
     private final ProfileRepository profileRepository;
     private final EmailService emailService;
     private final NotificationService notificationService;
+    private final SecurityAuditService securityAuditService;
     
     // Compatibility weights (as per requirements)
     private static final double BUDGET_WEIGHT = 0.30;
@@ -212,18 +213,18 @@ public class MatchingService {
             throw new BadRequestException("Invalid action: " + request.getAction() + ". Must be ACCEPT or REJECT");
         }
         
+        boolean wasMutualBefore = match.isMutualMatch();
+
         // Set user action
         if (userId.equals(user1Id)) {
             match.setUser1Action(action);
         } else {
             match.setUser2Action(action);
         }
-        
-        // Check if this creates a mutual match
-        boolean wasMutualBefore = match.isMutualMatch();
+        boolean isMutualNow = match.isMutualMatch();
         
         // Update match status
-        if (match.isMutualMatch()) {
+        if (isMutualNow) {
             match.setStatus(Match.Status.MUTUAL);
             
             // Send mutual match notification if it just became mutual
@@ -248,6 +249,7 @@ public class MatchingService {
         }
         
         Match updated = matchRepository.save(match);
+        securityAuditService.logAction("match.action." + action.name().toLowerCase(), userId, matchId, "MATCH");
         log.info("Match {} updated with action: {}", matchId, action);
         
         return mapToMatchResponse(updated, userId);
@@ -257,7 +259,6 @@ public class MatchingService {
         // Check if pref1 has deal-breakers that pref2 violates
         if (pref1.getDealBreakers() != null && !pref1.getDealBreakers().trim().isEmpty()) {
             String dealBreakers = pref1.getDealBreakers().toLowerCase();
-            User user2 = pref2.getUser();
             
             // Check for common deal-breakers
             if (dealBreakers.contains("smoking") && Boolean.TRUE.equals(pref2.getSmoking())) {

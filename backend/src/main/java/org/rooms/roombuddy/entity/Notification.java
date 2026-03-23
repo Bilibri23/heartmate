@@ -113,6 +113,9 @@ public class Notification {
         // Co-Application notifications
         CO_APPLICATION_INVITE,
         CO_APPLICATION_ACCEPTED,
-        CO_APPLICATION_DECLINED
+        CO_APPLICATION_DECLINED,
+
+        // Share listing with roommate (simplified from co-apply)
+        LISTING_SHARED
     }
 }

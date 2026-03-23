@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombuddy.dto.request.MessageRequest;
 import org.rooms.roombuddy.dto.response.ConversationResponse;
 import org.rooms.roombuddy.dto.response.MessageResponse;
+import org.rooms.roombuddy.security.RequiresCompletion;
 import org.rooms.roombuddy.security.SecurityUtils;
 import org.rooms.roombuddy.service.MessageService;
 import org.springframework.data.domain.Page;
@@ -35,6 +36,7 @@ public class MessageController {
      */
     @PostMapping
     @PreAuthorize("isAuthenticated()")
+    @RequiresCompletion(operation = "MESSAGE")
     @Operation(summary = "Send a message", description = "Send a message to another user")
     public ResponseEntity<MessageResponse> sendMessage(@Valid @RequestBody MessageRequest request) {
         UUID senderId = SecurityUtils.getCurrentUserId();

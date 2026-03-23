@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Toaster } from "sonner";
+import { AssistantWidget } from "@/components/ai/assistant-widget";
 
 export const metadata: Metadata = {
   title: "RoomBuddy - Student Housing in Cameroon",
@@ -45,6 +46,7 @@ export default function RootLayout({
             {children}
           </main>
           <BottomNav />
+          <AssistantWidget />
           <Toaster 
             position="top-center" 
             richColors 

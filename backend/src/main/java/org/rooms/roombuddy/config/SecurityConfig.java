@@ -46,8 +46,10 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/refresh",
+                                "/api/auth/logout",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
+                                "/api/auth/verify-email",
                                 "/ws/**"  // WebSocket endpoints
                         ).permitAll()
                         // Swagger/API docs
@@ -63,6 +65,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/preferences/**").authenticated()
                         .requestMatchers("/api/listing-preferences/**").authenticated()
                         .requestMatchers("/api/matches/**").authenticated()
+                        .requestMatchers("/api/share-listing/**").authenticated()
                         .requestMatchers("/api/listings/**").authenticated()
                         .requestMatchers("/api/applications/**").authenticated()
                         .requestMatchers("/api/leases/**").authenticated()

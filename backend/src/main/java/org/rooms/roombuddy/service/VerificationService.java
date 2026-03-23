@@ -33,29 +33,30 @@ public class VerificationService {
     public VerificationResponse submitVerification(UUID userId, VerificationRequest request) {
         log.info("Submitting verification request for user: {}", userId);
         
-        // Check if user exists
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         
-        // Check if user is a student
         if (user.getRole() != User.UserRole.STUDENT) {
-            throw new BadRequestException("Only students can submit verification requests");
+            throw new BadRequestException("Only tenants can submit verification requests");
         }
         
-        // Check if verification already exists
+        boolean hasGovId = request.getIdType() != null && !request.getIdType().isBlank()
+                && request.getIdNumber() != null && !request.getIdNumber().isBlank()
+                && request.getIdPhotoUrl() != null && !request.getIdPhotoUrl().isBlank();
+        boolean hasStudentId = request.getUniversity() != null && !request.getUniversity().isBlank()
+                && request.getStudentId() != null && !request.getStudentId().isBlank()
+                && request.getStudentIdPhotoUrl() != null && !request.getStudentIdPhotoUrl().isBlank();
+        
+        if (!hasGovId && !hasStudentId) {
+            throw new BadRequestException("Provide either gov ID (idType, idNumber, idPhotoUrl) or student ID (university, studentId, studentIdPhotoUrl)");
+        }
+        
         if (verificationRepository.existsByUserId(userId)) {
-            // Update existing verification if status is REJECTED
             StudentVerification existing = verificationRepository.findByUserId(userId)
                     .orElseThrow(() -> new ResourceNotFoundException("Verification not found"));
             
             if (existing.getStatus() == StudentVerification.Status.REJECTED) {
-                // Allow resubmission after rejection
-                existing.setUniversity(request.getUniversity());
-                existing.setStudentId(request.getStudentId());
-                existing.setFaculty(request.getFaculty());
-                existing.setDepartment(request.getDepartment());
-                existing.setYearOfStudy(request.getYearOfStudy());
-                existing.setStudentIdPhotoUrl(request.getStudentIdPhotoUrl());
+                applyRequestToVerification(existing, request);
                 existing.setStatus(StudentVerification.Status.PENDING);
                 existing.setRejectionReason(null);
                 existing.setVerifiedBy(null);
@@ -69,22 +70,29 @@ public class VerificationService {
             }
         }
         
-        // Create new verification request
         StudentVerification verification = StudentVerification.builder()
                 .user(user)
-                .university(request.getUniversity())
-                .studentId(request.getStudentId())
-                .faculty(request.getFaculty())
-                .department(request.getDepartment())
-                .yearOfStudy(request.getYearOfStudy())
-                .studentIdPhotoUrl(request.getStudentIdPhotoUrl())
                 .status(StudentVerification.Status.PENDING)
                 .build();
+        applyRequestToVerification(verification, request);
         
         StudentVerification saved = verificationRepository.save(verification);
         log.info("Verification request submitted successfully for user: {}", userId);
         
         return mapToResponse(saved);
+    }
+    
+    private void applyRequestToVerification(StudentVerification v, VerificationRequest r) {
+        v.setUniversity(r.getUniversity());
+        v.setStudentId(r.getStudentId());
+        v.setFaculty(r.getFaculty());
+        v.setDepartment(r.getDepartment());
+        v.setYearOfStudy(r.getYearOfStudy());
+        v.setStudentIdPhotoUrl(r.getStudentIdPhotoUrl());
+        v.setIdType(r.getIdType());
+        v.setIdNumber(r.getIdNumber());
+        v.setIdPhotoUrl(r.getIdPhotoUrl());
+        v.setSelfiePhotoUrl(r.getSelfiePhotoUrl());
     }
     
     @Transactional(readOnly = true)
@@ -137,6 +145,10 @@ public class VerificationService {
         if (request.getStudentIdPhotoUrl() != null) {
             verification.setStudentIdPhotoUrl(request.getStudentIdPhotoUrl());
         }
+        if (request.getIdType() != null) verification.setIdType(request.getIdType());
+        if (request.getIdNumber() != null) verification.setIdNumber(request.getIdNumber());
+        if (request.getIdPhotoUrl() != null) verification.setIdPhotoUrl(request.getIdPhotoUrl());
+        if (request.getSelfiePhotoUrl() != null) verification.setSelfiePhotoUrl(request.getSelfiePhotoUrl());
         
         // Reset status to PENDING if it was REJECTED
         if (verification.getStatus() == StudentVerification.Status.REJECTED) {
@@ -263,15 +275,22 @@ public class VerificationService {
     }
     
     private VerificationResponse mapToResponse(StudentVerification verification) {
+        User u = verification.getUser();
         return VerificationResponse.builder()
                 .id(verification.getId())
-                .userId(verification.getUser().getId())
+                .userId(u.getId())
+                .userName(u.getFirstName() + " " + u.getLastName())
+                .userEmail(u.getEmail())
                 .university(verification.getUniversity())
                 .studentId(verification.getStudentId())
                 .faculty(verification.getFaculty())
                 .department(verification.getDepartment())
                 .yearOfStudy(verification.getYearOfStudy())
                 .studentIdPhotoUrl(verification.getStudentIdPhotoUrl())
+                .idType(verification.getIdType())
+                .idNumber(verification.getIdNumber())
+                .idPhotoUrl(verification.getIdPhotoUrl())
+                .selfiePhotoUrl(verification.getSelfiePhotoUrl())
                 .status(verification.getStatus() != null ? verification.getStatus().name() : null)
                 .rejectionReason(verification.getRejectionReason())
                 .verifiedBy(verification.getVerifiedBy() != null ? verification.getVerifiedBy().getId() : null)

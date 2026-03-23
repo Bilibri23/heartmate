@@ -35,20 +35,36 @@ export function MobileHeader({
   const { user } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
 
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      if (!user?.id || !showNotifications) return
-      try {
-        const response = await api.get("/notifications/unread-count")
-        const count = response.data?.count ?? 0
-        setUnreadCount(Number.isFinite(count) ? count : 0)
-      } catch (err) {
-        console.error("Failed to fetch unread notifications:", err)
-      }
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user?.id || !showNotifications) return
+    try {
+      const response = await api.get("/notifications/unread-count")
+      const count = response.data?.count ?? 0
+      setUnreadCount(Number.isFinite(count) ? count : 0)
+    } catch (err) {
+      console.error("Failed to fetch unread notifications:", err)
     }
-
-    fetchUnreadCount()
   }, [user?.id, showNotifications])
+
+  useEffect(() => {
+    fetchUnreadCount()
+  }, [fetchUnreadCount])
+
+  // Refetch when tab becomes visible (user returns to app) - fallback when WebSocket fails
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") fetchUnreadCount()
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [fetchUnreadCount])
+
+  // Poll every 60s as fallback when WebSocket doesn't deliver
+  useEffect(() => {
+    if (!user?.id || !showNotifications) return
+    const interval = setInterval(fetchUnreadCount, 60000)
+    return () => clearInterval(interval)
+  }, [fetchUnreadCount, user?.id, showNotifications])
 
   const handleNotification = useCallback((notification: { title: string; message?: string; actionUrl?: string }) => {
     setUnreadCount((prev) => prev + 1)
