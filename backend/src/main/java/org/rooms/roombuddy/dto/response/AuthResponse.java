@@ -2,6 +2,7 @@ package org.rooms.roombuddy.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -15,9 +16,12 @@ public class AuthResponse {
     private UUID userId;
     private String accessToken;
     private String refreshToken;
+    @Default
     private String tokenType = "Bearer";
     private Long expiresIn; // seconds
     private String role;
     private String firstName;
     private String lastName;
+    private Boolean emailVerified;
+    private Boolean phoneVerified;
 }

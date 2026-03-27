@@ -5,8 +5,8 @@ import Image from "next/image"
 import Link from "next/link"
 import {
     Heart, MapPin, Bed, Bath, CheckCircle, Sparkles,
-    Share2, MessageSquare, ChevronUp, ChevronDown, X,
-    Camera, Play, Pause, Volume2, VolumeX,
+    Share2, MessageSquare, X,
+    Play, Pause, Volume2, VolumeX, Users,
 } from "lucide-react"
 import { useLanguage } from "@/context/language-context"
 import { cn } from "@/lib/utils"
@@ -34,10 +34,11 @@ interface ReelListing {
 interface ReelsFeedProps {
     listings: ReelListing[]
     onFavoriteToggle?: (id: string) => void
+    onOpenQuickActions?: (listingId: string) => void
     onClose?: () => void
 }
 
-export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProps) {
+export function ReelsFeed({ listings, onFavoriteToggle, onOpenQuickActions, onClose }: ReelsFeedProps) {
     const { formatCurrency } = useLanguage()
     const [currentIndex, setCurrentIndex] = useState(0)
     const [favorited, setFavorited] = useState<Record<string, boolean>>(
@@ -59,9 +60,9 @@ export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProp
         .map(p => p.photoUrl) ?? []
     const mainImg = gallery[imgIndex] || null
 
-    // Show video when available; otherwise fall back to photos
-    const hasVideo = !!(listing?.videoTourUrl) &&
-        (listing?.virtualTourProvider === 'video' || listing?.virtualTourProvider === undefined)
+    // Show video whenever a tour URL exists (provider-agnostic).
+    // This ensures uploaded landlord videos render in feed.
+    const hasVideo = !!listing?.videoTourUrl
 
     // ── Navigation ─────────────────────────────────────────────────────────
     const goTo = useCallback((idx: number) => {
@@ -96,6 +97,13 @@ export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProp
         if (diff > 60) goNext()
         if (diff < -60) goPrev()
         touchStartY.current = null
+    }
+
+    // Mouse wheel support for desktop: keeps the TikTok scroll feel.
+    const onWheel = (e: React.WheelEvent) => {
+        if (Math.abs(e.deltaY) < 20) return
+        if (e.deltaY > 0) goNext()
+        if (e.deltaY < 0) goPrev()
     }
 
     // Autoplay video on listing change
@@ -134,6 +142,7 @@ export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProp
             className="fixed inset-0 z-50 bg-black flex flex-col"
             onTouchStart={onTouchStart}
             onTouchEnd={onTouchEnd}
+            onWheel={onWheel}
         >
             {/* ── Media layer ── */}
             <div className="relative flex-1 overflow-hidden">
@@ -243,11 +252,21 @@ export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProp
 
                     {/* Apply */}
                     <div className="flex flex-col items-center gap-1">
-                        <Link href={`/listings/${listing.id}`}
+                        <button
+                            onClick={() => onOpenQuickActions?.(listing.id)}
                             className="h-12 w-12 rounded-full bg-black/40 flex items-center justify-center">
                             <MessageSquare className="h-6 w-6 text-white" />
+                        </button>
+                        <span className="text-white/70 text-[11px] font-medium">Open</span>
+                    </div>
+
+                    {/* Contextual roommate assist */}
+                    <div className="flex flex-col items-center gap-1">
+                        <Link href={`/listings/${listing.id}?splitRent=1`}
+                            className="h-12 w-12 rounded-full bg-indigo-500/80 flex items-center justify-center">
+                            <Users className="h-6 w-6 text-white" />
                         </Link>
-                        <span className="text-white/70 text-[11px] font-medium">Apply</span>
+                        <span className="text-white/70 text-[11px] font-medium">Split</span>
                     </div>
 
                     {/* Share */}
@@ -342,17 +361,6 @@ export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProp
                     )}
                 </div>
 
-                {/* ── UP/DOWN arrows ── */}
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-                    <button onClick={goPrev} disabled={currentIndex === 0}
-                        className="h-9 w-9 rounded-full bg-black/40 flex items-center justify-center disabled:opacity-20">
-                        <ChevronUp className="h-5 w-5 text-white" />
-                    </button>
-                    <button onClick={goNext} disabled={currentIndex >= listings.length - 1}
-                        className="h-9 w-9 rounded-full bg-black/40 flex items-center justify-center disabled:opacity-20">
-                        <ChevronDown className="h-5 w-5 text-white" />
-                    </button>
-                </div>
             </div>
         </div>
     )

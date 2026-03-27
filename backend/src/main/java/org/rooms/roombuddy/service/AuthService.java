@@ -108,6 +108,8 @@ public class AuthService {
                 .role(savedUser.getRole().name())
                 .firstName(savedUser.getFirstName())
                 .lastName(savedUser.getLastName())
+                .emailVerified(savedUser.getEmailVerified())
+                .phoneVerified(savedUser.getPhoneVerified())
                 .build();
     }
 
@@ -137,10 +139,6 @@ public class AuthService {
         if (!Boolean.TRUE.equals(user.getEmailVerified())) {
             throw new BadRequestException("Please verify your email before logging in.");
         }
-        if (!Boolean.TRUE.equals(user.getPhoneVerified())) {
-            throw new BadRequestException("Please verify your phone number before logging in.");
-        }
-
         // Update last active
         user.setLastActive(LocalDateTime.now());
         userRepository.save(user);
@@ -163,6 +161,8 @@ public class AuthService {
                 .role(user.getRole().name())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
+                .emailVerified(user.getEmailVerified())
+                .phoneVerified(user.getPhoneVerified())
                 .build();
     }
 
@@ -204,6 +204,8 @@ public class AuthService {
                 .role(user.getRole().name())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
+                .emailVerified(user.getEmailVerified())
+                .phoneVerified(user.getPhoneVerified())
                 .build();
     }
     
@@ -350,20 +352,23 @@ public class AuthService {
         });
     }
 
+    /**
+     * Persist the session first, then embed its generated id in the JWT.
+     * Do not set {@link RefreshTokenSession#id} manually: a non-null id with {@code @GeneratedValue}
+     * makes Spring Data {@code save()} use {@code merge}, which caused
+     * {@link org.springframework.orm.ObjectOptimisticLockingFailureException} on register/refresh.
+     */
     private String issueRefreshToken(User user) {
-        UUID sessionId = UUID.randomUUID();
         UUID tokenId = UUID.randomUUID();
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), sessionId, tokenId);
-        refreshTokenSessionRepository.save(
+        RefreshTokenSession session = refreshTokenSessionRepository.save(
                 RefreshTokenSession.builder()
-                        .id(sessionId)
                         .user(user)
                         .tokenId(tokenId)
                         .expiresAt(LocalDateTime.now().plusDays(7))
                         .revoked(false)
                         .build()
         );
-        return refreshToken;
+        return jwtTokenProvider.generateRefreshToken(user.getId(), session.getId(), tokenId);
     }
 
     private void sendEmailVerification(User user) {

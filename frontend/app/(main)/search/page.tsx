@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { ListingCard } from "@/components/cards/listing-card"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ReelsFeed } from "@/components/ui/reels-feed"
+import { FeedQuickActionsSheet } from "@/components/listings/feed-quick-actions-sheet"
 import dynamic from "next/dynamic"
 import api from "@/lib/api"
 
@@ -229,6 +230,9 @@ export default function SearchPage() {
   const { formatCurrency, language, t } = useLanguage()
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialMode = searchParams.get("mode") || ""
+  const initialView = searchParams.get("view")
 
   // Search bar
   const [rawQuery, setRawQuery] = useState("")
@@ -251,7 +255,10 @@ export default function SearchPage() {
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
-  const [viewMode, setViewMode] = useState<"list" | "map" | "reels">("list")
+  const [viewMode, setViewMode] = useState<"list" | "map" | "reels">(initialView === "reels" ? "reels" : "list")
+  const [discoveryMode, setDiscoveryMode] = useState(initialMode)
+  const [quickActionsListingId, setQuickActionsListingId] = useState<string | null>(null)
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false)
 
   // Saved searches
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
@@ -259,6 +266,19 @@ export default function SearchPage() {
   const [saveSearchName, setSaveSearchName] = useState("")
 
   const safeFilters = filters ?? DEFAULT_FILTERS
+
+  const applyLocalFilters = useCallback((items: Listing[], f: Filters) => {
+    return items.filter((listing) => {
+      if (f.city && f.city !== "all" && listing.city !== f.city) return false
+      if (f.neighborhood && listing.neighborhood !== f.neighborhood) return false
+      if (f.propertyType && f.propertyType !== "all" && listing.propertyType !== f.propertyType) return false
+      if (f.minPrice > 0 && listing.rentAmount < f.minPrice) return false
+      if (f.maxPrice < 500000 && listing.rentAmount > f.maxPrice) return false
+      if (f.bedrooms > 0 && listing.bedrooms < f.bedrooms) return false
+      if (f.bathrooms > 0 && listing.bathrooms < f.bathrooms) return false
+      return true
+    })
+  }, [])
 
   // ── Autocomplete ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -328,6 +348,7 @@ export default function SearchPage() {
         params.userLon = userLocation.lon
       }
       if (user?.id) params.userId = user.id
+      if (discoveryMode) params.mode = discoveryMode
       if (rawQuery?.trim()) params.query = rawQuery
       params.lang = language === "fr" ? "fr" : "en"
 
@@ -338,12 +359,54 @@ export default function SearchPage() {
       setTotalPages(data?.totalPages || 1)
       setTotalElements(data?.totalElements || content.length)
       setCurrentPage(data?.number || 0)
-    } catch (e) {
+    } catch (e: unknown) {
+      const err = e as { response?: { status?: number } }
+      // Anonymous users may hit auth-protected search in some backend configs.
+      // Fallback to active listings so "Browse listings" always works.
+      if (!user?.id && err?.response?.status === 403) {
+        try {
+          const activeRes = await api.get("/listings/active")
+          const active = Array.isArray(activeRes.data) ? activeRes.data : []
+          const normalized: Listing[] = active.map((raw: unknown) => {
+            const l = raw as Partial<Listing>
+            return {
+              id: l.id || "",
+              title: l.title || "",
+              rentAmount: Number(l.rentAmount || 0),
+              city: l.city || "",
+              neighborhood: l.neighborhood || "",
+              propertyType: l.propertyType || "",
+              photos: Array.isArray(l.photos) ? l.photos : [],
+              bedrooms: Number(l.bedrooms || 0),
+              bathrooms: Number(l.bathrooms || 0),
+              verified: !!l.verified,
+              featured: !!l.featured,
+              isFavorited: !!l.isFavorited,
+            }
+          })
+          const filtered = applyLocalFilters(normalized, f)
+          setListings(filtered.slice(0, 50))
+          setTotalPages(1)
+          setTotalElements(filtered.length)
+          setCurrentPage(0)
+          return
+        } catch (fallbackErr) {
+          console.error("Fallback listing load failed:", fallbackErr)
+        }
+      }
       console.error("Failed to fetch listings:", e)
     } finally { setIsLoading(false) }
-  }, [filters, userLocation, user?.id, rawQuery, language])
+  }, [filters, userLocation, user?.id, rawQuery, language, discoveryMode, applyLocalFilters])
 
   useEffect(() => { fetchListings() }, [fetchListings])
+  useEffect(() => {
+    const mode = searchParams.get("mode") || ""
+    const view = searchParams.get("view")
+    setDiscoveryMode(mode)
+    if (view === "reels") {
+      setViewMode("reels")
+    }
+  }, [searchParams])
 
   const { containerRef, isRefreshing, pullProgress } = usePullToRefresh({ onRefresh: fetchListings })
 
@@ -553,10 +616,10 @@ export default function SearchPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <MobileHeader title={t.common.search} />
+      <MobileHeader title={viewMode === "reels" ? "Housing Feed" : t.common.search} />
 
       {/* ── Saved search chips ── */}
-      {user && savedSearches.length > 0 && (
+      {viewMode !== "reels" && user && savedSearches.length > 0 && (
         <div className="sticky top-14 z-30 bg-gradient-to-r from-blue-50 to-purple-50 border-b border-blue-100 px-4 py-2">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
             <Bookmark className="h-4 w-4 text-blue-600 shrink-0" />
@@ -587,7 +650,8 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* ── Search header ── */}
+      {/* ── Search header (hidden in reels for feed-first UX) ── */}
+      {viewMode !== "reels" && (
       <div className="sticky top-14 z-30 bg-white border-b border-slate-200 px-4 pt-3 pb-0">
 
         {/* NLP search bar */}
@@ -707,6 +771,7 @@ export default function SearchPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* ── Results ── */}
       <div ref={containerRef} className="flex-1 overflow-y-auto relative">
@@ -720,25 +785,28 @@ export default function SearchPage() {
                 <span className="font-bold text-slate-900">{totalElements}</span>
                 {" "}{totalElements !== 1 ? t.search.homes : t.search.home}
                 {locationLabel ? <> {t.search.inLocation} <span className="text-blue-700">{locationLabel}</span></> : ""}
+                {discoveryMode === "forYou" ? <span className="ml-2 text-purple-600">• For You</span> : null}
               </>
             )}
           </p>
           <div className="flex items-center gap-2 shrink-0">
-            {/* Sort */}
-            <div className="relative">
-              <select
-                value={`${safeFilters.sortBy}-${safeFilters.sortDir}`}
-                onChange={e => {
-                  const [sortBy, sortDir] = e.target.value.split("-")
-                  setFilters(prev => ({ ...prev, sortBy, sortDir }))
-                }}
-                className="appearance-none bg-slate-100 text-xs font-medium text-slate-700 pl-3 pr-7 py-1.5 rounded-full focus:outline-none cursor-pointer">
-                <option value="createdAt-DESC">{t.search.newest}</option>
-                <option value="rentAmount-ASC">{t.search.cheapest}</option>
-                <option value="rentAmount-DESC">{t.search.mostExpensive}</option>
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
-            </div>
+            {/* Sort is intentionally hidden in reels mode for cleaner TikTok-style discovery */}
+            {viewMode !== "reels" && (
+              <div className="relative">
+                <select
+                  value={`${safeFilters.sortBy}-${safeFilters.sortDir}`}
+                  onChange={e => {
+                    const [sortBy, sortDir] = e.target.value.split("-")
+                    setFilters(prev => ({ ...prev, sortBy, sortDir }))
+                  }}
+                  className="appearance-none bg-slate-100 text-xs font-medium text-slate-700 pl-3 pr-7 py-1.5 rounded-full focus:outline-none cursor-pointer">
+                  <option value="createdAt-DESC">{t.search.newest}</option>
+                  <option value="rentAmount-ASC">{t.search.cheapest}</option>
+                  <option value="rentAmount-DESC">{t.search.mostExpensive}</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+              </div>
+            )}
             {/* View toggle — List / Map / Reels */}
             <div className="flex bg-slate-100 rounded-full p-0.5">
               <button onClick={() => setViewMode("list")}
@@ -763,7 +831,11 @@ export default function SearchPage() {
           <ReelsFeed
             listings={listings}
             onFavoriteToggle={handleFavoriteToggle}
-            onClose={() => setViewMode("list")}
+            onOpenQuickActions={(listingId) => {
+              setQuickActionsListingId(listingId)
+              setQuickActionsOpen(true)
+            }}
+            onClose={() => setViewMode(discoveryMode ? "reels" : "list")}
           />
         )}
 
@@ -773,6 +845,27 @@ export default function SearchPage() {
             <div className="text-center">
               <Clapperboard className="h-12 w-12 text-white/30 mx-auto mb-3" />
               <p className="text-white/50 text-sm">{t.search.loadingFeed}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Reels empty state */}
+        {viewMode === "reels" && !isLoading && listings.length === 0 && (
+          <div className="h-[calc(100vh-220px)] px-6 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-5xl mb-3">🏠</div>
+              <p className="text-slate-800 font-semibold">No homes in the feed yet</p>
+              <p className="text-slate-500 text-sm mt-1">Switch to list/map and explore more options.</p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Button variant="outline" onClick={() => setViewMode("list")} className="rounded-xl">
+                  <List className="h-4 w-4 mr-2" />
+                  List view
+                </Button>
+                <Button variant="outline" onClick={() => setViewMode("map")} className="rounded-xl">
+                  <Map className="h-4 w-4 mr-2" />
+                  Map view
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -883,6 +976,13 @@ export default function SearchPage() {
 
       {/* ── Filter sheets ── */}
       {renderSheet()}
+
+      <FeedQuickActionsSheet
+        open={quickActionsOpen}
+        onOpenChange={setQuickActionsOpen}
+        listingId={quickActionsListingId}
+        userId={user?.id}
+      />
 
       {/* ── Save search dialog ── */}
       {showSaveSearch && (

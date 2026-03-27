@@ -30,7 +30,7 @@ export default function LandingPage() {
       } else if (user.role === "LANDLORD") {
         router.replace("/landlord")
       } else {
-        router.replace("/for-you")
+        router.replace("/search?mode=forYou&view=reels")
       }
     }
   }, [user, isLoading, router])
@@ -88,7 +88,7 @@ export default function LandingPage() {
             leases, payments, and support in one place.
           </p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/listings">
+            <Link href="/search?mode=forYou&view=reels">
               <Button
                 size="lg"
                 className="w-full rounded-full px-8 sm:w-auto"
@@ -279,7 +279,7 @@ export default function LandingPage() {
           <div className="mb-5 flex flex-wrap justify-center gap-5 text-sm">
             <Link href="/login" className="transition hover:text-white">Login</Link>
             <Link href="/register" className="transition hover:text-white">Register</Link>
-            <Link href="/listings" className="transition hover:text-white">Browse listings</Link>
+            <Link href="/search?mode=forYou&view=reels" className="transition hover:text-white">Browse listings</Link>
           </div>
           <p className="text-center text-sm">© 2026 RoomBuddy. All rights reserved.</p>
         </div>

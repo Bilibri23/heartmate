@@ -50,6 +50,7 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/verify-email",
+                                "/api/dev/**",
                                 "/ws/**"  // WebSocket endpoints
                         ).permitAll()
                         // Swagger/API docs

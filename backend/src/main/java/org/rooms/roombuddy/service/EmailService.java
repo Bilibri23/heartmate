@@ -90,7 +90,7 @@ public class EmailService {
     
     private String buildVerificationStatusEmailBody(String status, String reason) {
         String body = "Hello,\n\n" +
-                "Your student verification status has been updated.\n\n" +
+                "Your Tenant verification status has been updated.\n\n" +
                 "Status: " + status + "\n\n";
         
         if (status.equals("REJECTED") && reason != null) {
@@ -98,7 +98,7 @@ public class EmailService {
         }
         
         if (status.equals("VERIFIED")) {
-            body += "Congratulations! Your student verification has been approved. " +
+            body += "Congratulations! Your Tenant verification has been approved. " +
                     "You now have access to verified student features.\n\n";
         }
         

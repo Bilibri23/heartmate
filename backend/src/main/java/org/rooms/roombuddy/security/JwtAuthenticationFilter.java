@@ -47,10 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (isVerificationEnforcedPath(request.getRequestURI())) {
                     User user = userRepository.findById(userId).orElse(null);
-                    if (user == null || !Boolean.TRUE.equals(user.getEmailVerified()) || !Boolean.TRUE.equals(user.getPhoneVerified())) {
+                    if (user == null || !Boolean.TRUE.equals(user.getEmailVerified())) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json");
-                        response.getWriter().write("{\"success\":false,\"message\":\"Email and phone verification required.\"}");
+                        response.getWriter().write("{\"success\":false,\"message\":\"Email verification required.\"}");
                         return;
                     }
                 }
@@ -91,8 +91,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (!path.startsWith("/api/")) {
             return false;
         }
-        return !path.startsWith("/api/auth/")
-                && !path.startsWith("/api/phone-verification/");
+        if (path.startsWith("/api/auth/")
+                || path.startsWith("/api/phone-verification/")) {
+            return false;
+        }
+
+        // Allow early-product flows before strict verification:
+        // onboarding preference capture and lightweight notification badge checks.
+        if (path.startsWith("/api/listing-preferences/")
+                || path.equals("/api/listing-preferences")
+                || path.equals("/api/notifications/unread-count")) {
+            return false;
+        }
+
+        return true;
     }
 }
 

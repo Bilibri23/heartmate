@@ -120,6 +120,7 @@ export default function MatchesPage() {
   const [currentSwipeIndex, setCurrentSwipeIndex] = useState(0)
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null)
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null)
+  const [matchError, setMatchError] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
   const normalizeMatch = (m: MatchResponse): Match => ({
@@ -180,6 +181,7 @@ export default function MatchesPage() {
     if (!user?.id) return []
     
     setIsFinding(true)
+    setMatchError(null)
     try {
       const response = await api.post(`/matches/find`, null, {
         params: { userId: user.id }
@@ -188,7 +190,23 @@ export default function MatchesPage() {
       const normalized = rawMatches.map(normalizeMatch)
       setMatches(normalized)
       return normalized
-    } catch (err) {
+    } catch (err: any) {
+      // Backward compatibility: some backend versions only expose /matches/find/{userId}
+      if (err?.response?.status === 404) {
+        try {
+          const legacyResponse = await api.post(`/matches/find/${user.id}`)
+          const legacyRaw: MatchResponse[] = legacyResponse.data || []
+          const legacyNormalized = legacyRaw.map(normalizeMatch)
+          setMatches(legacyNormalized)
+          return legacyNormalized
+        } catch (legacyErr: any) {
+          if (legacyErr?.response?.status === 404) {
+            setMatchError("Complete roommate preferences first, then try finding matches.")
+          }
+          console.error("Failed to find matches (legacy fallback):", legacyErr)
+          return []
+        }
+      }
       console.error("Failed to find matches:", err)
       return []
     } finally {
@@ -648,6 +666,18 @@ export default function MatchesPage() {
             <>
               {activeTab === "discover" && (
                 <>
+                  {matchError && (
+                    <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-sm text-amber-800">{matchError}</p>
+                      <div className="mt-2">
+                        <Link href="/onboarding">
+                          <Button variant="outline" className="rounded-lg h-8 text-xs">
+                            Complete setup
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  )}
                   {discoveredMatches.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">

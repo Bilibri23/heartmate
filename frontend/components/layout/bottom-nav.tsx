@@ -2,8 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, MessageCircle, User, Sparkles, Building2, FileText, Plus, Shield, Users, Settings } from "lucide-react"
-import { useLanguage } from "@/context/language-context"
+import { Home, Search, MessageCircle, User, Sparkles, Building2, FileText, Plus, Shield, Settings } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -15,7 +14,7 @@ interface NavItem {
 
 // Student navigation items
 const studentNavItems: NavItem[] = [
-  { href: "/for-you", icon: Sparkles, label: "For You" },
+  { href: "/search?mode=forYou&view=reels", icon: Sparkles, label: "Feed" },
   { href: "/search", icon: Search, label: "Search" },
   { href: "/applications", icon: FileText, label: "My Apps" },
   { href: "/messages", icon: MessageCircle, label: "Messages" },
@@ -61,8 +60,9 @@ export function BottomNav() {
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-lg safe-area-bottom">
       <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-2">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || 
-            (item.href !== "/" && item.href !== "/landlord" && pathname?.startsWith(item.href)) ||
+          const targetPath = item.href.split("?")[0]
+          const isActive = pathname === targetPath || 
+            (targetPath !== "/" && targetPath !== "/landlord" && pathname?.startsWith(targetPath)) ||
             (item.href === "/landlord" && pathname === "/landlord")
           const Icon = item.icon
 

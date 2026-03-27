@@ -18,7 +18,7 @@ export default function DashboardRedirect() {
     } else if (user.role === "ADMIN") {
       router.replace("/admin");
     } else {
-      router.replace("/for-you");
+      router.replace("/search?mode=forYou&view=reels");
     }
   }, [user, isLoading, router]);
 

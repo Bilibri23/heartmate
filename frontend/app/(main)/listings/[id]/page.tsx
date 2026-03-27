@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
@@ -61,6 +61,7 @@ import { toast } from "sonner"
 import { shareListingService } from "@/services/share-listing"
 import { useProfileCompletion } from "@/hooks/use-profile-completion"
 import { CompletionBanner } from "@/components/profile/completion-banner"
+import { getExistingApplication, quickApply, scheduleViewing } from "@/services/listing-actions"
 
 interface ListingDetail {
   id: string
@@ -183,6 +184,7 @@ function ShareRoommateRow({
 export default function ListingDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t, formatCurrency, language } = useLanguage()
   const { user } = useAuth()
   const [listing, setListing] = useState<ListingDetail | null>(null)
@@ -288,14 +290,8 @@ export default function ListingDetailPage() {
 
       setIsCheckingApplication(true)
       try {
-        const response = await api.get(`/applications/my/listing/${params.id}`, {
-          validateStatus: (status) => status < 500,
-        })
-        if (response.status === 200) {
-          setExistingApplication(response.data)
-        } else {
-          setExistingApplication(null)
-        }
+        const existing = await getExistingApplication(String(params.id))
+        setExistingApplication(existing)
       } catch (err) {
         setExistingApplication(null)
       } finally {
@@ -305,6 +301,15 @@ export default function ListingDetailPage() {
 
     fetchExistingApplication()
   }, [params.id, user?.id])
+
+  useEffect(() => {
+    const wantsSplitRent = searchParams.get("splitRent") === "1"
+    if (!wantsSplitRent || !listing || listing.status !== "ACTIVE") return
+    setIsShareRoomOpen(true)
+    if (mutualMatches.length === 0) {
+      fetchMutualMatches()
+    }
+  }, [searchParams, listing, mutualMatches.length])
 
   const handleFavorite = async () => {
     if (!user?.id) {
@@ -377,8 +382,8 @@ export default function ListingDetailPage() {
     setIsSubmitting(true)
     setApplicationError(null)
     try {
-      await api.post("/applications", {
-        listingId: params.id,
+      await quickApply({
+        listingId: String(params.id),
         message: applicationMessage,
         moveInDate: moveInDate,
         leaseDurationMonths: leaseDuration,
@@ -485,18 +490,14 @@ export default function ListingDetailPage() {
     setIsScheduling(true)
     try {
       // Send a message to the landlord with the viewing request
-      const formattedDate = new Date(viewingDate).toLocaleDateString("en-GB", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      })
-
-      const message = `📅 **Viewing Request**\n\nI would like to schedule a viewing for:\n\n🏠 Property: ${listing.title}\n📍 Location: ${listing.neighborhood}, ${listing.city}\n📆 Date: ${formattedDate}\n⏰ Time: ${viewingTime}\n\n${viewingMessage ? `Message: ${viewingMessage}` : ""}`
-
-      await api.post("/messages", {
-        receiverId: landlordId,
-        content: message,
+      await scheduleViewing({
+        landlordId,
+        listingTitle: listing.title,
+        listingCity: listing.city,
+        listingNeighborhood: listing.neighborhood,
+        viewingDate,
+        viewingTime,
+        note: viewingMessage,
       })
 
       setIsScheduleOpen(false)
