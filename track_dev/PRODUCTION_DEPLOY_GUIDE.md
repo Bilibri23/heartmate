@@ -1,4 +1,4 @@
-# RoomBuddy — Production Deployment Guide
+# RoomBay — Production Deployment Guide
 
 ## Overview
 - **Backend** → Render (free tier, Spring Boot JAR)
@@ -21,7 +21,7 @@
 1. Go to your Google Account → Security
 2. Enable **2-Step Verification** if not already on
 3. Go to **App Passwords** (search for it in Google Account)
-4. Create a new app password → select "Mail" + "Other (custom name)" → type "RoomBuddy"
+4. Create a new app password → select "Mail" + "Other (custom name)" → type "RoomBay"
 5. Copy the 16-character password shown
 
 ### 1c. Generate a Strong JWT Secret
@@ -35,7 +35,7 @@ Or use: https://generate-secret.vercel.app/64
 
 ## STEP 2 — Update Your Local .env
 
-Edit `c:\Users\noble\Downloads\Roombuddy\Roombuddy-develop\.env`:
+Edit `c:\Users\noble\Downloads\Roombay\Roombay-develop\.env`:
 
 ```env
 # DATABASE (local dev)
@@ -72,7 +72,7 @@ NEXT_PUBLIC_API_URL=/api
 
 ### 3b. Create PostgreSQL Database
 1. Render Dashboard → **New** → **PostgreSQL**
-2. Name: `roombuddy-db`
+2. Name: `roombay-db`
 3. Plan: **Free**
 4. Click **Create Database**
 5. Copy the **Internal Database URL** (starts with `postgres://`)
@@ -81,11 +81,11 @@ NEXT_PUBLIC_API_URL=/api
 1. Render Dashboard → **New** → **Web Service**
 2. Connect your GitHub repo
 3. Settings:
-   - **Name**: `roombuddy-backend`
+   - **Name**: `roombay-backend`
    - **Root Directory**: (leave blank — pom.xml is at root)
    - **Runtime**: `Java`
    - **Build Command**: `./mvnw clean package -DskipTests`
-   - **Start Command**: `java -jar target/roombuddy-*.jar`
+   - **Start Command**: `java -jar target/roombay-*.jar`
    - **Plan**: Free
 
 4. Add **Environment Variables** (click "Add Environment Variable" for each):
@@ -102,12 +102,12 @@ NEXT_PUBLIC_API_URL=/api
 | `CLOUDINARY_API_SECRET` | (from Cloudinary) |
 | `MAIL_USERNAME` | (your Gmail) |
 | `MAIL_PASSWORD` | (your 16-char app password) |
-| `APP_BASE_URL` | `https://roombuddy-frontend.vercel.app` (update after frontend deploy) |
-| `CORS_ALLOWED_ORIGINS` | `https://roombuddy-frontend.vercel.app` (update after frontend deploy) |
+| `APP_BASE_URL` | `https://roombay-frontend.vercel.app` (update after frontend deploy) |
+| `CORS_ALLOWED_ORIGINS` | `https://roombay-frontend.vercel.app` (update after frontend deploy) |
 | `PORT` | `8080` |
 
 5. Click **Create Web Service**
-6. Wait for build (~5 min). Copy your backend URL: `https://roombuddy-backend.onrender.com`
+6. Wait for build (~5 min). Copy your backend URL: `https://roombay-backend.onrender.com`
 
 > ⚠️ **DATABASE_URL format for JDBC**: Render gives `postgres://user:pass@host/db`
 > You must change it to: `jdbc:postgresql://host/db` and set user/pass separately.
@@ -129,11 +129,11 @@ NEXT_PUBLIC_API_URL=/api
 
 | Key | Value |
 |-----|-------|
-| `NEXT_PUBLIC_BACKEND_URL` | `https://roombuddy-backend.onrender.com/api` |
-| `BACKEND_URL` | `https://roombuddy-backend.onrender.com` |
+| `NEXT_PUBLIC_BACKEND_URL` | `https://roombay-backend.onrender.com/api` |
+| `BACKEND_URL` | `https://roombay-backend.onrender.com` |
 
 5. Click **Deploy**
-6. Copy your frontend URL: `https://roombuddy-frontend.vercel.app`
+6. Copy your frontend URL: `https://roombay-frontend.vercel.app`
 
 ### 4c. Update Backend CORS
 Go back to Render → your backend service → Environment:
@@ -159,7 +159,7 @@ Or use the Render PostgreSQL console directly.
 ## STEP 6 — Verify Everything Works
 
 Test these in order:
-1. ✅ `GET https://roombuddy-backend.onrender.com/actuator/health` → should return `{"status":"UP"}`
+1. ✅ `GET https://roombay-backend.onrender.com/actuator/health` → should return `{"status":"UP"}`
 2. ✅ Register a new user on the frontend
 3. ✅ Login works
 4. ✅ Create a listing (landlord)

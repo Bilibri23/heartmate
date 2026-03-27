@@ -43,8 +43,8 @@ const BRAND_PATTERNS = [
   { re: /\bRoom 8\b/g, replacement: 'HeartMate' },
 ];
 
-// Replace common logo paths named for room8/roombuddy/etc. with the new HeartMate logo
-const LOGO_RE = /(['"(])(?:\/)?(?:assets\/)?(?:images?\/)?(?:img\/)?(?:logos?\/)?(?:room8|room-?8|roombuddy|room-buddy|logo)(?:[-\w]*)\.(svg|png|jpg|jpeg|webp)(['")])/gi;
+// Replace common logo paths named for room8/roombay/etc. with the new HeartMate logo
+const LOGO_RE = /(['"(])(?:\/)?(?:assets\/)?(?:images?\/)?(?:img\/)?(?:logos?\/)?(?:room8|room-?8|roombay|room-buddy|logo)(?:[-\w]*)\.(svg|png|jpg|jpeg|webp)(['")])/gi;
 const LOGO_REPLACER = (_m, pre, _ext, post) => `${pre}/heartmate-logo.svg${post}`;
 
 // SVG asset content

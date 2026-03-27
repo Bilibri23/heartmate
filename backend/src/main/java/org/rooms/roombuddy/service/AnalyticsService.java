@@ -1,9 +1,9 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.repository.*;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.repository.*;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;

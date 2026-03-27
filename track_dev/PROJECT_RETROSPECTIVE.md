@@ -1,4 +1,4 @@
-# 🔍 RoomBuddy Project Retrospective
+# 🔍 RoomBay Project Retrospective
 
 **Date:** November 28, 2025  
 **Purpose:** Compare original spec with current implementation, identify gaps, and create action plan
@@ -990,7 +990,7 @@ GET /api/listings/active?
 ## ✅ CONCLUSION
 
 ### **Current State:**
-RoomBuddy has a **solid foundation** with excellent architecture, modern UI, and core listing management. The backend is well-structured, security is good, and the admin panel is functional.
+RoomBay has a **solid foundation** with excellent architecture, modern UI, and core listing management. The backend is well-structured, security is good, and the admin panel is functional.
 
 ### **Critical Path:**
 To launch MVP, focus on the **5 critical gaps**:

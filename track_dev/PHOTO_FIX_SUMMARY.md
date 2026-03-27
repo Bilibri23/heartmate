@@ -23,7 +23,7 @@ photo.id → undefined ❌
 ### Backend Changes
 
 #### 1. Created PhotoDTO
-**File:** `backend/src/main/java/org/rooms/roombuddy/dto/response/PhotoDTO.java`
+**File:** `backend/src/main/java/org/rooms/roombay/dto/response/PhotoDTO.java`
 ```java
 @Data
 @Builder
@@ -36,7 +36,7 @@ public class PhotoDTO {
 ```
 
 #### 2. Updated ListingResponse
-**File:** `backend/src/main/java/org/rooms/roombuddy/dto/response/ListingResponse.java`
+**File:** `backend/src/main/java/org/rooms/roombay/dto/response/ListingResponse.java`
 ```java
 // BEFORE:
 private List<String> photos;
@@ -46,7 +46,7 @@ private List<PhotoDTO> photos;
 ```
 
 #### 3. Updated ListingService Mapper
-**File:** `backend/src/main/java/org/rooms/roombuddy/service/ListingService.java`
+**File:** `backend/src/main/java/org/rooms/roombay/service/ListingService.java`
 ```java
 // BEFORE:
 List<String> photoUrls = photos.stream()

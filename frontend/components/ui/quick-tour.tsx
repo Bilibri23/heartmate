@@ -86,7 +86,7 @@ interface QuickTourProps {
     storageKey?: string
 }
 
-export function QuickTour({ role, storageKey = "roombuddy_tour_completed" }: QuickTourProps) {
+export function QuickTour({ role, storageKey = "roombay_tour_completed" }: QuickTourProps) {
     const [isVisible, setIsVisible] = useState(false)
     const [currentStep, setCurrentStep] = useState(0)
 

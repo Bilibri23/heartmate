@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -6,8 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -47,10 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (isVerificationEnforcedPath(request.getRequestURI())) {
                     User user = userRepository.findById(userId).orElse(null);
-                    if (user == null || !Boolean.TRUE.equals(user.getEmailVerified())) {
+                    if (user == null || !Boolean.TRUE.equals(user.getEmailVerified()) || !Boolean.TRUE.equals(user.getPhoneVerified())) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                         response.setContentType("application/json");
-                        response.getWriter().write("{\"success\":false,\"message\":\"Email verification required.\"}");
+                        response.getWriter().write("{\"success\":false,\"message\":\"Email and phone verification required.\"}");
                         return;
                     }
                 }
@@ -91,20 +91,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (!path.startsWith("/api/")) {
             return false;
         }
-        if (path.startsWith("/api/auth/")
-                || path.startsWith("/api/phone-verification/")) {
-            return false;
-        }
-
-        // Allow early-product flows before strict verification:
-        // onboarding preference capture and lightweight notification badge checks.
-        if (path.startsWith("/api/listing-preferences/")
-                || path.equals("/api/listing-preferences")
-                || path.equals("/api/notifications/unread-count")) {
-            return false;
-        }
-
-        return true;
+        return !path.startsWith("/api/auth/")
+                && !path.startsWith("/api/phone-verification/");
     }
 }
 

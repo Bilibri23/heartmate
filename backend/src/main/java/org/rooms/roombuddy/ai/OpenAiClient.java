@@ -1,8 +1,8 @@
-package org.rooms.roombuddy.ai;
+package org.rooms.roombay.ai;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.exception.BadRequestException;
+import org.rooms.roombay.exception.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;

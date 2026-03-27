@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.config;
+package org.rooms.roombay.config;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;

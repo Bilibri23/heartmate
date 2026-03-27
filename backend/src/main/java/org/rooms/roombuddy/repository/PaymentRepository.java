@@ -1,6 +1,6 @@
-package org.rooms.roombuddy.repository;
+package org.rooms.roombay.repository;
 
-import org.rooms.roombuddy.entity.Payment;
+import org.rooms.roombay.entity.Payment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

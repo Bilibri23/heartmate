@@ -30,7 +30,6 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-# Entire folder (includes launch.json with local env/secrets) — do not commit
 .vscode/
 
 ### Environment & Secrets ###

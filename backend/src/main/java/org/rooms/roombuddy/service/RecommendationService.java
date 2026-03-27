@@ -1,9 +1,9 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.entity.*;
-import org.rooms.roombuddy.repository.*;
+import org.rooms.roombay.entity.*;
+import org.rooms.roombay.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

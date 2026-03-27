@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.search;
+package org.rooms.roombay.search;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;

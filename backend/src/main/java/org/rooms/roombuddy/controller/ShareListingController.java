@@ -1,13 +1,13 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.ShareListingRequest;
-import org.rooms.roombuddy.service.ShareListingService;
-import org.rooms.roombuddy.security.SecurityUtils;
+import org.rooms.roombay.dto.request.ShareListingRequest;
+import org.rooms.roombay.service.ShareListingService;
+import org.rooms.roombay.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

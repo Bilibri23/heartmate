@@ -30,7 +30,7 @@ export default function LandingPage() {
       } else if (user.role === "LANDLORD") {
         router.replace("/landlord")
       } else {
-        router.replace("/search?mode=forYou&view=reels")
+        router.replace("/for-you")
       }
     }
   }, [user, isLoading, router])
@@ -55,7 +55,7 @@ export default function LandingPage() {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
               <Home className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-slate-900">RoomBuddy</span>
+            <span className="text-xl font-bold text-slate-900">RoomBay</span>
           </div>
           <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
             <a href="#how-it-works" className="transition hover:text-slate-900">How it works</a>
@@ -81,14 +81,14 @@ export default function LandingPage() {
           </div>
           <h1 className="mb-4 text-4xl font-bold leading-tight text-slate-900 md:text-6xl">
             Rent smarter with
-            <span className="text-blue-600"> RoomBuddy</span>
+            <span className="text-blue-600"> RoomBay</span>
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-lg text-slate-600">
             Discover trusted listings, share options with matched roommates, and manage applications,
             leases, payments, and support in one place.
           </p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/search?mode=forYou&view=reels">
+            <Link href="/listings">
               <Button
                 size="lg"
                 className="w-full rounded-full px-8 sm:w-auto"
@@ -135,7 +135,7 @@ export default function LandingPage() {
       <section id="how-it-works" className="border-y border-slate-100 bg-white px-4 py-14">
         <div className="mx-auto max-w-6xl">
           <h2 className="mb-10 text-center text-2xl font-bold text-slate-900 md:text-3xl">
-            How RoomBuddy works
+            How RoomBay works
           </h2>
           <div className="grid gap-5 md:grid-cols-4">
             <div className="rounded-2xl border border-slate-200 p-5">
@@ -274,14 +274,14 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
               <Home className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-bold text-white">RoomBuddy</span>
+            <span className="text-lg font-bold text-white">RoomBay</span>
           </div>
           <div className="mb-5 flex flex-wrap justify-center gap-5 text-sm">
             <Link href="/login" className="transition hover:text-white">Login</Link>
             <Link href="/register" className="transition hover:text-white">Register</Link>
-            <Link href="/search?mode=forYou&view=reels" className="transition hover:text-white">Browse listings</Link>
+            <Link href="/listings" className="transition hover:text-white">Browse listings</Link>
           </div>
-          <p className="text-center text-sm">© 2026 RoomBuddy. All rights reserved.</p>
+          <p className="text-center text-sm">© 2026 RoomBay. All rights reserved.</p>
         </div>
       </footer>
     </div>

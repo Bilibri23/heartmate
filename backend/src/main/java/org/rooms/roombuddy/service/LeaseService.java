@@ -1,17 +1,17 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.LeaseRequest;
-import org.rooms.roombuddy.dto.request.SignatureRequest;
-import org.rooms.roombuddy.dto.response.LeaseResponse;
-import org.rooms.roombuddy.entity.*;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.LeaseRepository;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.repository.RoomApplicationRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.dto.request.LeaseRequest;
+import org.rooms.roombay.dto.request.SignatureRequest;
+import org.rooms.roombay.dto.response.LeaseResponse;
+import org.rooms.roombay.entity.*;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.LeaseRepository;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.RoomApplicationRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -46,7 +46,7 @@ public class LeaseService {
     private static final String DEFAULT_TERMS_TEMPLATE = """
         RENTAL AGREEMENT
         
-        This agreement is made between the Landlord and the Student (Tenant) for the property listed on RoomBuddy.
+        This agreement is made between the Landlord and the Student (Tenant) for the property listed on RoomBay.
         
         TERMS AND CONDITIONS:
         1. The Tenant agrees to pay rent on time each month.

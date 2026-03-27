@@ -70,5 +70,5 @@ CREATE INDEX idx_payments_payout_status ON payments(payout_status);
 -- Comments
 COMMENT ON TABLE payments IS 'Mobile Money payment tracking for Cameroon market';
 COMMENT ON COLUMN payments.payment_method IS 'MTN_MOMO and ORANGE_MONEY are primary methods in Cameroon';
-COMMENT ON COLUMN payments.platform_fee IS 'RoomBuddy commission (5% of payment)';
+COMMENT ON COLUMN payments.platform_fee IS 'RoomBay commission (5% of payment)';
 COMMENT ON COLUMN payments.reference_code IS 'Unique reference for payment (PAY-YYYYMMDD-XXXXX)';

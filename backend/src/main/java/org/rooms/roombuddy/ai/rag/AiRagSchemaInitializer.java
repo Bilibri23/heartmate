@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.ai.rag;
+package org.rooms.roombay.ai.rag;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

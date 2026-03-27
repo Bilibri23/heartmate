@@ -87,7 +87,7 @@ Your admin panel is now fully operational with all sidebar links working.
 
 ### **Step 1: Login as Admin**
 ```
-Email: admin@roombuddy.com (or your upgraded user)
+Email: admin@roombay.com (or your upgraded user)
 Password: Admin123! (or your user's password)
 ```
 

@@ -1,4 +1,4 @@
-# 🇨🇲 **ROOMBUDDY - CAMEROON MARKET STRATEGY**
+# 🇨🇲 **ROOMBAY - CAMEROON MARKET STRATEGY**
 
 ## **Market Context: Cameroon**
 
@@ -286,7 +286,7 @@ public class OfflineDataService {
 // IndexedDB for offline storage
 import { openDB } from 'idb';
 
-const db = await openDB('roombuddy', 1, {
+const db = await openDB('roombay', 1, {
   upgrade(db) {
     db.createObjectStore('listings');
     db.createObjectStore('messages');
@@ -510,7 +510,7 @@ public class SafetyRating {
 4. **Word of Mouth** (Primary)
    - **Your Advantage:** Wider reach, matching algorithm
 
-**Competitive Advantages for RoomBuddy:**
+**Competitive Advantages for RoomBay:**
 - ✅ **Verified listings** (no scams)
 - ✅ **Secure payments** (Mobile Money integration)
 - ✅ **Roommate matching** (compatibility scores)
@@ -723,7 +723,7 @@ const MobileOptimizedListing = () => {
 // WhatsApp integration
 const openWhatsApp = (phoneNumber) => {
   const message = encodeURIComponent(
-    `Bonjour, je suis intéressé par votre logement sur RoomBuddy.`
+    `Bonjour, je suis intéressé par votre logement sur RoomBay.`
   );
   window.location.href = `https://wa.me/237${phoneNumber}?text=${message}`;
 };

@@ -1,9 +1,9 @@
-package org.rooms.roombuddy.ai.rag;
+package org.rooms.roombay.ai.rag;
 
 import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
-import org.rooms.roombuddy.exception.BadRequestException;
+import org.rooms.roombay.exception.BadRequestException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;

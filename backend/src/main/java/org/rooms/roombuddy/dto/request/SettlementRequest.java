@@ -1,9 +1,9 @@
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import org.rooms.roombuddy.entity.ExpenseSettlement;
+import org.rooms.roombay.entity.ExpenseSettlement;
 
 import java.util.UUID;
 

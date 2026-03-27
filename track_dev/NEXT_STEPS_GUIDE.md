@@ -10,7 +10,7 @@ This guide provides a step-by-step approach to completing Sprint 1, with code te
 
 #### 1.1 RegisterRequest.java
 ```java
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -55,7 +55,7 @@ public class RegisterRequest {
 
 #### 1.2 LoginRequest.java
 ```java
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -79,7 +79,7 @@ public class LoginRequest {
 
 #### 1.3 AuthResponse.java
 ```java
-package org.rooms.roombuddy.dto.response;
+package org.rooms.roombay.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -103,7 +103,7 @@ public class AuthResponse {
 
 #### 1.4 PasswordResetRequest.java
 ```java
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -127,7 +127,7 @@ public class PasswordResetRequest {
 
 #### 1.5 ResetPasswordRequest.java
 ```java
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -178,7 +178,7 @@ public class ResetPasswordRequest {
 
 #### 2.2 JwtTokenProvider.java
 ```java
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -265,18 +265,18 @@ public class JwtTokenProvider {
 
 #### 3.1 AuthService.java
 ```java
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.LoginRequest;
-import org.rooms.roombuddy.dto.request.RegisterRequest;
-import org.rooms.roombuddy.dto.response.AuthResponse;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.UserRepository;
-import org.rooms.roombuddy.security.JwtTokenProvider;
+import org.rooms.roombay.dto.request.LoginRequest;
+import org.rooms.roombay.dto.request.RegisterRequest;
+import org.rooms.roombay.dto.response.AuthResponse;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.UserRepository;
+import org.rooms.roombay.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -424,20 +424,20 @@ public class AuthService {
 
 #### 4.1 AuthController.java
 ```java
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.LoginRequest;
-import org.rooms.roombuddy.dto.request.PasswordResetRequest;
-import org.rooms.roombuddy.dto.request.RegisterRequest;
-import org.rooms.roombuddy.dto.request.ResetPasswordRequest;
-import org.rooms.roombuddy.dto.response.AuthResponse;
-import org.rooms.roombuddy.dto.response.ApiResponse;
-import org.rooms.roombuddy.service.AuthService;
+import org.rooms.roombay.dto.request.LoginRequest;
+import org.rooms.roombay.dto.request.PasswordResetRequest;
+import org.rooms.roombay.dto.request.RegisterRequest;
+import org.rooms.roombay.dto.request.ResetPasswordRequest;
+import org.rooms.roombay.dto.response.AuthResponse;
+import org.rooms.roombay.dto.response.ApiResponse;
+import org.rooms.roombay.service.AuthService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -503,7 +503,7 @@ public class AuthController {
 
 #### 5.1 Update SecurityConfig.java
 ```java
-package org.rooms.roombuddy.config;
+package org.rooms.roombay.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -604,7 +604,7 @@ COMMENT ON COLUMN student_verification.status IS 'PENDING: awaiting review, VERI
 
 #### StudentVerification.java
 ```java
-package org.rooms.roombuddy.entity;
+package org.rooms.roombay.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

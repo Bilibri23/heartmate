@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
@@ -6,10 +6,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.ProfileRequest;
-import org.rooms.roombuddy.dto.response.ProfileResponse;
-import org.rooms.roombuddy.service.FileUploadService;
-import org.rooms.roombuddy.service.ProfileService;
+import org.rooms.roombay.dto.request.ProfileRequest;
+import org.rooms.roombay.dto.response.ProfileResponse;
+import org.rooms.roombay.service.FileUploadService;
+import org.rooms.roombay.service.ProfileService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

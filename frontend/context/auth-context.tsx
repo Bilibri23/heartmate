@@ -39,8 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: response.firstName,
           lastName: response.lastName,
           role: response.role,
-          emailVerified: response.emailVerified,
-          phoneVerified: response.phoneVerified,
         };
         localStorage.setItem('token', response.accessToken);
         localStorage.setItem('refreshToken', response.refreshToken);
@@ -53,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else if (response.role === 'LANDLORD') {
           router.push('/landlord');
         } else {
-          router.push('/search?mode=forYou&view=reels');
+          router.push('/for-you');
         }
       }
     } catch (error) {
@@ -71,8 +69,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: response.firstName,
           lastName: response.lastName,
           role: response.role,
-          emailVerified: response.emailVerified,
-          phoneVerified: response.phoneVerified,
         };
         localStorage.setItem('token', response.accessToken);
         localStorage.setItem('refreshToken', response.refreshToken);
@@ -83,8 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (response.role === 'LANDLORD') {
           router.push('/landlord');
         } else {
-          // Browse-first: let users discover listings before onboarding.
-          router.push('/search?mode=forYou&view=reels');
+          router.push('/onboarding');
         }
       } else {
         router.push('/login?registered=true');
@@ -103,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Protect routes
   useEffect(() => {
-    const publicRoutes = ['/login', '/register', '/', '/forgot-password', '/search'];
+    const publicRoutes = ['/login', '/register', '/', '/forgot-password'];
     if (!isLoading && !user && !publicRoutes.includes(pathname)) {
       router.push('/login');
     }

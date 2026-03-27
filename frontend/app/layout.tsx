@@ -4,18 +4,15 @@ import { Providers } from "./providers";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Toaster } from "sonner";
 import { AssistantWidget } from "@/components/ai/assistant-widget";
-import { EmailVerificationAlert } from "@/components/auth/email-verification-alert";
-import { PhoneVerificationAlert } from "@/components/auth/phone-verification-alert";
-import { OnboardingReminderAlert } from "@/components/auth/onboarding-reminder-alert";
 
 export const metadata: Metadata = {
-  title: "RoomBuddy - Student Housing in Cameroon",
+  title: "RoomBay - Student Housing in Cameroon",
   description: "Find your perfect student accommodation in Cameroon. Search rooms, apartments, and connect with verified landlords.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "RoomBuddy",
+    title: "RoomBay",
   },
   formatDetection: {
     telephone: true,
@@ -46,9 +43,6 @@ export default function RootLayout({
       <body className="antialiased bg-slate-50">
         <Providers>
           <main className="min-h-screen pb-16">
-            <EmailVerificationAlert />
-            <PhoneVerificationAlert />
-            <OnboardingReminderAlert />
             {children}
           </main>
           <BottomNav />

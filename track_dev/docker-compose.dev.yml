@@ -1,4 +1,4 @@
-# RoomBuddy Docker Compose - Development Override
+# RoomBay Docker Compose - Development Override
 # 
 # This file is used for local development with hot-reloading.
 # It mounts source code as volumes so changes are reflected immediately.
@@ -22,7 +22,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       SPRING_JPA_SHOW_SQL: "true"
-      LOGGING_LEVEL_ORG_ROOMS_ROOMBUDDY: DEBUG
+      LOGGING_LEVEL_ORG_ROOMS_ROOMBAY: DEBUG
     # Mount source for faster development (requires rebuild for changes)
     # For true hot-reload, run backend outside Docker with `mvn spring-boot:run`
     volumes:

@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.exception;
+package org.rooms.roombay.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

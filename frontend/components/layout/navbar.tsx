@@ -23,7 +23,7 @@ export function Navbar() {
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
       <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
         <Home className="h-6 w-6" />
-        <span className="">Roombuddy</span>
+        <span className="">RoomBay</span>
       </Link>
       <nav className="hidden md:flex items-center gap-6 text-sm font-medium ml-6">
         <Link href="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">

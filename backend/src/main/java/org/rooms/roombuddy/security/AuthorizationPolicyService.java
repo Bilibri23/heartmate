@@ -1,6 +1,6 @@
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
-import org.rooms.roombuddy.exception.BadRequestException;
+import org.rooms.roombay.exception.BadRequestException;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;

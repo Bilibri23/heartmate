@@ -121,7 +121,7 @@ long countConversations();
 
 ### **1. Rebuild the Project:**
 ```bash
-cd C:\Users\noble\IdeaProjects\Roombuddy
+cd C:\Users\noble\IdeaProjects\Roombay
 mvn clean install
 ```
 

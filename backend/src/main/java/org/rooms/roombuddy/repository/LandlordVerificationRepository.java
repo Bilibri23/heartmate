@@ -1,8 +1,8 @@
-package org.rooms.roombuddy.repository;
+package org.rooms.roombay.repository;
 
-import org.rooms.roombuddy.entity.LandlordVerification;
-import org.rooms.roombuddy.entity.LandlordVerification.VerificationLevel;
-import org.rooms.roombuddy.entity.LandlordVerification.VerificationStatus;
+import org.rooms.roombay.entity.LandlordVerification;
+import org.rooms.roombay.entity.LandlordVerification.VerificationLevel;
+import org.rooms.roombay.entity.LandlordVerification.VerificationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

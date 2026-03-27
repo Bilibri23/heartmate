@@ -2,13 +2,13 @@
 # Run this in PowerShell
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  Creating Admin Account for RoomBuddy" -ForegroundColor Cyan
+Write-Host "  Creating Admin Account for RoomBay" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Admin credentials
 $adminData = @{
-    email = "admin@roombuddy.com"
+    email = "admin@roombay.com"
     password = "Admin123!"
     firstName = "Admin"
     lastName = "User"
@@ -17,7 +17,7 @@ $adminData = @{
 } | ConvertTo-Json
 
 Write-Host "Admin Credentials:" -ForegroundColor Yellow
-Write-Host "  Email:    admin@roombuddy.com" -ForegroundColor White
+Write-Host "  Email:    admin@roombay.com" -ForegroundColor White
 Write-Host "  Password: Admin123!" -ForegroundColor White
 Write-Host "  Phone:    +237600000000" -ForegroundColor White
 Write-Host ""
@@ -37,11 +37,11 @@ try {
     Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "Login Credentials:" -ForegroundColor Yellow
-    Write-Host "  Email:    admin@roombuddy.com" -ForegroundColor White
+    Write-Host "  Email:    admin@roombay.com" -ForegroundColor White
     Write-Host "  Password: Admin123!" -ForegroundColor White
     Write-Host ""
     Write-Host "Next Steps:" -ForegroundColor Yellow
-    Write-Host "  1. Go to your RoomBuddy app" -ForegroundColor White
+    Write-Host "  1. Go to your RoomBay app" -ForegroundColor White
     Write-Host "  2. Login with the credentials above" -ForegroundColor White
     Write-Host "  3. Go to 'Pending Listings' in sidebar" -ForegroundColor White
     Write-Host "  4. Approve your listings!" -ForegroundColor White
@@ -57,7 +57,7 @@ try {
         Write-Host "========================================" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "You can login with:" -ForegroundColor Yellow
-        Write-Host "  Email:    admin@roombuddy.com" -ForegroundColor White
+        Write-Host "  Email:    admin@roombay.com" -ForegroundColor White
         Write-Host "  Password: Admin123!" -ForegroundColor White
         Write-Host ""
     } else {

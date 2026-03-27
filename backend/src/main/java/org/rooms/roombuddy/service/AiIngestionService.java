@@ -1,11 +1,11 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.ai.AiModelRouter;
-import org.rooms.roombuddy.ai.rag.AiRagRepository;
-import org.rooms.roombuddy.dto.response.AiIngestResponse;
-import org.rooms.roombuddy.exception.BadRequestException;
+import org.rooms.roombay.ai.AiModelRouter;
+import org.rooms.roombay.ai.rag.AiRagRepository;
+import org.rooms.roombay.dto.response.AiIngestResponse;
+import org.rooms.roombay.exception.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 

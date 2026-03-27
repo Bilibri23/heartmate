@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -6,14 +6,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.rooms.roombuddy.dto.request.LoginRequest;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.repository.EmailVerificationTokenRepository;
-import org.rooms.roombuddy.repository.PasswordResetTokenRepository;
-import org.rooms.roombuddy.repository.RefreshTokenSessionRepository;
-import org.rooms.roombuddy.repository.UserRepository;
-import org.rooms.roombuddy.security.JwtTokenProvider;
+import org.rooms.roombay.dto.request.LoginRequest;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.repository.EmailVerificationTokenRepository;
+import org.rooms.roombay.repository.PasswordResetTokenRepository;
+import org.rooms.roombay.repository.RefreshTokenSessionRepository;
+import org.rooms.roombay.repository.UserRepository;
+import org.rooms.roombay.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;

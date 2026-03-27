@@ -9,7 +9,7 @@ How to run
 
 What it does
 - Replaces visible brand text (Room8/ROOM8/room8) with "HeartMate".
-- Updates any existing logo references (room8/roombuddy/etc.) to `/heartmate-logo.svg`.
+- Updates any existing logo references (room8/roombay/etc.) to `/heartmate-logo.svg`.
 - Updates any HTML `<title>` tags to "HeartMate".
 - Installs `heartmate-logo.svg` into discovered `public/` directories.
 

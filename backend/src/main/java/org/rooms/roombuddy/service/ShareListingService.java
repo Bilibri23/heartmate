@@ -1,16 +1,16 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.ShareListingRequest;
-import org.rooms.roombuddy.entity.Match;
-import org.rooms.roombuddy.entity.PropertyListing;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.repository.MatchRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.dto.request.ShareListingRequest;
+import org.rooms.roombay.entity.Match;
+import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.MatchRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,7 +63,7 @@ public class ShareListingService {
 
         notificationService.createNotification(
                 request.getRoommateId(),
-                org.rooms.roombuddy.entity.Notification.NotificationType.LISTING_SHARED,
+                org.rooms.roombay.entity.Notification.NotificationType.LISTING_SHARED,
                 "Listing shared with you",
                 sharerName + " shared a listing with you: " + listing.getTitle(),
                 listing.getId(),

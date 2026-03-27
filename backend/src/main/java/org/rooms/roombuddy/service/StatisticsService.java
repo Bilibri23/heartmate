@@ -1,18 +1,18 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.response.StatisticsResponse;
-import org.rooms.roombuddy.entity.Match;
-import org.rooms.roombuddy.entity.PropertyListing;
-import org.rooms.roombuddy.entity.StudentVerification;
-import org.rooms.roombuddy.entity.User;
+import org.rooms.roombay.dto.response.StatisticsResponse;
+import org.rooms.roombay.entity.Match;
+import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.entity.StudentVerification;
+import org.rooms.roombay.entity.User;
 
 import java.util.List;
-import org.rooms.roombuddy.repository.MatchRepository;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.repository.StudentVerificationRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.repository.MatchRepository;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

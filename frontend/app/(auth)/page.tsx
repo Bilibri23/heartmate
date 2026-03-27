@@ -9,7 +9,7 @@ export default function WelcomePage() {
       <div className="w-full max-w-4xl">
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
-            Welcome to Roombuddy
+            Welcome to RoomBay
           </h1>
           <p className="mt-4 text-lg text-slate-600">
             Choose your journey to get started

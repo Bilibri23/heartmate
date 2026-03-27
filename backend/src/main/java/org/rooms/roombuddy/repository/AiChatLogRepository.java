@@ -1,8 +1,8 @@
-package org.rooms.roombuddy.repository;
+package org.rooms.roombay.repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.rooms.roombuddy.exception.BadRequestException;
+import org.rooms.roombay.exception.BadRequestException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 

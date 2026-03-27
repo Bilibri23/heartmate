@@ -280,7 +280,7 @@ const mapUrl = `https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${
 
 ## 🎉 **Everything is Complete!**
 
-Your RoomBuddy platform now has:
+Your RoomBay platform now has:
 - ✅ Captivating home page
 - ✅ Working admin dashboard
 - ✅ Professional "Coming Soon" pages

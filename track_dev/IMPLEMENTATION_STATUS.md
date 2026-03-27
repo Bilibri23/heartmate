@@ -1,6 +1,6 @@
 # RoomConnect - Implementation Status Summary
 
-**Project:** RoomConnect (Roombuddy)  
+**Project:** RoomConnect (Roombay)  
 **Date:** $(date)  
 **Sprint:** Sprint 1 (Week 1)  
 **Overall Progress:** ~40% of Sprint 1

@@ -38,8 +38,8 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
       role: "assistant",
       content:
         persona === "LANDLORD"
-          ? "Hi! I’m your RoomBuddy assistant. Ask me about listing approval, applications, leases, payments, or how to use the landlord dashboard."
-          : "Hi! I’m your RoomBuddy assistant. Ask me about searching, applying, verification, roommate matching, leases, or payments.",
+          ? "Hi! I’m your RoomBay assistant. Ask me about listing approval, applications, leases, payments, or how to use the landlord dashboard."
+          : "Hi! I’m your RoomBay assistant. Ask me about searching, applying, verification, roommate matching, leases, or payments.",
       createdAt: Date.now(),
     },
   ])

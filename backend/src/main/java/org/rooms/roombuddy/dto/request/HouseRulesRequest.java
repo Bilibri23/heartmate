@@ -1,7 +1,7 @@
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import lombok.Data;
-import org.rooms.roombuddy.entity.HouseRules;
+import org.rooms.roombay.entity.HouseRules;
 
 import java.time.LocalTime;
 import java.util.List;

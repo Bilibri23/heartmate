@@ -1,13 +1,13 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.VerificationRequest;
-import org.rooms.roombuddy.dto.response.VerificationResponse;
-import org.rooms.roombuddy.service.VerificationService;
+import org.rooms.roombay.dto.request.VerificationRequest;
+import org.rooms.roombay.dto.response.VerificationResponse;
+import org.rooms.roombay.service.VerificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

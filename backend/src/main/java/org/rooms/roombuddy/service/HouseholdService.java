@@ -1,13 +1,13 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.*;
-import org.rooms.roombuddy.dto.response.*;
-import org.rooms.roombuddy.entity.*;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.*;
+import org.rooms.roombay.dto.request.*;
+import org.rooms.roombay.dto.response.*;
+import org.rooms.roombay.entity.*;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

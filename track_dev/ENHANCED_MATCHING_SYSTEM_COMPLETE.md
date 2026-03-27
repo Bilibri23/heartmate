@@ -6,7 +6,7 @@
 
 ## 🌟 Overview
 
-The Enhanced Matching System transforms RoomBuddy into a **Tinder-like roommate matching platform** with advanced features across 3 implementation phases - all completed in a single session!
+The Enhanced Matching System transforms RoomBay into a **Tinder-like roommate matching platform** with advanced features across 3 implementation phases - all completed in a single session!
 
 ---
 
@@ -365,5 +365,5 @@ The Enhanced Matching System is now **COMPLETE** with all planned features from 
 
 ---
 
-*Built with ❤️ for RoomBuddy*
+*Built with ❤️ for RoomBay*
 *Nov 29, 2025*

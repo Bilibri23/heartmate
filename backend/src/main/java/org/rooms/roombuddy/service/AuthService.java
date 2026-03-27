@@ -1,23 +1,23 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.LoginRequest;
-import org.rooms.roombuddy.dto.request.RegisterRequest;
-import org.rooms.roombuddy.dto.request.ResetPasswordRequest;
-import org.rooms.roombuddy.dto.request.ChangePasswordRequest;
-import org.rooms.roombuddy.dto.response.AuthResponse;
-import org.rooms.roombuddy.entity.PasswordResetToken;
-import org.rooms.roombuddy.entity.EmailVerificationToken;
-import org.rooms.roombuddy.entity.RefreshTokenSession;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.PasswordResetTokenRepository;
-import org.rooms.roombuddy.repository.EmailVerificationTokenRepository;
-import org.rooms.roombuddy.repository.RefreshTokenSessionRepository;
-import org.rooms.roombuddy.repository.UserRepository;
-import org.rooms.roombuddy.security.JwtTokenProvider;
+import org.rooms.roombay.dto.request.LoginRequest;
+import org.rooms.roombay.dto.request.RegisterRequest;
+import org.rooms.roombay.dto.request.ResetPasswordRequest;
+import org.rooms.roombay.dto.request.ChangePasswordRequest;
+import org.rooms.roombay.dto.response.AuthResponse;
+import org.rooms.roombay.entity.PasswordResetToken;
+import org.rooms.roombay.entity.EmailVerificationToken;
+import org.rooms.roombay.entity.RefreshTokenSession;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.PasswordResetTokenRepository;
+import org.rooms.roombay.repository.EmailVerificationTokenRepository;
+import org.rooms.roombay.repository.RefreshTokenSessionRepository;
+import org.rooms.roombay.repository.UserRepository;
+import org.rooms.roombay.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -108,8 +108,6 @@ public class AuthService {
                 .role(savedUser.getRole().name())
                 .firstName(savedUser.getFirstName())
                 .lastName(savedUser.getLastName())
-                .emailVerified(savedUser.getEmailVerified())
-                .phoneVerified(savedUser.getPhoneVerified())
                 .build();
     }
 
@@ -139,6 +137,10 @@ public class AuthService {
         if (!Boolean.TRUE.equals(user.getEmailVerified())) {
             throw new BadRequestException("Please verify your email before logging in.");
         }
+        if (!Boolean.TRUE.equals(user.getPhoneVerified())) {
+            throw new BadRequestException("Please verify your phone number before logging in.");
+        }
+
         // Update last active
         user.setLastActive(LocalDateTime.now());
         userRepository.save(user);
@@ -161,8 +163,6 @@ public class AuthService {
                 .role(user.getRole().name())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
-                .emailVerified(user.getEmailVerified())
-                .phoneVerified(user.getPhoneVerified())
                 .build();
     }
 
@@ -204,8 +204,6 @@ public class AuthService {
                 .role(user.getRole().name())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
-                .emailVerified(user.getEmailVerified())
-                .phoneVerified(user.getPhoneVerified())
                 .build();
     }
     
@@ -352,23 +350,20 @@ public class AuthService {
         });
     }
 
-    /**
-     * Persist the session first, then embed its generated id in the JWT.
-     * Do not set {@link RefreshTokenSession#id} manually: a non-null id with {@code @GeneratedValue}
-     * makes Spring Data {@code save()} use {@code merge}, which caused
-     * {@link org.springframework.orm.ObjectOptimisticLockingFailureException} on register/refresh.
-     */
     private String issueRefreshToken(User user) {
+        UUID sessionId = UUID.randomUUID();
         UUID tokenId = UUID.randomUUID();
-        RefreshTokenSession session = refreshTokenSessionRepository.save(
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), sessionId, tokenId);
+        refreshTokenSessionRepository.save(
                 RefreshTokenSession.builder()
+                        .id(sessionId)
                         .user(user)
                         .tokenId(tokenId)
                         .expiresAt(LocalDateTime.now().plusDays(7))
                         .revoked(false)
                         .build()
         );
-        return jwtTokenProvider.generateRefreshToken(user.getId(), session.getId(), tokenId);
+        return refreshToken;
     }
 
     private void sendEmailVerification(User user) {

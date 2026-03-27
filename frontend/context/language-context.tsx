@@ -19,7 +19,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Load saved language preference
-    const saved = localStorage.getItem("roombuddy-language") as Language
+    const saved = localStorage.getItem("roombay-language") as Language
     if (saved && (saved === "en" || saved === "fr")) {
       setLanguageState(saved)
     } else {
@@ -35,7 +35,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang)
-    localStorage.setItem("roombuddy-language", lang)
+    localStorage.setItem("roombay-language", lang)
   }
 
   const formatCurrency = (amount: number): string => {

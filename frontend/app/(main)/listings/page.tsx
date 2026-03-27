@@ -7,7 +7,7 @@ export default function ListingsRedirect() {
   const router = useRouter()
   
   useEffect(() => {
-    router.replace("/search?mode=forYou&view=reels")
+    router.replace("/search")
   }, [router])
   
   return null

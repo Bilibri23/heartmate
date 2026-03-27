@@ -200,7 +200,7 @@ export default function SettingsPage() {
                 <Smartphone className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="font-semibold text-slate-900">RoomBuddy</p>
+                <p className="font-semibold text-slate-900">RoomBay</p>
                 <p className="text-sm text-slate-500">Version 1.0.0</p>
               </div>
             </div>

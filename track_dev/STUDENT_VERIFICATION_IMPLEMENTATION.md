@@ -3,14 +3,14 @@
 ## ✅ Completed Components
 
 ### 1. Repository Layer
-**File:** `src/main/java/org/rooms/roombuddy/repository/StudentVerificationRepository.java`
+**File:** `src/main/java/org/rooms/roombay/repository/StudentVerificationRepository.java`
 - ✅ `findByUserId(UUID userId)` - Find verification by user ID
 - ✅ `existsByUserId(UUID userId)` - Check if verification exists
 - ✅ `deleteByUserId(UUID userId)` - Delete verification by user ID
 
 ### 2. DTO Layer
 **Files:**
-- ✅ `src/main/java/org/rooms/roombuddy/dto/request/VerificationRequest.java`
+- ✅ `src/main/java/org/rooms/roombay/dto/request/VerificationRequest.java`
   - University (required)
   - Student ID (required)
   - Faculty (optional)
@@ -18,14 +18,14 @@
   - Year of study (optional, 1-10)
   - Student ID photo URL (optional, for Cloudinary integration)
 
-- ✅ `src/main/java/org/rooms/roombuddy/dto/response/VerificationResponse.java`
+- ✅ `src/main/java/org/rooms/roombay/dto/response/VerificationResponse.java`
   - All verification fields
   - Status (PENDING, VERIFIED, REJECTED)
   - Rejection reason (if rejected)
   - Verified by and verified at (for admin approval)
 
 ### 3. Service Layer
-**File:** `src/main/java/org/rooms/roombuddy/service/VerificationService.java`
+**File:** `src/main/java/org/rooms/roombay/service/VerificationService.java`
 
 **Methods Implemented:**
 - ✅ `submitVerification(UUID userId, VerificationRequest request)` - Submit new verification
@@ -47,7 +47,7 @@
   - Removes verification request
 
 ### 4. Controller Layer
-**File:** `src/main/java/org/rooms/roombuddy/controller/VerificationController.java`
+**File:** `src/main/java/org/rooms/roombay/controller/VerificationController.java`
 
 **Endpoints:**
 - ✅ `POST /api/verifications?userId={userId}` - Submit verification
@@ -63,16 +63,16 @@
 
 ### 5. Security Integration
 **Files:**
-- ✅ `src/main/java/org/rooms/roombuddy/security/JwtAuthenticationFilter.java`
+- ✅ `src/main/java/org/rooms/roombay/security/JwtAuthenticationFilter.java`
   - JWT token validation
   - Extracts user ID and role from token
   - Sets authentication in security context
 
-- ✅ `src/main/java/org/rooms/roombuddy/security/SecurityUtils.java`
+- ✅ `src/main/java/org/rooms/roombay/security/SecurityUtils.java`
   - Utility to extract current user ID from security context
   - Helper methods for authentication checks
 
-- ✅ `src/main/java/org/rooms/roombuddy/security/JwtTokenProvider.java`
+- ✅ `src/main/java/org/rooms/roombay/security/JwtTokenProvider.java`
   - Added `getRoleFromToken()` method
   - Added `getClaimsFromToken()` method
   - Enhanced token parsing

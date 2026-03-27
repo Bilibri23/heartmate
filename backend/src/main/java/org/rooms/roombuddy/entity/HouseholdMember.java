@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.entity;
+package org.rooms.roombay.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

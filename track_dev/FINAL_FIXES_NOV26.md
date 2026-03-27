@@ -299,7 +299,7 @@ import ImageCarousel from '../../components/ImageCarousel/ImageCarousel'
 
 ### Install Map Dependencies
 ```bash
-cd c:\Users\noble\IdeaProjects\Roombuddy\frontend\room8
+cd c:\Users\noble\IdeaProjects\Roombay\frontend\room8
 npm install react-leaflet leaflet
 ```
 

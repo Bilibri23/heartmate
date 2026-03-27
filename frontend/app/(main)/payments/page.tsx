@@ -135,7 +135,7 @@ function PaymentsContent() {
             amount: existingPayment.amount,
             mtnNumber: "677000000",
             orangeNumber: "699000000",
-            recipientName: "RoomBuddy",
+            recipientName: "RoomBay",
             reference: existingPayment.id,
           })
           setIsPaySheetOpen(true)
@@ -170,7 +170,7 @@ function PaymentsContent() {
           amount: existingPayment.amount,
           mtnNumber: "677000000",
           orangeNumber: "699000000",
-          recipientName: "RoomBuddy",
+          recipientName: "RoomBay",
           reference: existingPayment.id,
         })
         setIsPaySheetOpen(true)
@@ -215,7 +215,7 @@ function PaymentsContent() {
               amount: existingPayment.amount,
               mtnNumber: "677000000",
               orangeNumber: "699000000",
-              recipientName: "RoomBuddy",
+              recipientName: "RoomBay",
               reference: existingPayment.id,
             })
             setIsPaySheetOpen(true)
@@ -378,7 +378,7 @@ function PaymentsContent() {
                           amount: payment.amount,
                           mtnNumber: "677000000",
                           orangeNumber: "699000000",
-                          recipientName: "RoomBuddy",
+                          recipientName: "RoomBay",
                           reference: payment.id,
                         })
                         setIsPaySheetOpen(true)
@@ -576,7 +576,7 @@ function PaymentsContent() {
                     </ol>
                     <div className="mt-3 p-3 bg-white rounded-xl">
                       <p className="text-xs text-slate-500">Bank Details:</p>
-                      <p className="text-sm font-medium">RoomBuddy SARL</p>
+                      <p className="text-sm font-medium">RoomBay SARL</p>
                       <p className="text-sm text-slate-600">Account: XXXX-XXXX-XXXX</p>
                     </div>
                   </div>

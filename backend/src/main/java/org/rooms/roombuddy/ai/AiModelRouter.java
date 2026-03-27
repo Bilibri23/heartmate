@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.ai;
+package org.rooms.roombay.ai;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,7 +1,7 @@
-package org.rooms.roombuddy.exception;
+package org.rooms.roombay.exception;
 
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.security.VerificationRequiredException;
+import org.rooms.roombay.security.VerificationRequiredException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;

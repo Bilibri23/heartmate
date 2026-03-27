@@ -1,6 +1,6 @@
 # Tenant Flows Runbook (Production)
 
-This runbook documents tenant-facing flows in RoomBuddy for support, QA, and AI assistant grounding.
+This runbook documents tenant-facing flows in RoomBay for support, QA, and AI assistant grounding.
 
 ## Persona definition
 - Tenant = any room seeker (not limited to students).

@@ -1,9 +1,9 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.response.ListingResponse;
-import org.rooms.roombuddy.service.OnlineStatusService;
+import org.rooms.roombay.dto.response.ListingResponse;
+import org.rooms.roombay.service.OnlineStatusService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessagingTemplate;

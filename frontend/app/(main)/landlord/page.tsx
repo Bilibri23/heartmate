@@ -118,7 +118,7 @@ export default function LandlordDashboard() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <QuickTour role="LANDLORD" storageKey="roombuddy_landlord_tour" />
+      <QuickTour role="LANDLORD" storageKey="roombay_landlord_tour" />
       <MobileHeader title="Dashboard" />
 
       {/* Content */}

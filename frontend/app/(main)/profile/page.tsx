@@ -215,7 +215,7 @@ export default function ProfilePage() {
 
           {/* App Version */}
           <p className="text-center text-xs text-slate-400 pt-4">
-            RoomBuddy v1.0.0
+            RoomBay v1.0.0
           </p>
         </div>
       </div>

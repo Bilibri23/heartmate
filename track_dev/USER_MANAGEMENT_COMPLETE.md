@@ -164,7 +164,7 @@ cd backend
 
 **Verify:**
 - Backend starts on `http://localhost:8080`
-- Check logs for "Started RoombuddyApplication"
+- Check logs for "Started RoombayApplication"
 
 ### **Step 3: Start Frontend**
 

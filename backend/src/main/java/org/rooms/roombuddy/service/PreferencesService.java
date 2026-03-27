@@ -1,15 +1,15 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.PreferencesRequest;
-import org.rooms.roombuddy.dto.response.PreferencesResponse;
-import org.rooms.roombuddy.entity.RoommatePreferences;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.RoommatePreferencesRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.dto.request.PreferencesRequest;
+import org.rooms.roombay.dto.response.PreferencesResponse;
+import org.rooms.roombay.entity.RoommatePreferences;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.RoommatePreferencesRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

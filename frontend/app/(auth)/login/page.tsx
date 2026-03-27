@@ -72,7 +72,7 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
             <p className="mt-2 text-sm text-slate-500">
-              Sign in to your Roombuddy account
+              Sign in to your RoomBay account
             </p>
           </div>
 

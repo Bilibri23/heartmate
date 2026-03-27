@@ -1,10 +1,10 @@
-package org.rooms.roombuddy.dto.response;
+package org.rooms.roombay.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.rooms.roombuddy.entity.HouseRules;
+import org.rooms.roombay.entity.HouseRules;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;

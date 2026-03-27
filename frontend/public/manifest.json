@@ -1,6 +1,6 @@
 {
-  "name": "RoomBuddy",
-  "short_name": "RoomBuddy",
+  "name": "RoomBay",
+  "short_name": "RoomBay",
   "description": "Find your perfect student accommodation in Cameroon",
   "start_url": "/",
   "display": "standalone",

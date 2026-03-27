@@ -21,8 +21,6 @@ export interface User {
   phone?: string;
   role: string;
   verificationStatus?: string;
-  emailVerified?: boolean;
-  phoneVerified?: boolean;
 }
 
 export interface AuthResponse {
@@ -34,6 +32,4 @@ export interface AuthResponse {
   role: string;
   firstName: string;
   lastName: string;
-  emailVerified?: boolean;
-  phoneVerified?: boolean;
 }

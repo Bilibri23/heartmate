@@ -22,7 +22,7 @@
 
 ### 1. Start Backend
 ```bash
-cd c:\Users\noble\IdeaProjects\Roombuddy
+cd c:\Users\noble\IdeaProjects\Roombay
 mvn clean install
 mvn spring-boot:run
 ```

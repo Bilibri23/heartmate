@@ -72,7 +72,7 @@ export default function OnboardingPage() {
     }
 
     const handleSkip = () => {
-        router.push("/search?mode=forYou&view=reels")
+        router.push("/for-you")
     }
 
     const hasSharedType = selectedTypes.includes("SHARED_ROOM") || selectedTypes.includes("PRIVATE_ROOM")
@@ -96,7 +96,7 @@ export default function OnboardingPage() {
             if (hasSharedType) {
                 setShowRoommateModal(true)
             } else {
-                                router.push("/search?mode=forYou&view=reels")
+                router.push("/for-you")
             }
         } catch (err) {
             console.error("Failed to save preferences:", err)
@@ -104,7 +104,7 @@ export default function OnboardingPage() {
             if (hasSharedType) {
                 setShowRoommateModal(true)
             } else {
-                                router.push("/search?mode=forYou&view=reels")
+                router.push("/for-you")
             }
         } finally {
             setIsSubmitting(false)
@@ -121,7 +121,7 @@ export default function OnboardingPage() {
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="relative mx-4 w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
                         <button
-                            onClick={() => { setShowRoommateModal(false); router.push("/search?mode=forYou&view=reels"); }}
+                            onClick={() => { setShowRoommateModal(false); router.push("/for-you"); }}
                             className="absolute right-3 top-3 z-10 p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
                         >
                             <X className="h-4 w-4 text-slate-500" />
@@ -164,7 +164,7 @@ export default function OnboardingPage() {
                             </Button>
                             <Button
                                 variant="ghost"
-                                onClick={() => { setShowRoommateModal(false); router.push("/search?mode=forYou&view=reels"); }}
+                                onClick={() => { setShowRoommateModal(false); router.push("/for-you"); }}
                                 className="w-full h-11 rounded-xl text-slate-500"
                             >
                                 Skip for now — browse listings

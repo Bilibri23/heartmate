@@ -1,12 +1,12 @@
-package org.rooms.roombuddy.scheduler;
+package org.rooms.roombay.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.entity.Lease;
-import org.rooms.roombuddy.entity.Notification;
-import org.rooms.roombuddy.repository.LeaseRepository;
-import org.rooms.roombuddy.service.EmailService;
-import org.rooms.roombuddy.service.NotificationService;
+import org.rooms.roombay.entity.Lease;
+import org.rooms.roombay.entity.Notification;
+import org.rooms.roombay.repository.LeaseRepository;
+import org.rooms.roombay.service.EmailService;
+import org.rooms.roombay.service.NotificationService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -77,13 +77,13 @@ public class PaymentReminderScheduler {
                     if (lease.getStudent().getEmail() != null) {
                         emailService.sendSimpleEmail(
                             lease.getStudent().getEmail(),
-                            "Rent Payment Reminder - RoomBuddy",
+                            "Rent Payment Reminder - RoomBay",
                             "Hello " + lease.getStudent().getFirstName() + ",\n\n" +
                             reminderMessage + "\n\n" +
                             "Property: " + lease.getListing().getTitle() + "\n" +
                             "Amount Due: " + lease.getMonthlyRent() + " XAF\n\n" +
-                            "Please log in to your RoomBuddy account to make your payment.\n\n" +
-                            "Best regards,\nThe RoomBuddy Team"
+                            "Please log in to your RoomBay account to make your payment.\n\n" +
+                            "Best regards,\nThe RoomBay Team"
                         );
                     }
                     

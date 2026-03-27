@@ -1,16 +1,16 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.VerificationApprovalRequest;
-import org.rooms.roombuddy.dto.request.VerificationRequest;
-import org.rooms.roombuddy.dto.response.VerificationResponse;
-import org.rooms.roombuddy.entity.StudentVerification;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.StudentVerificationRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.dto.request.VerificationApprovalRequest;
+import org.rooms.roombay.dto.request.VerificationRequest;
+import org.rooms.roombay.dto.response.VerificationResponse;
+import org.rooms.roombay.entity.StudentVerification;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -226,7 +226,7 @@ public class VerificationService {
         if (status == StudentVerification.Status.VERIFIED) {
             notificationService.createNotification(
                     verification.getUser().getId(),
-                    org.rooms.roombuddy.entity.Notification.NotificationType.VERIFICATION_APPROVED,
+                    org.rooms.roombay.entity.Notification.NotificationType.VERIFICATION_APPROVED,
                     "Verification Approved!",
                     "Your student verification has been approved. You can now access all features.",
                     verificationId,
@@ -236,7 +236,7 @@ public class VerificationService {
         } else {
             notificationService.createNotification(
                     verification.getUser().getId(),
-                    org.rooms.roombuddy.entity.Notification.NotificationType.VERIFICATION_REJECTED,
+                    org.rooms.roombay.entity.Notification.NotificationType.VERIFICATION_REJECTED,
                     "Verification Rejected",
                     "Your verification was rejected: " + request.getRejectionReason(),
                     verificationId,

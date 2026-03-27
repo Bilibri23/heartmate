@@ -299,8 +299,8 @@ npm install react-slick slick-carousel
 - `frontend/room8/src/config/api.js`
 
 **Backend:**
-- `backend/src/main/java/org/rooms/roombuddy/controller/ListingController.java`
-- `backend/src/main/java/org/rooms/roombuddy/service/ListingService.java`
+- `backend/src/main/java/org/rooms/roombay/controller/ListingController.java`
+- `backend/src/main/java/org/rooms/roombay/service/ListingService.java`
 
 ---
 

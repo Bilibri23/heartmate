@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;

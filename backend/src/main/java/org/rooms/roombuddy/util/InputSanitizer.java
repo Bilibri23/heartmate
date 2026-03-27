@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.util;
+package org.rooms.roombay.util;
 
 import org.springframework.stereotype.Component;
 

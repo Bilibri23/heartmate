@@ -46,7 +46,7 @@ export function AssistantWidget() {
               <div className="flex items-center justify-between gap-3">
                 <SheetTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-blue-600" />
-                  RoomBuddy Assistant
+                  RoomBay Assistant
                 </SheetTitle>
                 <Button
                   variant="ghost"
@@ -59,7 +59,7 @@ export function AssistantWidget() {
                 </Button>
               </div>
               <p className="text-sm text-slate-500 mt-1">
-                Ask anything about RoomBuddy. I’ll answer using our docs and features.
+                Ask anything about RoomBay. I’ll answer using our docs and features.
               </p>
             </SheetHeader>
 

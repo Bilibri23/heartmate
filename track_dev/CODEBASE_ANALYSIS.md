@@ -1,4 +1,4 @@
-# RoomBuddy Codebase Analysis - V1 Status
+# RoomBay Codebase Analysis - V1 Status
 
 ## 🎯 Overall Assessment: **YOU'RE ON TRACK!** ✅
 
@@ -285,7 +285,7 @@ rm -rf dist
 npm run dev
 
 # Terminal 2 - Backend
-cd c:\Users\noble\IdeaProjects\Roombuddy
+cd c:\Users\noble\IdeaProjects\Roombay
 mvn spring-boot:run
 ```
 

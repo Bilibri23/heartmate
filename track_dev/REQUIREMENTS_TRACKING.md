@@ -1,7 +1,7 @@
 # RoomConnect - Requirements Tracking & Implementation Status
 
 **Last Updated:** $(date)
-**Project:** RoomConnect (Roombuddy)
+**Project:** RoomConnect (Roombay)
 **Deadline:** February Defense (Tight Deadline)
 
 ---
@@ -298,7 +298,7 @@
 ### ✅ Implemented
 
 ```
-src/main/java/org/rooms/roombuddy/
+src/main/java/org/rooms/roombay/
 ├── config/
 │   ├── OpenApiConfig.java ✅
 │   └── SecurityConfig.java ✅ (basic setup, needs OAuth2)
@@ -328,7 +328,7 @@ src/main/java/org/rooms/roombuddy/
 ### ❌ Missing (Sprint 1)
 
 ```
-src/main/java/org/rooms/roombuddy/
+src/main/java/org/rooms/roombay/
 ├── controller/
 │   ├── AuthController.java ❌
 │   └── VerificationController.java ❌

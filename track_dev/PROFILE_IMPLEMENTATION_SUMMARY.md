@@ -3,7 +3,7 @@
 ## ✅ Completed Tasks
 
 ### 1. Entity Layer
-**File:** `src/main/java/org/rooms/roombuddy/entity/Profile.java`
+**File:** `src/main/java/org/rooms/roombay/entity/Profile.java`
 - Created Profile entity with all required fields from schema
 - Includes: bio, profile/cover photos, languages, interests, hobbies
 - Social media: Instagram, Facebook, WhatsApp
@@ -14,8 +14,8 @@
 
 ### 2. Repository Layer
 **Files:**
-- `src/main/java/org/rooms/roombuddy/repository/ProfileRepository.java`
-- `src/main/java/org/rooms/roombuddy/repository/UserRepository.java`
+- `src/main/java/org/rooms/roombay/repository/ProfileRepository.java`
+- `src/main/java/org/rooms/roombay/repository/UserRepository.java`
 
 **ProfileRepository Methods:**
 - `findByUserId(UUID userId)` - Find profile by user ID
@@ -30,9 +30,9 @@
 
 ### 3. DTO Layer
 **Files:**
-- `src/main/java/org/rooms/roombuddy/dto/request/ProfileRequest.java`
-- `src/main/java/org/rooms/roombuddy/dto/response/ProfileResponse.java`
-- `src/main/java/org/rooms/roombuddy/dto/response/ApiResponse.java`
+- `src/main/java/org/rooms/roombay/dto/request/ProfileRequest.java`
+- `src/main/java/org/rooms/roombay/dto/response/ProfileResponse.java`
+- `src/main/java/org/rooms/roombay/dto/response/ApiResponse.java`
 
 **ProfileRequest Validations:**
 - Bio: Max 1000 characters
@@ -47,7 +47,7 @@
 - Visibility as string for easy frontend handling
 
 ### 4. Service Layer
-**File:** `src/main/java/org/rooms/roombuddy/service/ProfileService.java`
+**File:** `src/main/java/org/rooms/roombay/service/ProfileService.java`
 
 **Methods Implemented:**
 - `createProfile(UUID userId, ProfileRequest request)` - Create new profile
@@ -77,7 +77,7 @@
 - Visibility enum parsing with validation
 
 ### 5. Controller Layer
-**File:** `src/main/java/org/rooms/roombuddy/controller/ProfileController.java`
+**File:** `src/main/java/org/rooms/roombay/controller/ProfileController.java`
 
 **Endpoints:**
 - `POST /api/profiles?userId={userId}` - Create profile
@@ -94,10 +94,10 @@
 
 ### 6. Exception Handling
 **Files:**
-- `src/main/java/org/rooms/roombuddy/exception/GlobalExceptionHandler.java`
-- `src/main/java/org/rooms/roombuddy/exception/ErrorResponse.java`
-- `src/main/java/org/rooms/roombuddy/exception/ResourceNotFoundException.java`
-- `src/main/java/org/rooms/roombuddy/exception/BadRequestException.java`
+- `src/main/java/org/rooms/roombay/exception/GlobalExceptionHandler.java`
+- `src/main/java/org/rooms/roombay/exception/ErrorResponse.java`
+- `src/main/java/org/rooms/roombay/exception/ResourceNotFoundException.java`
+- `src/main/java/org/rooms/roombay/exception/BadRequestException.java`
 
 **Handles:**
 - ResourceNotFoundException → 404 Not Found
@@ -124,7 +124,7 @@
 - Comprehensive column comments for documentation
 
 ### 8. Security Configuration
-**File:** `src/main/java/org/rooms/roombuddy/config/SecurityConfig.java`
+**File:** `src/main/java/org/rooms/roombay/config/SecurityConfig.java`
 
 **Current Setup:**
 - CSRF disabled for REST API

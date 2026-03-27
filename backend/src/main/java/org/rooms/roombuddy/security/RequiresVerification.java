@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

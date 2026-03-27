@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
 /**
  * Exception thrown when a user tries to access a resource that requires verification

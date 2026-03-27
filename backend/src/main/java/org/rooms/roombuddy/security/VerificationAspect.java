@@ -1,15 +1,15 @@
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
-import org.rooms.roombuddy.entity.LandlordVerification;
-import org.rooms.roombuddy.entity.StudentVerification;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.repository.LandlordVerificationRepository;
-import org.rooms.roombuddy.repository.StudentVerificationRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.entity.LandlordVerification;
+import org.rooms.roombay.entity.StudentVerification;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.repository.LandlordVerificationRepository;
+import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;

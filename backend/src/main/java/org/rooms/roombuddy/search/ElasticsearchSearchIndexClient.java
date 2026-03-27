@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.search;
+package org.rooms.roombay.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
@@ -19,11 +19,11 @@ import java.util.UUID;
 
 /**
  * Writes listing documents to Elasticsearch/OpenSearch. Active when
- * roombuddy.search.elasticsearch.enabled=true and spring.elasticsearch.uris is set.
+ * roombay.search.elasticsearch.enabled=true and spring.elasticsearch.uris is set.
  */
 @Component("elasticsearchSearchIndexClient")
 @Primary
-@ConditionalOnProperty(name = "roombuddy.search.elasticsearch.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "roombay.search.elasticsearch.enabled", havingValue = "true")
 @ConditionalOnBean(ElasticsearchClient.class)
 @RequiredArgsConstructor
 @Slf4j
@@ -31,7 +31,7 @@ public class ElasticsearchSearchIndexClient implements SearchIndexClient {
 
     private final ElasticsearchClient elasticsearchClient;
 
-    @Value("${roombuddy.search.elasticsearch.index-name:listings}")
+    @Value("${roombay.search.elasticsearch.index-name:listings}")
     private String indexName;
 
     @Override

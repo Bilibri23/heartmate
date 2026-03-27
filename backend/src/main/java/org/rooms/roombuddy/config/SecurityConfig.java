@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.config;
+package org.rooms.roombay.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.rooms.roombuddy.security.JwtAuthenticationFilter;
+import org.rooms.roombay.security.JwtAuthenticationFilter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,7 +50,6 @@ public class SecurityConfig {
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
                                 "/api/auth/verify-email",
-                                "/api/dev/**",
                                 "/ws/**"  // WebSocket endpoints
                         ).permitAll()
                         // Swagger/API docs

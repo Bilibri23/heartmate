@@ -1,9 +1,9 @@
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
-import org.rooms.roombuddy.service.ProfileCompletionService;
+import org.rooms.roombay.service.ProfileCompletionService;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;

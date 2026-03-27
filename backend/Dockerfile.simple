@@ -1,19 +1,19 @@
-# RoomBuddy Backend Dockerfile - Simple Version
+# RoomBay Backend Dockerfile - Simple Version
 # This version assumes you've already built the JAR locally with: mvn clean package
 # Use this if the multi-stage build is too slow on your machine
 #
-# Build command: docker build -f backend/Dockerfile.simple -t roombuddy-backend .
+# Build command: docker build -f backend/Dockerfile.simple -t roombay-backend .
 
 FROM eclipse-temurin:17-jre-alpine
 
 # Add labels
-LABEL maintainer="RoomBuddy Team"
+LABEL maintainer="RoomBay Team"
 LABEL version="1.0.0"
-LABEL description="RoomBuddy Backend API - Student Housing Platform"
+LABEL description="RoomBay Backend API - Student Housing Platform"
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S roombuddy && \
-    adduser -u 1001 -S roombuddy -G roombuddy
+RUN addgroup -g 1001 -S roombay && \
+    adduser -u 1001 -S roombay -G roombay
 
 WORKDIR /app
 
@@ -21,10 +21,10 @@ WORKDIR /app
 COPY target/*.jar app.jar
 
 # Change ownership to non-root user
-RUN chown -R roombuddy:roombuddy /app
+RUN chown -R roombay:roombay /app
 
 # Switch to non-root user
-USER roombuddy
+USER roombay
 
 # Expose the application port
 EXPOSE 8080

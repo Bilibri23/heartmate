@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -6,13 +6,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.CoApplicationInviteRequest;
-import org.rooms.roombuddy.dto.request.RoomApplicationRequest;
-import org.rooms.roombuddy.dto.response.CoApplicationInvitationResponse;
-import org.rooms.roombuddy.dto.response.RoomApplicationResponse;
-import org.rooms.roombuddy.security.SecurityUtils;
-import org.rooms.roombuddy.service.ApplicationService;
-import org.rooms.roombuddy.service.CoApplicationService;
+import org.rooms.roombay.dto.request.CoApplicationInviteRequest;
+import org.rooms.roombay.dto.request.RoomApplicationRequest;
+import org.rooms.roombay.dto.response.CoApplicationInvitationResponse;
+import org.rooms.roombay.dto.response.RoomApplicationResponse;
+import org.rooms.roombay.security.SecurityUtils;
+import org.rooms.roombay.service.ApplicationService;
+import org.rooms.roombay.service.CoApplicationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

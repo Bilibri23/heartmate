@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.entity;
+package org.rooms.roombay.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -90,7 +90,7 @@ public class Payment {
     
     // Platform fee (commission)
     @Column(name = "platform_fee")
-    private Integer platformFee; // RoomBuddy's commission
+    private Integer platformFee; // RoomBay's commission
     
     @Column(name = "landlord_payout")
     private Integer landlordPayout; // Amount to landlord after fee

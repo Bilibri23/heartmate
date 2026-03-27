@@ -152,7 +152,7 @@ All routing is correct! Just need to restart.
 ```bash
 # Stop current server (Ctrl+C)
 # Then:
-cd c:\Users\noble\IdeaProjects\Roombuddy\frontend\room8
+cd c:\Users\noble\IdeaProjects\Roombay\frontend\room8
 npm start
 ```
 

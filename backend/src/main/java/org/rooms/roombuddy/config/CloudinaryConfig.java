@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.config;
+package org.rooms.roombay.config;
 
 import com.cloudinary.Cloudinary;
 import lombok.extern.slf4j.Slf4j;

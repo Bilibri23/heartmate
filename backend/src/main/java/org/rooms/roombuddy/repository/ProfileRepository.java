@@ -1,6 +1,6 @@
-package org.rooms.roombuddy.repository;
+package org.rooms.roombay.repository;
 
-import org.rooms.roombuddy.entity.Profile;
+import org.rooms.roombay.entity.Profile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

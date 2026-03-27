@@ -1,4 +1,4 @@
-# RoomBuddy V1 Implementation Summary
+# RoomBay V1 Implementation Summary
 
 ## Overview
 This document summarizes all the changes made to align the frontend with the backend, implement pagination, add real-time updates via WebSocket, and enhance the overall user experience.
@@ -8,7 +8,7 @@ This document summarizes all the changes made to align the frontend with the bac
 ## ✅ Backend Changes
 
 ### 1. **ListingController Enhancements**
-**File:** `backend/src/main/java/org/rooms/roombuddy/controller/ListingController.java`
+**File:** `backend/src/main/java/org/rooms/roombay/controller/ListingController.java`
 
 #### Added Endpoints:
 - **Pagination Support**: Updated `searchListings()` to return `Page<ListingResponse>` with pagination parameters (`page`, `size`, `sortBy`, `sortDir`)
@@ -24,8 +24,8 @@ This document summarizes all the changes made to align the frontend with the bac
 
 ### 2. **WebSocket Configuration**
 **Files:**
-- `backend/src/main/java/org/rooms/roombuddy/config/WebSocketConfig.java`
-- `backend/src/main/java/org/rooms/roombuddy/controller/WebSocketController.java`
+- `backend/src/main/java/org/rooms/roombay/config/WebSocketConfig.java`
+- `backend/src/main/java/org/rooms/roombay/controller/WebSocketController.java`
 
 #### Features:
 - Real-time listing updates broadcast to all connected clients

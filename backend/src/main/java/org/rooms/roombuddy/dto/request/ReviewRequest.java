@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -8,7 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.rooms.roombuddy.entity.Review;
+import org.rooms.roombay.entity.Review;
 
 import java.util.UUID;
 

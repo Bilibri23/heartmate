@@ -1,4 +1,4 @@
-# 🚀 Deployment Readiness Report - RoomBuddy
+# 🚀 Deployment Readiness Report - RoomBay
 
 **Date:** $(date)  
 **Status:** ⚠️ **NOT READY FOR PRODUCTION** - Critical security issues must be fixed first
@@ -26,7 +26,7 @@ spring.jwt.secret=your-256-bit-secret-key-change-in-production-minimum-32-charac
 **Fix:** Generate strong random secret (64+ characters) and use environment variable
 
 #### ❌ CORS Only Allows Localhost
-**File:** `backend/src/main/java/org/rooms/roombuddy/config/SecurityConfig.java:78`
+**File:** `backend/src/main/java/org/rooms/roombay/config/SecurityConfig.java:78`
 ```java
 configuration.setAllowedOriginPatterns(Arrays.asList(
     "http://localhost:*",
@@ -37,7 +37,7 @@ configuration.setAllowedOriginPatterns(Arrays.asList(
 **Fix:** Add production domain(s) to allowed origins
 
 #### ❌ WebSocket Only Allows Localhost
-**File:** `backend/src/main/java/org/rooms/roombuddy/config/WebSocketConfig.java:25`
+**File:** `backend/src/main/java/org/rooms/roombay/config/WebSocketConfig.java:25`
 ```java
 .setAllowedOrigins("http://localhost:5173", "http://localhost:5174", "http://localhost:3000")
 ```
@@ -239,8 +239,8 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:808
 ### 1. Create `.env.example` file
 ```env
 # Database
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/roombuddy
-SPRING_DATASOURCE_USERNAME=roombuddy
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/roombay
+SPRING_DATASOURCE_USERNAME=roombay
 SPRING_DATASOURCE_PASSWORD=your-secure-password
 
 # JWT
@@ -292,7 +292,7 @@ spring.jpa.show-sql=false
 
 # Logging
 logging.level.root=INFO
-logging.level.org.rooms.roombuddy=INFO
+logging.level.org.rooms.roombay=INFO
 ```
 
 ### 3. Update CORS for Production

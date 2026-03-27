@@ -1,17 +1,17 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
-import org.rooms.roombuddy.ai.AiModelRouter;
-import org.rooms.roombuddy.ai.rag.AiRagRepository;
-import org.rooms.roombuddy.dto.request.AiChatRequest;
-import org.rooms.roombuddy.dto.response.AiChatResponse;
-import org.rooms.roombuddy.entity.RoomApplication;
-import org.rooms.roombuddy.repository.AiChatLogRepository;
-import org.rooms.roombuddy.repository.LeaseRepository;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.repository.RoomApplicationRepository;
-import org.rooms.roombuddy.repository.StudentVerificationRepository;
-import org.rooms.roombuddy.security.SecurityUtils;
+import org.rooms.roombay.ai.AiModelRouter;
+import org.rooms.roombay.ai.rag.AiRagRepository;
+import org.rooms.roombay.dto.request.AiChatRequest;
+import org.rooms.roombay.dto.response.AiChatResponse;
+import org.rooms.roombay.entity.RoomApplication;
+import org.rooms.roombay.repository.AiChatLogRepository;
+import org.rooms.roombay.repository.LeaseRepository;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.RoomApplicationRepository;
+import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.rooms.roombay.security.SecurityUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -77,15 +77,15 @@ public class AiAssistantService {
 
     private String buildSystemPrompt(AiChatRequest.Persona persona) {
         String personaLine = persona == AiChatRequest.Persona.LANDLORD
-                ? "You are helping a landlord user of RoomBuddy."
-                : "You are helping a tenant user of RoomBuddy.";
+                ? "You are helping a landlord user of RoomBay."
+                : "You are helping a tenant user of RoomBay.";
 
         return String.join("\n",
-                "You are RoomBuddy Assistant for the RoomBuddy platform.",
+                "You are RoomBay Assistant for the RoomBay platform.",
                 personaLine,
                 "",
                 "Rules:",
-                "- Only answer questions about RoomBuddy features, workflows, and policies.",
+                "- Only answer questions about RoomBay features, workflows, and policies.",
                 "- Use the retrieved context chunks to ground your answer; do not invent features.",
                 "- If the answer isn't in the context, say what you can infer and ask the user to check a specific page in the app.",
                 "- Keep answers concise and actionable.",

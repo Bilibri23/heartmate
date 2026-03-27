@@ -1,8 +1,8 @@
-package org.rooms.roombuddy.dto.response;
+package org.rooms.roombay.dto.response;
 
 import lombok.Builder;
 import lombok.Data;
-import org.rooms.roombuddy.entity.Notification;
+import org.rooms.roombay.entity.Notification;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.exception;
+package org.rooms.roombay.exception;
 
 public class ResourceNotFoundException extends RuntimeException {
     public ResourceNotFoundException(String message) {

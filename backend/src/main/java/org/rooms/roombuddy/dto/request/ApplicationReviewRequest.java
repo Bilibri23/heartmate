@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -6,7 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.rooms.roombuddy.entity.RoomApplication;
+import org.rooms.roombay.entity.RoomApplication;
 
 /**
  * DTO for landlord to review (accept/reject) an application

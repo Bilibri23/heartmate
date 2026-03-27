@@ -1,14 +1,14 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.SavedSearchRequest;
-import org.rooms.roombuddy.dto.response.SavedSearchResponse;
-import org.rooms.roombuddy.entity.SavedSearch;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.SavedSearchRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.dto.request.SavedSearchRequest;
+import org.rooms.roombay.dto.response.SavedSearchResponse;
+import org.rooms.roombay.entity.SavedSearch;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.SavedSearchRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

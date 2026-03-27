@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.config;
+package org.rooms.roombay.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,19 +1,19 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.ListingApprovalRequest;
-import org.rooms.roombuddy.dto.request.ListingRequest;
-import org.rooms.roombuddy.dto.response.ListingResponse;
-import org.rooms.roombuddy.dto.response.PhotoDTO;
-import org.rooms.roombuddy.entity.ListingFavorite;
-import org.rooms.roombuddy.entity.ListingPhoto;
-import org.rooms.roombuddy.entity.ListingSearchOutbox;
-import org.rooms.roombuddy.entity.PropertyListing;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.*;
+import org.rooms.roombay.dto.request.ListingApprovalRequest;
+import org.rooms.roombay.dto.request.ListingRequest;
+import org.rooms.roombay.dto.response.ListingResponse;
+import org.rooms.roombay.dto.response.PhotoDTO;
+import org.rooms.roombay.entity.ListingFavorite;
+import org.rooms.roombay.entity.ListingPhoto;
+import org.rooms.roombay.entity.ListingSearchOutbox;
+import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.*;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -568,7 +568,7 @@ public class ListingService {
         if (status == PropertyListing.Status.ACTIVE) {
             notificationService.createNotification(
                     listing.getLandlord().getId(),
-                    org.rooms.roombuddy.entity.Notification.NotificationType.LISTING_APPROVED,
+                    org.rooms.roombay.entity.Notification.NotificationType.LISTING_APPROVED,
                     "Listing Approved!",
                     "Your listing '" + listing.getTitle() + "' has been approved and is now live.",
                     listingId,
@@ -578,7 +578,7 @@ public class ListingService {
         } else {
             notificationService.createNotification(
                     listing.getLandlord().getId(),
-                    org.rooms.roombuddy.entity.Notification.NotificationType.LISTING_REJECTED,
+                    org.rooms.roombay.entity.Notification.NotificationType.LISTING_REJECTED,
                     "Listing Rejected",
                     "Your listing '" + listing.getTitle() + "' was rejected: " + request.getRejectionReason(),
                     listingId,
@@ -879,7 +879,7 @@ public class ListingService {
         // Count applications
         long totalApplications = applicationRepository.countByLandlordId(landlordId);
         long pendingApplications = applicationRepository.countByLandlordIdAndStatus(
-                landlordId, org.rooms.roombuddy.entity.RoomApplication.Status.PENDING);
+                landlordId, org.rooms.roombay.entity.RoomApplication.Status.PENDING);
         
         Map<String, Object> stats = new java.util.HashMap<>();
         stats.put("totalListings", listings.size());

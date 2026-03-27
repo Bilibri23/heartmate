@@ -1,10 +1,10 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.entity.ListingSearchOutbox;
-import org.rooms.roombuddy.repository.ListingSearchOutboxRepository;
-import org.rooms.roombuddy.search.SearchIndexClient;
+import org.rooms.roombay.entity.ListingSearchOutbox;
+import org.rooms.roombay.repository.ListingSearchOutboxRepository;
+import org.rooms.roombay.search.SearchIndexClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,10 +29,10 @@ public class ListingSearchIndexerService {
     private final ListingSearchOutboxRepository outboxRepository;
     private final SearchIndexClient searchIndexClient;
 
-    @Value("${roombuddy.search.indexer.batch-size:50}")
+    @Value("${roombay.search.indexer.batch-size:50}")
     private int batchSize = 50;
 
-    @Scheduled(fixedDelayString = "${roombuddy.search.indexer.interval-ms:15000}")
+    @Scheduled(fixedDelayString = "${roombay.search.indexer.interval-ms:15000}")
     @Transactional
     public void processPendingOutbox() {
         List<ListingSearchOutbox> pending = outboxRepository.findPendingOrderByCreatedAtAsc(PageRequest.of(0, batchSize));

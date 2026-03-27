@@ -1,6 +1,6 @@
-package org.rooms.roombuddy.repository;
+package org.rooms.roombay.repository;
 
-import org.rooms.roombuddy.entity.ContentFlag;
+import org.rooms.roombay.entity.ContentFlag;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.search;
+package org.rooms.roombay.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
@@ -10,10 +10,10 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.response.ListingResponse;
-import org.rooms.roombuddy.entity.PropertyListing;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.service.ListingService;
+import org.rooms.roombay.dto.response.ListingResponse;
+import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.service.ListingService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,11 +31,11 @@ import java.util.stream.Collectors;
 /**
  * Search service that queries Elasticsearch with fuzzy matching, typo tolerance,
  * boosting (verified, featured, recency), and optional language-aware relevance.
- * Used when roombuddy.search.elasticsearch.enabled=true.
+ * Used when roombay.search.elasticsearch.enabled=true.
  */
 @Service
 @ConditionalOnBean(ElasticsearchClient.class)
-@ConditionalOnProperty(name = "roombuddy.search.elasticsearch.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "roombay.search.elasticsearch.enabled", havingValue = "true")
 @RequiredArgsConstructor
 @Slf4j
 public class ElasticsearchSearchService {
@@ -44,7 +44,7 @@ public class ElasticsearchSearchService {
     private final PropertyListingRepository listingRepository;
     private final ListingService listingService;
 
-    @Value("${roombuddy.search.elasticsearch.index-name:listings}")
+    @Value("${roombay.search.elasticsearch.index-name:listings}")
     private String indexName;
 
     /** Feed modes: relevance (search), recent (newest first), trending (views boost), forYou (featured/verified boost). */

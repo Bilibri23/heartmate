@@ -120,12 +120,12 @@ Download a free sample 360° image:
 3. Select "Camera" mode
 4. Follow on-screen guide to capture 360° panorama
 5. Export as JPG from the app
-6. Upload to RoomBuddy
+6. Upload to RoomBay
 
 ### Using Ricoh Theta or Insta360 Camera
 1. Capture 360° photo with camera
 2. Export as equirectangular JPG (2:1 aspect ratio)
-3. Upload to RoomBuddy
+3. Upload to RoomBay
 
 ## Technical Details
 
@@ -149,7 +149,7 @@ Direct download links:
 - https://pannellum.org/images/cerro-toco-0.jpg (Cerro Toco, Chile)
 - https://pannellum.org/images/from-tree.jpg (Forest view)
 
-Right-click → Save As → upload to RoomBuddy
+Right-click → Save As → upload to RoomBay
 
 ## Next Steps After Testing
 

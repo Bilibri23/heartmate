@@ -1,8 +1,8 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.rooms.roombuddy.dto.response.NotificationResponse;
-import org.rooms.roombuddy.service.NotificationService;
+import org.rooms.roombay.dto.response.NotificationResponse;
+import org.rooms.roombay.service.NotificationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;

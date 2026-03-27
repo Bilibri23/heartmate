@@ -1,5 +1,5 @@
 
-# RoomBuddy FAQ (Tenant, Landlord, Admin)
+# RoomBay FAQ (Tenant, Landlord, Admin)
 
 ## Tenant
 

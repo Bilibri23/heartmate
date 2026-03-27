@@ -1,16 +1,16 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.UserSuspensionRequest;
-import org.rooms.roombuddy.dto.request.UserUpdateRequest;
-import org.rooms.roombuddy.dto.response.UserManagementResponse;
-import org.rooms.roombuddy.entity.StudentVerification;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.repository.StudentVerificationRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.dto.request.UserSuspensionRequest;
+import org.rooms.roombay.dto.request.UserUpdateRequest;
+import org.rooms.roombay.dto.response.UserManagementResponse;
+import org.rooms.roombay.entity.StudentVerification;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;

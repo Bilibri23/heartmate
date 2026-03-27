@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -6,12 +6,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.BusinessVerificationRequest;
-import org.rooms.roombuddy.dto.request.LandlordVerificationRequest;
-import org.rooms.roombuddy.dto.request.PropertyVerificationRequest;
-import org.rooms.roombuddy.dto.response.LandlordVerificationResponse;
-import org.rooms.roombuddy.security.SecurityUtils;
-import org.rooms.roombuddy.service.LandlordVerificationService;
+import org.rooms.roombay.dto.request.BusinessVerificationRequest;
+import org.rooms.roombay.dto.request.LandlordVerificationRequest;
+import org.rooms.roombay.dto.request.PropertyVerificationRequest;
+import org.rooms.roombay.dto.response.LandlordVerificationResponse;
+import org.rooms.roombay.security.SecurityUtils;
+import org.rooms.roombay.service.LandlordVerificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

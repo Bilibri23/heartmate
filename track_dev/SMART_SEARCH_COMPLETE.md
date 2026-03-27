@@ -4,7 +4,7 @@
 
 ### 🔒 Security Layer (CRITICAL - Implemented First)
 **Files Created:**
-- `backend/src/main/java/org/rooms/roombuddy/util/InputSanitizer.java`
+- `backend/src/main/java/org/rooms/roombay/util/InputSanitizer.java`
 - `SECURITY_IMPLEMENTATION.md` (Complete testing guide)
 
 **Protection Against:**
@@ -372,4 +372,4 @@ You now have:
 
 ---
 
-**Your RoomBuddy app now has enterprise-grade search with bulletproof security!** 🚀🔒
+**Your RoomBay app now has enterprise-grade search with bulletproof security!** 🚀🔒

@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -6,12 +6,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.UserSuspensionRequest;
-import org.rooms.roombuddy.dto.request.UserUpdateRequest;
-import org.rooms.roombuddy.dto.response.UserManagementResponse;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.security.SecurityUtils;
-import org.rooms.roombuddy.service.UserManagementService;
+import org.rooms.roombay.dto.request.UserSuspensionRequest;
+import org.rooms.roombay.dto.request.UserUpdateRequest;
+import org.rooms.roombay.dto.response.UserManagementResponse;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.security.SecurityUtils;
+import org.rooms.roombay.service.UserManagementService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.exception;
+package org.rooms.roombay.exception;
 
 public class BadRequestException extends RuntimeException {
     public BadRequestException(String message) {

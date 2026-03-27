@@ -25,7 +25,7 @@ interface MobileHeaderProps {
 }
 
 export function MobileHeader({ 
-  title = "RoomBuddy", 
+  title = "RoomBay", 
   showNotifications = true,
   showLanguage = true,
   showBack = false

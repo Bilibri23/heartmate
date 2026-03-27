@@ -1,4 +1,4 @@
-# Roombuddy Revised Scope (MVP)
+# Roombay Revised Scope (MVP)
 
 **Purpose:** Align product scope with real user problems. Remove features that don't serve the core value; fix gaps that block admin/landlord/tenant workflows.
 

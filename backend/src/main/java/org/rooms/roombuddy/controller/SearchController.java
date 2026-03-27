@@ -1,13 +1,13 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.response.ListingResponse;
-import org.rooms.roombuddy.search.ElasticsearchSearchService;
-import org.rooms.roombuddy.service.ListingService;
-import org.rooms.roombuddy.util.InputSanitizer;
+import org.rooms.roombay.dto.response.ListingResponse;
+import org.rooms.roombay.search.ElasticsearchSearchService;
+import org.rooms.roombay.service.ListingService;
+import org.rooms.roombay.util.InputSanitizer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

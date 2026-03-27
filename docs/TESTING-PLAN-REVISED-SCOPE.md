@@ -1,4 +1,4 @@
-# Roombuddy Testing Plan (Revised Scope)
+# Roombay Testing Plan (Revised Scope)
 
 **Aligned with:** [REVISED-SCOPE-MVP.md](REVISED-SCOPE-MVP.md) and [PRODUCT-BACKLOG.md](PRODUCT-BACKLOG.md)
 

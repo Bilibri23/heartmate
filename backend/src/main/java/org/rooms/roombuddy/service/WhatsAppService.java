@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -100,10 +100,10 @@ public class WhatsAppService {
     private String buildOtpMessage(String otpCode, String userName) {
         return String.format(
             "Hello %s!%n%n" +
-            "Your RoomConnect verification code is: *%s*%n%n" +
+            "Your RoomBay verification code is: *%s*%n%n" +
             "This code will expire in 5 minutes.%n%n" +
             "If you didn't request this code, please ignore this message.%n%n" +
-            "RoomConnect Team",
+            "RoomBay Team",
             userName != null ? userName : "there",
             otpCode
         );

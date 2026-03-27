@@ -1,8 +1,8 @@
-# RoomBuddy Backend Dockerfile
+# RoomBay Backend Dockerfile
 # Multi-stage build for optimized production image
 #
 # NOTE: This Dockerfile should be built from the PROJECT ROOT, not from backend/
-# Example: docker build -f backend/Dockerfile -t roombuddy-backend .
+# Example: docker build -f backend/Dockerfile -t roombay-backend .
 
 # ==================== BUILD STAGE ====================
 FROM maven:3.9-eclipse-temurin-17-alpine AS builder
@@ -27,13 +27,13 @@ RUN mvn clean package -DskipTests -B -Dmaven.wagon.http.pool=false
 FROM eclipse-temurin:17-jre-alpine
 
 # Add labels for container metadata
-LABEL maintainer="RoomBuddy Team"
+LABEL maintainer="RoomBay Team"
 LABEL version="1.0.0"
-LABEL description="RoomBuddy Backend API - Student Housing Platform"
+LABEL description="RoomBay Backend API - Student Housing Platform"
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S roombuddy && \
-    adduser -u 1001 -S roombuddy -G roombuddy
+RUN addgroup -g 1001 -S roombay && \
+    adduser -u 1001 -S roombay -G roombay
 
 WORKDIR /app
 
@@ -41,10 +41,10 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 
 # Change ownership to non-root user
-RUN chown -R roombuddy:roombuddy /app
+RUN chown -R roombay:roombay /app
 
 # Switch to non-root user
-USER roombuddy
+USER roombay
 
 # Expose the application port
 EXPOSE 8082

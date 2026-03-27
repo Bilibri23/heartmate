@@ -1,4 +1,4 @@
-# Roombuddy Product Backlog
+# Roombay Product Backlog
 
 **Principle:** Each item ties to a real user problem. Prioritized by impact and dependency.
 

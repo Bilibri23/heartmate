@@ -571,7 +571,7 @@ CREATE INDEX idx_applications_created ON room_applications(created_at DESC);
 
 ## 🎉 **Impact**
 
-**The Applications System is the CORE booking flow for RoomBuddy!**
+**The Applications System is the CORE booking flow for RoomBay!**
 
 This feature enables:
 - Students to apply for rooms easily

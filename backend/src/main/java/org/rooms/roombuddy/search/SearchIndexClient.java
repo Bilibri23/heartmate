@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.search;
+package org.rooms.roombay.search;
 
 import java.util.Map;
 import java.util.UUID;

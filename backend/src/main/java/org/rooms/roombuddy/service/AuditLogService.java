@@ -1,11 +1,11 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.entity.AuditLog;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.repository.AuditLogRepository;
-import org.rooms.roombuddy.repository.UserRepository;
+import org.rooms.roombay.entity.AuditLog;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.repository.AuditLogRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;

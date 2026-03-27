@@ -12,7 +12,7 @@ However, the **People-to-Homes** matching is more like a **recommendation system
 
 ## 1. Roommate-to-Roommate Matching ✅ FULLY IMPLEMENTED
 
-### Location: `backend/src/main/java/org/rooms/roombuddy/service/MatchingService.java`
+### Location: `backend/src/main/java/org/rooms/roombay/service/MatchingService.java`
 
 ### How It Works:
 - **Weighted Compatibility Algorithm** with 60% minimum threshold
@@ -49,7 +49,7 @@ However, the **People-to-Homes** matching is more like a **recommendation system
 
 ## 2. People-to-Homes Matching ⚠️ PARTIALLY IMPLEMENTED
 
-### Location: `backend/src/main/java/org/rooms/roombuddy/service/RecommendationService.java`
+### Location: `backend/src/main/java/org/rooms/roombay/service/RecommendationService.java`
 
 ### How It Currently Works:
 This is a **recommendation engine** (like LinkedIn's feed), NOT a real-time Uber-style matching system.

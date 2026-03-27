@@ -11,10 +11,10 @@ The listing search index is **optional**. By default the app uses `NoOpSearchInd
 
 2. **Configure the backend** (e.g. in `application.properties` or `.env`):
    ```properties
-   roombuddy.search.elasticsearch.enabled=true
+   roombay.search.elasticsearch.enabled=true
    spring.elasticsearch.uris=http://localhost:9200
    # optional:
-   roombuddy.search.elasticsearch.index-name=listings
+   roombay.search.elasticsearch.index-name=listings
    ```
 
 3. **Restart the backend.** `ElasticsearchConfig` extends Spring Data Elasticsearch's `ElasticsearchConfiguration` to create the `ElasticsearchClient` bean (the `spring.elasticsearch.uris` property alone does not auto-create it). The indexer job will create/update/delete documents in the `listings` index as outbox events are processed.

@@ -1,7 +1,7 @@
-package org.rooms.roombuddy.repository;
+package org.rooms.roombay.repository;
 
 import jakarta.persistence.criteria.Predicate;
-import org.rooms.roombuddy.entity.PropertyListing;
+import org.rooms.roombay.entity.PropertyListing;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;

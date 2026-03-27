@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -6,14 +6,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.rooms.roombuddy.entity.Match;
-import org.rooms.roombuddy.entity.RoommatePreferences;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.dto.request.MatchActionRequest;
-import org.rooms.roombuddy.repository.MatchRepository;
-import org.rooms.roombuddy.repository.RoommatePreferencesRepository;
-import org.rooms.roombuddy.repository.UserRepository;
-import org.rooms.roombuddy.repository.ProfileRepository;
+import org.rooms.roombay.entity.Match;
+import org.rooms.roombay.entity.RoommatePreferences;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.dto.request.MatchActionRequest;
+import org.rooms.roombay.repository.MatchRepository;
+import org.rooms.roombay.repository.RoommatePreferencesRepository;
+import org.rooms.roombay.repository.UserRepository;
+import org.rooms.roombay.repository.ProfileRepository;
 
 import java.util.Optional;
 import java.util.UUID;

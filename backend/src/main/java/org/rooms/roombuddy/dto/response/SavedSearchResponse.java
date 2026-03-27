@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.dto.response;
+package org.rooms.roombay.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

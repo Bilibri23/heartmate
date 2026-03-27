@@ -35,7 +35,7 @@
 
 **Action Required:**
 ```bash
-cd c:\Users\noble\IdeaProjects\Roombuddy
+cd c:\Users\noble\IdeaProjects\Roombay
 # Stop current backend (Ctrl+C)
 mvn spring-boot:run
 ```

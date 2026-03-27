@@ -26,7 +26,7 @@ export default function AdminSettingsPage() {
     autoApproveListings: false,
     maxListingsPerLandlord: 10,
     platformFeePercent: 5,
-    supportEmail: "support@roombuddy.cm",
+    supportEmail: "support@roombay.cm",
     notifyOnNewListing: true,
     notifyOnNewVerification: true,
   })

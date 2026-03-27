@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

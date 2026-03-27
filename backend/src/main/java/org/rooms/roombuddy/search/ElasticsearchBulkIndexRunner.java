@@ -1,8 +1,8 @@
-package org.rooms.roombuddy.search;
+package org.rooms.roombay.search;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.service.ListingService;
+import org.rooms.roombay.service.ListingService;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -19,7 +19,7 @@ import java.util.Optional;
  */
 @Component
 @Order(100)
-@ConditionalOnProperty(name = "roombuddy.search.elasticsearch.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "roombay.search.elasticsearch.enabled", havingValue = "true")
 @ConditionalOnBean(ElasticsearchSearchService.class)
 @RequiredArgsConstructor
 @Slf4j

@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.config;
+package org.rooms.roombay.config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -19,9 +19,9 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .openapi("3.0.0")
                 .info(new Info()
-                        .title("Roombuddy API")
+                        .title("RoomBay API")
                         .version("1.0.0")
-                        .description("API for Roombuddy application"))
+                        .description("API for the RoomBay application"))
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
                 .components(new Components()
                         .addSecuritySchemes(SECURITY_SCHEME_NAME,

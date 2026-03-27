@@ -1,10 +1,10 @@
-package org.rooms.roombuddy.dto.response;
+package org.rooms.roombay.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.rooms.roombuddy.dto.response.PhotoDTO;
+import org.rooms.roombay.dto.response.PhotoDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

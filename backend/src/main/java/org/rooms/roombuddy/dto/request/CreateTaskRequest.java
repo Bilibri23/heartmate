@@ -1,10 +1,10 @@
-package org.rooms.roombuddy.dto.request;
+package org.rooms.roombay.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import org.rooms.roombuddy.entity.HouseholdTask;
+import org.rooms.roombay.entity.HouseholdTask;
 
 import java.time.LocalDate;
 import java.time.LocalTime;

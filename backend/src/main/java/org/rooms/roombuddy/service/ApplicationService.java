@@ -1,26 +1,26 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.ApplicationReviewRequest;
-import org.rooms.roombuddy.dto.request.RoomApplicationRequest;
-import org.rooms.roombuddy.dto.response.RoomApplicationResponse;
-import org.rooms.roombuddy.entity.PropertyListing;
-import org.rooms.roombuddy.entity.RoomApplication;
-import org.rooms.roombuddy.entity.User;
-import org.rooms.roombuddy.exception.BadRequestException;
-import org.rooms.roombuddy.exception.ResourceNotFoundException;
-import org.rooms.roombuddy.repository.CoApplicationInvitationRepository;
-import org.rooms.roombuddy.repository.ListingPhotoRepository;
-import org.rooms.roombuddy.repository.MatchRepository;
-import org.rooms.roombuddy.repository.ProfileRepository;
-import org.rooms.roombuddy.repository.PropertyListingRepository;
-import org.rooms.roombuddy.repository.RoomApplicationRepository;
-import org.rooms.roombuddy.repository.StudentVerificationRepository;
-import org.rooms.roombuddy.repository.UserRepository;
-import org.rooms.roombuddy.entity.CoApplicationInvitation;
-import org.rooms.roombuddy.entity.Match;
-import org.rooms.roombuddy.entity.Notification;
+import org.rooms.roombay.dto.request.ApplicationReviewRequest;
+import org.rooms.roombay.dto.request.RoomApplicationRequest;
+import org.rooms.roombay.dto.response.RoomApplicationResponse;
+import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.entity.RoomApplication;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.exception.BadRequestException;
+import org.rooms.roombay.exception.ResourceNotFoundException;
+import org.rooms.roombay.repository.CoApplicationInvitationRepository;
+import org.rooms.roombay.repository.ListingPhotoRepository;
+import org.rooms.roombay.repository.MatchRepository;
+import org.rooms.roombay.repository.ProfileRepository;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.RoomApplicationRepository;
+import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.rooms.roombay.repository.UserRepository;
+import org.rooms.roombay.entity.CoApplicationInvitation;
+import org.rooms.roombay.entity.Match;
+import org.rooms.roombay.entity.Notification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -401,7 +401,7 @@ public class ApplicationService {
             // Auto-create lease when application is accepted
             try {
                 LeaseService leaseService = applicationContext.getBean(LeaseService.class);
-                org.rooms.roombuddy.dto.request.LeaseRequest leaseRequest = new org.rooms.roombuddy.dto.request.LeaseRequest();
+                org.rooms.roombay.dto.request.LeaseRequest leaseRequest = new org.rooms.roombay.dto.request.LeaseRequest();
                 leaseRequest.setApplicationId(application.getId());
                 leaseRequest.setStartDate(application.getMoveInDate());
                 leaseRequest.setEndDate(application.getMoveInDate().plusMonths(application.getLeaseDurationMonths()));
@@ -543,7 +543,7 @@ public class ApplicationService {
         if (response.getStudentId() != null) {
             verificationRepository.findByUserId(response.getStudentId())
                 .ifPresent(verification -> 
-                    response.setStudentVerified(verification.getStatus() == org.rooms.roombuddy.entity.StudentVerification.Status.VERIFIED)
+                    response.setStudentVerified(verification.getStatus() == org.rooms.roombay.entity.StudentVerification.Status.VERIFIED)
                 );
             
             // Get student profile photo

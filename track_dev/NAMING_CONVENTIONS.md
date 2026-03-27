@@ -1,4 +1,4 @@
-# 📝 RoomBuddy Naming Conventions
+# 📝 RoomBay Naming Conventions
 
 **Date:** November 28, 2025  
 **Status:** ✅ Confirmed
@@ -9,7 +9,7 @@
 
 ### **User Roles:**
 
-| Original Spec | RoomBuddy | Description |
+| Original Spec | RoomBay | Description |
 |---------------|-----------|-------------|
 | Seeker | **STUDENT** | Users looking for rooms/roommates |
 | Lister | **LANDLORD** | Users offering rooms/properties |
@@ -17,7 +17,7 @@
 
 ### **Entities:**
 
-| Original Spec | RoomBuddy | Notes |
+| Original Spec | RoomBay | Notes |
 |---------------|-----------|-------|
 | listings | **PropertyListing** | Keep current naming |
 | seeker_profiles | **StudentPreferences** | To be created |
@@ -144,7 +144,7 @@ Landlord Actions:
 
 ## 📊 Context Mapping
 
-### **Original Spec → RoomBuddy:**
+### **Original Spec → RoomBay:**
 
 ```javascript
 // Original Spec
@@ -161,7 +161,7 @@ Landlord Actions:
   }
 }
 
-// RoomBuddy Implementation
+// RoomBay Implementation
 {
   "student": {
     "role": "STUDENT",
@@ -182,7 +182,7 @@ Landlord Actions:
 
 When reading the original spec, translate as follows:
 
-| Spec Term | RoomBuddy Term | Example |
+| Spec Term | RoomBay Term | Example |
 |-----------|----------------|---------|
 | Seeker | Student | "Seeker applies" → "Student applies" |
 | Lister | Landlord | "Lister creates listing" → "Landlord creates listing" |
@@ -198,7 +198,7 @@ When reading the original spec, translate as follows:
 1. **Clarity:** "Student" and "Landlord" are immediately clear
 2. **Context:** Fits university/student housing market
 3. **Consistency:** Already used throughout codebase
-4. **Branding:** Aligns with "RoomBuddy" student focus
+4. **Branding:** Aligns with "RoomBay" student focus
 5. **Simplicity:** Easier to understand than generic "Seeker/Lister"
 
 ---

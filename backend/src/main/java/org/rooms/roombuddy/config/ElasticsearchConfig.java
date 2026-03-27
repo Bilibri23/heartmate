@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.config;
+package org.rooms.roombay.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,12 +10,12 @@ import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfigurat
 import java.net.URI;
 
 /**
- * Configures ElasticsearchClient bean when roombuddy.search.elasticsearch.enabled=true.
+ * Configures ElasticsearchClient bean when roombay.search.elasticsearch.enabled=true.
  * Spring Data Elasticsearch requires this explicit configuration to create the client;
  * spring.elasticsearch.uris alone does not auto-create the bean.
  */
 @Configuration
-@ConditionalOnProperty(name = "roombuddy.search.elasticsearch.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "roombay.search.elasticsearch.enabled", havingValue = "true")
 @Slf4j
 public class ElasticsearchConfig extends ElasticsearchConfiguration {
 

@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -6,13 +6,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.LeaseRequest;
-import org.rooms.roombuddy.dto.request.SignatureRequest;
-import org.rooms.roombuddy.dto.response.LeaseResponse;
-import org.rooms.roombuddy.entity.Lease;
-import org.rooms.roombuddy.security.SecurityUtils;
-import org.rooms.roombuddy.service.LeaseDocumentService;
-import org.rooms.roombuddy.service.LeaseService;
+import org.rooms.roombay.dto.request.LeaseRequest;
+import org.rooms.roombay.dto.request.SignatureRequest;
+import org.rooms.roombay.dto.response.LeaseResponse;
+import org.rooms.roombay.entity.Lease;
+import org.rooms.roombay.security.SecurityUtils;
+import org.rooms.roombay.service.LeaseDocumentService;
+import org.rooms.roombay.service.LeaseService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

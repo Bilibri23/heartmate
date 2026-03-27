@@ -1,15 +1,15 @@
-package org.rooms.roombuddy.controller;
+package org.rooms.roombay.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.rooms.roombuddy.dto.request.AiChatRequest;
-import org.rooms.roombuddy.dto.response.AiChatResponse;
-import org.rooms.roombuddy.dto.response.AiIngestResponse;
-import org.rooms.roombuddy.service.AiAssistantService;
-import org.rooms.roombuddy.service.AiIngestionService;
+import org.rooms.roombay.dto.request.AiChatRequest;
+import org.rooms.roombay.dto.response.AiChatResponse;
+import org.rooms.roombay.dto.response.AiIngestResponse;
+import org.rooms.roombay.service.AiAssistantService;
+import org.rooms.roombay.service.AiIngestionService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;

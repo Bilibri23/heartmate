@@ -1,10 +1,10 @@
-# 🎯 **SENIOR ENGINEERING REVIEW - RoomBuddy Platform**
+# 🎯 **SENIOR ENGINEERING REVIEW - RoomBay Platform**
 
 ## **Executive Summary**
 
 **Problem Statement:** Students struggle to find safe, affordable accommodation and compatible roommates near their universities.
 
-**Solution:** RoomBuddy - A matching platform connecting students with landlords and roommates.
+**Solution:** RoomBay - A matching platform connecting students with landlords and roommates.
 
 **Overall Assessment:** ⭐⭐⭐⭐ (4/5)
 - Strong foundation with good technical choices
@@ -622,7 +622,7 @@ public class SwaggerConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
             .info(new Info()
-                .title("RoomBuddy API")
+                .title("RoomBay API")
                 .version("1.0")
                 .description("Student accommodation & roommate matching platform"));
     }
