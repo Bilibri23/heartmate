@@ -1,27 +1,118 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useMemo, useState } from "react"
+import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import {
-  Home,
-  Search,
-  Building2,
-  Shield,
   ArrowRight,
+  Building2,
   CheckCircle2,
-  MessageSquare,
+  ChevronRight,
   FileCheck2,
-  Bell,
+  Heart,
+  Home,
+  MapPin,
+  MessageSquare,
+  Moon,
+  Play,
+  Search,
+  Shield,
   Sparkles,
+  Star,
+  Sun,
   Users,
+  Bell,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+
+const heroImages = [
+  "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1200&q=80",
+]
+
+const propertyShots = [
+  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=900&q=80",
+]
+
+const lifestyleShots = [
+  "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=900&q=80",
+]
+
+const stats = [
+  { value: "2 sec", label: "to understand a listing" },
+  { value: "Visual", label: "discovery-first browsing" },
+  { value: "Trusted", label: "signals before you commit" },
+]
+
+const features = [
+  {
+    icon: Search,
+    title: "Scroll into your next home",
+    description:
+      "Move through homes like content, not like a heavy real-estate search form.",
+  },
+  {
+    icon: Shield,
+    title: "Confidence at first glance",
+    description:
+      "Verified landlords, fit cues, and cleaner listing details help users decide faster.",
+  },
+  {
+    icon: Users,
+    title: "Roommate help only when useful",
+    description:
+      "Split-rent support stays contextual instead of becoming the identity of the product.",
+  },
+]
+
+const steps = [
+  {
+    icon: Sparkles,
+    title: "Discover",
+    copy: "Open RoomBay and instantly browse homes that match your area, timing, and budget.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Act",
+    copy: "Save, message, or apply directly from discovery without losing momentum.",
+  },
+  {
+    icon: FileCheck2,
+    title: "Secure",
+    copy: "Move into a more guided flow only when you’re already interested and ready.",
+  },
+]
+
+const trustItems = [
+  {
+    icon: CheckCircle2,
+    title: "High-clarity listings",
+    description: "Price, area, availability, and property vibe are visible immediately.",
+  },
+  {
+    icon: Shield,
+    title: "Trust-aware browsing",
+    description: "Verification and reputation cues support faster, safer decisions.",
+  },
+  {
+    icon: Bell,
+    title: "Clear next steps",
+    description: "From first interest to application updates, the journey stays explicit.",
+  },
+]
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const [theme, setTheme] = useState<"dark" | "light">("dark")
+  const [heroIndex, setHeroIndex] = useState(0)
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -35,10 +126,106 @@ export default function LandingPage() {
     }
   }, [user, isLoading, router])
 
+  useEffect(() => {
+    const savedTheme = typeof window !== "undefined" ? localStorage.getItem("roombay-landing-theme") : null
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setTheme(savedTheme)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("roombay-landing-theme", theme)
+    }
+  }, [theme])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroIndex((current) => (current + 1) % heroImages.length)
+    }, 3500)
+    return () => clearInterval(interval)
+  }, [])
+
+  const styles = useMemo(() => {
+    if (theme === "light") {
+      return {
+        root: "bg-[#f6f8fc] text-slate-950",
+        bgGlow:
+          "bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_24%),radial-gradient(circle_at_80%_20%,_rgba(99,102,241,0.18),_transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(168,85,247,0.15),_transparent_24%),linear-gradient(180deg,#eef4ff_0%,#f8f9fc_40%,#ffffff_100%)]",
+        grid: "bg-[linear-gradient(to_right,rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(15,23,42,0.04)_1px,transparent_1px)]",
+        header: "border-slate-200/80 bg-white/75",
+        logo: "bg-slate-950 text-white shadow-[0_20px_40px_rgba(15,23,42,0.12)]",
+        nav: "text-slate-600",
+        navHover: "hover:text-slate-950",
+        ghostBtn: "text-slate-700 hover:bg-slate-100 hover:text-slate-950",
+        primaryBtn: "bg-slate-950 text-white hover:bg-slate-800",
+        toggleWrap: "border-slate-200 bg-white/90",
+        badge: "border-blue-100 bg-white/90 text-blue-700 shadow-[0_10px_30px_rgba(56,189,248,0.08)]",
+        heading: "text-slate-950",
+        headlineAccent: "from-cyan-500 via-blue-600 to-violet-600",
+        paragraph: "text-slate-600",
+        card: "border-white/80 bg-white/85 shadow-[0_18px_50px_rgba(15,23,42,0.08)]",
+        cardMuted: "text-slate-600",
+        visualShell: "border-white/90 bg-white/80 shadow-[0_40px_120px_rgba(15,23,42,0.12)]",
+        visualTop: "border-slate-200 bg-slate-50",
+        feedLabel: "text-slate-500",
+        feedTitle: "text-slate-950",
+        feedChip: "border-cyan-200 bg-cyan-50 text-cyan-700",
+        mediaCard: "border-white/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.14)]",
+        glass: "border-white/80 bg-white/78",
+        darkSection: "border-slate-200/70 bg-white",
+        sectionCard: "border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.06)]",
+        sectionCard2: "border-slate-200 bg-[#f7f8fc]",
+        trustHero: "border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.96))] shadow-[0_30px_80px_rgba(15,23,42,0.08)]",
+        trustText: "text-slate-600",
+        trustPill: "border-cyan-200 bg-cyan-50 text-cyan-700",
+        cta: "border-white/80 bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_62%,#7c3aed_100%)] text-white shadow-[0_35px_100px_rgba(37,99,235,0.24)]",
+        footer: "border-slate-200 bg-white text-slate-500",
+        footerLogo: "bg-slate-950 text-white",
+      }
+    }
+
+    return {
+      root: "bg-[#050816] text-white",
+      bgGlow:
+        "bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_24%),radial-gradient(circle_at_80%_20%,_rgba(99,102,241,0.18),_transparent_26%),radial-gradient(circle_at_bottom_right,_rgba(168,85,247,0.18),_transparent_24%),linear-gradient(180deg,#050816_0%,#070b1d_36%,#04060f_100%)]",
+      grid: "bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)]",
+      header: "border-white/10 bg-[#050816]/70",
+      logo: "bg-white text-slate-950 shadow-[0_20px_40px_rgba(255,255,255,0.16)]",
+      nav: "text-white/60",
+      navHover: "hover:text-white",
+      ghostBtn: "text-white hover:bg-white/10 hover:text-white",
+      primaryBtn: "bg-white text-slate-950 hover:bg-slate-200",
+      toggleWrap: "border-white/10 bg-white/5",
+      badge: "border-white/12 bg-white/6 text-cyan-300 shadow-[0_10px_30px_rgba(56,189,248,0.08)]",
+      heading: "text-white",
+      headlineAccent: "from-cyan-300 via-blue-400 to-violet-400",
+      paragraph: "text-white/65",
+      card: "border-white/10 bg-white/[0.05] shadow-[0_18px_50px_rgba(15,23,42,0.18)]",
+      cardMuted: "text-white/55",
+      visualShell: "border-white/10 bg-white/[0.06] shadow-[0_40px_120px_rgba(2,6,23,0.55)]",
+      visualTop: "border-white/10 bg-white/[0.04]",
+      feedLabel: "text-white/45",
+      feedTitle: "text-white",
+      feedChip: "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
+      mediaCard: "border-white/10 bg-[#0a1023] shadow-[0_24px_80px_rgba(0,0,0,0.38)]",
+      glass: "border-white/10 bg-white/[0.05]",
+      darkSection: "border-white/8 bg-white/[0.03]",
+      sectionCard: "border-white/10 bg-white/[0.05] shadow-[0_22px_60px_rgba(0,0,0,0.26)]",
+      sectionCard2: "border-white/10 bg-[#0a1020]",
+      trustHero: "border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_30px_80px_rgba(0,0,0,0.28)]",
+      trustText: "text-white/58",
+      trustPill: "border-cyan-400/20 bg-cyan-400/10 text-cyan-300",
+      cta: "border-white/10 bg-[linear-gradient(135deg,#0f172a_0%,#111c3d_28%,#1d4ed8_62%,#7c3aed_100%)] text-white shadow-[0_35px_100px_rgba(37,99,235,0.28)]",
+      footer: "border-white/8 bg-black/10 text-white/45",
+      footerLogo: "bg-white text-slate-950",
+    }
+  }, [theme])
+
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+      <div className={`flex min-h-screen items-center justify-center ${theme === "light" ? "bg-[#f6f8fc]" : "bg-[#060816]"}`}>
+        <div className={`h-8 w-8 animate-spin rounded-full border-4 ${theme === "light" ? "border-blue-600" : "border-cyan-400"} border-t-transparent`} />
       </div>
     )
   }
@@ -48,240 +235,411 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-white">
-      <header className="sticky top-0 z-50 border-b border-slate-100 bg-white/80 backdrop-blur-lg">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600">
-              <Home className="h-5 w-5 text-white" />
+    <div className={`min-h-screen overflow-x-hidden ${styles.root}`}>
+      <div className={`absolute inset-0 -z-20 ${styles.bgGlow}`} />
+      <div className={`absolute inset-0 -z-10 ${styles.grid} bg-[size:72px_72px] [mask-image:radial-gradient(circle_at_center,black,transparent_88%)]`} />
+
+      <header className={`sticky top-0 z-50 border-b backdrop-blur-2xl ${styles.header}`}>
+        <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${styles.logo}`}>
+              <Home className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold text-slate-900">RoomBay</span>
-          </div>
-          <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
-            <a href="#how-it-works" className="transition hover:text-slate-900">How it works</a>
-            <a href="#for-tenants" className="transition hover:text-slate-900">For tenants</a>
-            <a href="#for-landlords" className="transition hover:text-slate-900">For landlords</a>
+            <div>
+              <p className={`text-lg font-semibold tracking-tight ${styles.heading}`}>RoomBay</p>
+              <p className={theme === "light" ? "text-xs text-slate-500" : "text-xs text-white/50"}>Fast housing access</p>
+            </div>
+          </Link>
+
+          <nav className={`hidden items-center gap-7 text-sm lg:flex ${styles.nav}`}>
+            <a href="#features" className={`transition ${styles.navHover}`}>Features</a>
+            <a href="#how-it-works" className={`transition ${styles.navHover}`}>How it works</a>
+            <a href="#trust" className={`transition ${styles.navHover}`}>Trust</a>
           </nav>
+
           <div className="flex items-center gap-2">
+            <div className={`flex items-center rounded-full border p-1 ${styles.toggleWrap}`}>
+              <button
+                type="button"
+                aria-label="Use light mode"
+                onClick={() => setTheme("light")}
+                className={`rounded-full p-2 transition ${theme === "light" ? "bg-slate-950 text-white" : theme === "dark" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-950"}`}
+              >
+                <Sun className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Use dark mode"
+                onClick={() => setTheme("dark")}
+                className={`rounded-full p-2 transition ${theme === "dark" ? theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950" : theme === "light" ? "text-slate-500 hover:text-slate-950" : "text-white/70 hover:text-white"}`}
+              >
+                <Moon className="h-4 w-4" />
+              </button>
+            </div>
+
             <Link href="/login">
-              <Button variant="ghost" size="sm">Login</Button>
+              <Button variant="ghost" size="sm" className={`rounded-full px-4 ${styles.ghostBtn}`}>
+                Login
+              </Button>
             </Link>
-            <Link href="/register">
-              <Button size="sm" className="rounded-full">Create account</Button>
+            <Link href="/listings">
+              <Button size="sm" className={`rounded-full px-5 ${styles.primaryBtn}`}>
+                Browse now
+              </Button>
             </Link>
           </div>
         </div>
       </header>
 
-      <section className="px-4 pb-10 pt-14 text-center md:pt-20">
-        <div className="mx-auto max-w-3xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700">
-            <Sparkles className="h-4 w-4" />
-            Verified rentals, roommate matching, and guided support
-          </div>
-          <h1 className="mb-4 text-4xl font-bold leading-tight text-slate-900 md:text-6xl">
-            Rent smarter with
-            <span className="text-blue-600"> RoomBay</span>
-          </h1>
-          <p className="mx-auto mb-8 max-w-2xl text-lg text-slate-600">
-            Discover trusted listings, share options with matched roommates, and manage applications,
-            leases, payments, and support in one place.
-          </p>
-          <div className="flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/listings">
-              <Button
-                size="lg"
-                className="w-full rounded-full px-8 sm:w-auto"
-                onClick={() => {
-                  if (typeof window !== "undefined") {
-                    window.dispatchEvent(new CustomEvent("analytics:anonymousBrowseStart"))
-                  }
-                }}
-              >
-                <Search className="mr-2 h-5 w-5" />
-                Browse listings now
-              </Button>
-            </Link>
-            <Link href="/register?role=STUDENT">
-              <Button size="lg" variant="outline" className="w-full rounded-full px-8 sm:w-auto">
-                <Search className="mr-2 h-5 w-5" />
-                I am looking for a room
-              </Button>
-            </Link>
-            <Link href="/register?role=LANDLORD">
-              <Button size="lg" variant="outline" className="w-full rounded-full px-8 sm:w-auto">
-                <Building2 className="mr-2 h-5 w-5" />
-                I want to list a property
-              </Button>
-            </Link>
-          </div>
-          <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-slate-900">Verification first</p>
-              <p className="text-sm text-slate-600">ID and listing reviews reduce risky interactions.</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-slate-900">Roommate-ready flow</p>
-              <p className="text-sm text-slate-600">Share listings with matched roommates instantly.</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-semibold text-slate-900">Built-in platform brain</p>
-              <p className="text-sm text-slate-600">Ask the AI assistant for guided next steps.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <main>
+        <section className="px-4 pb-16 pt-12 sm:px-6 lg:px-8 lg:pb-24 lg:pt-16">
+          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1fr_0.95fr]">
+            <div>
+              <div className={`mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium backdrop-blur-xl ${styles.badge}`}>
+                <Sparkles className="h-4 w-4" />
+                Discovery-first housing with optional roommate intelligence
+              </div>
 
-      <section id="how-it-works" className="border-y border-slate-100 bg-white px-4 py-14">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="mb-10 text-center text-2xl font-bold text-slate-900 md:text-3xl">
-            How RoomBay works
-          </h2>
-          <div className="grid gap-5 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 p-5">
-              <Search className="mb-3 h-6 w-6 text-blue-600" />
-              <h3 className="mb-1 font-semibold text-slate-900">1. Discover</h3>
-              <p className="text-sm text-slate-600">Search listings that match your budget, city, and move-in needs.</p>
+              <h1 className={`max-w-4xl text-5xl font-semibold leading-[0.95] tracking-[-0.05em] sm:text-6xl lg:text-7xl xl:text-[5.5rem] ${styles.heading}`}>
+                Find your next home
+                <span className={`block bg-gradient-to-r bg-clip-text text-transparent ${styles.headlineAccent}`}>
+                  like you scroll content.
+                </span>
+              </h1>
+
+              <p className={`mt-6 max-w-2xl text-lg leading-8 sm:text-xl ${styles.paragraph}`}>
+                RoomBay turns housing into a fast visual experience — discover listings, understand them instantly,
+                and take action without fighting through friction.
+              </p>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href="/listings">
+                  <Button
+                    size="lg"
+                    className={`h-13 w-full rounded-full px-7 text-base sm:w-auto ${styles.primaryBtn}`}
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(new CustomEvent("analytics:anonymousBrowseStart"))
+                      }
+                    }}
+                  >
+                    Start browsing
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+
+                <Link href="/register?role=LANDLORD">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className={`h-13 w-full rounded-full px-7 text-base backdrop-blur-xl sm:w-auto ${theme === "light" ? "border-slate-300 bg-white text-slate-950 hover:bg-slate-100" : "border-white/15 bg-white/6 text-white hover:bg-white/10"}`}
+                  >
+                    <Building2 className="mr-2 h-5 w-5" />
+                    List a property
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+                {stats.map((item) => (
+                  <div key={item.label} className={`rounded-[28px] border p-5 backdrop-blur-xl ${styles.card}`}>
+                    <p className={`text-2xl font-semibold tracking-tight ${styles.heading}`}>{item.value}</p>
+                    <p className={`mt-1 text-sm leading-6 ${styles.cardMuted}`}>{item.label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="rounded-2xl border border-slate-200 p-5">
-              <Users className="mb-3 h-6 w-6 text-indigo-600" />
-              <h3 className="mb-1 font-semibold text-slate-900">2. Share</h3>
-              <p className="text-sm text-slate-600">Send listings to matched roommates and coordinate decisions faster.</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 p-5">
-              <FileCheck2 className="mb-3 h-6 w-6 text-emerald-600" />
-              <h3 className="mb-1 font-semibold text-slate-900">3. Apply</h3>
-              <p className="text-sm text-slate-600">Submit applications and complete verification and lease steps clearly.</p>
-            </div>
-            <div className="rounded-2xl border border-slate-200 p-5">
-              <Bell className="mb-3 h-6 w-6 text-amber-600" />
-              <h3 className="mb-1 font-semibold text-slate-900">4. Track</h3>
-              <p className="text-sm text-slate-600">Get updates on approvals, payments, and important actions in-app.</p>
+
+            <div className="relative mx-auto w-full max-w-[580px]">
+              <div className={`absolute -left-8 top-14 hidden h-32 w-32 rounded-full blur-3xl md:block ${theme === "light" ? "bg-cyan-400/20" : "bg-cyan-400/20"}`} />
+              <div className={`absolute -right-8 bottom-8 hidden h-36 w-36 rounded-full blur-3xl md:block ${theme === "light" ? "bg-violet-500/20" : "bg-violet-500/20"}`} />
+
+              <div className={`relative rounded-[34px] border p-4 backdrop-blur-2xl ${styles.visualShell}`}>
+                <div className={`mb-4 flex items-center justify-between rounded-2xl border px-4 py-3 ${styles.visualTop}`}>
+                  <div>
+                    <p className={`text-sm font-medium ${styles.feedLabel}`}>For You</p>
+                    <p className={`text-base font-semibold ${styles.feedTitle}`}>Homes that match your budget and vibe</p>
+                  </div>
+                  <div className={`rounded-full border px-3 py-1 text-xs font-semibold ${styles.feedChip}`}>
+                    Scroll feed
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[1fr_0.34fr]">
+                  <div className={`overflow-hidden rounded-[28px] border ${styles.mediaCard}`}>
+                    <div className="relative aspect-[4/5] overflow-hidden">
+                      {heroImages.map((src, index) => (
+                        <Image
+                          key={src}
+                          src={src}
+                          alt="RoomBay property preview"
+                          fill
+                          priority={index === 0}
+                          className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ${heroIndex === index ? "scale-105 opacity-100" : "scale-100 opacity-0"}`}
+                        />
+                      ))}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/10" />
+
+                      <div className="absolute right-4 top-4 flex gap-2">
+                        <button className={`rounded-full border p-2 backdrop-blur-xl ${theme === "light" ? "border-white/70 bg-white/80 text-slate-950 hover:bg-white" : "border-white/12 bg-black/20 text-white hover:bg-white/10"}`}>
+                          <Heart className="h-4 w-4" />
+                        </button>
+                        <button className={`rounded-full border p-2 backdrop-blur-xl ${theme === "light" ? "border-white/70 bg-white/80 text-slate-950 hover:bg-white" : "border-white/12 bg-black/20 text-white hover:bg-white/10"}`}>
+                          <Play className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/12 px-3 py-1 text-xs font-medium text-white backdrop-blur-xl">
+                        <Star className="h-3.5 w-3.5 text-amber-300" />
+                        Verified landlord
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+                        <div className="mb-4 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xl">
+                          <p className="text-xs uppercase tracking-[0.18em] text-cyan-100/80">Why it fits</p>
+                          <p className="mt-1 text-sm text-white/90">Within your budget • Near campus • Move-in ready</p>
+                        </div>
+
+                        <div className="mb-2 flex items-center gap-2 text-sm text-white/80">
+                          <MapPin className="h-4 w-4" />
+                          Bastos, Yaoundé
+                        </div>
+                        <h3 className="text-2xl font-semibold">Bright studio with modern finish</h3>
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-3xl font-semibold">250,000 XAF</p>
+                            <p className="text-sm text-white/75">Available now</p>
+                          </div>
+                          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-right backdrop-blur">
+                            <p className="text-xs text-emerald-200">Fit score</p>
+                            <p className="text-lg font-semibold text-white">89%</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className={`grid grid-cols-3 gap-2 border-t p-3 ${theme === "light" ? "border-slate-200 bg-white" : "border-white/10 bg-[#09101f]"}`}>
+                      <button className={`rounded-2xl px-3 py-3 text-sm font-medium transition ${theme === "light" ? "bg-slate-100 text-slate-950 hover:bg-slate-200" : "bg-white/5 text-white hover:bg-white/10"}`}>Save</button>
+                      <button className={`rounded-2xl px-3 py-3 text-sm font-medium transition ${theme === "light" ? "bg-slate-100 text-slate-950 hover:bg-slate-200" : "bg-white/5 text-white hover:bg-white/10"}`}>Message</button>
+                      <button className={`rounded-2xl px-3 py-3 text-sm font-semibold transition ${theme === "light" ? "bg-slate-950 text-white hover:bg-slate-800" : "bg-white text-slate-950 hover:bg-slate-200"}`}>Apply</button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4">
+                    {propertyShots.map((src, index) => (
+                      <div key={src} className={`relative overflow-hidden rounded-[24px] border ${styles.glass}`}>
+                        <div className="relative aspect-[3/4]">
+                          <Image src={src} alt={`RoomBay property ${index + 1}`} fill className="object-cover transition duration-500 hover:scale-105" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between text-white">
+                            <div>
+                              <p className="text-xs text-white/75">Quick preview</p>
+                              <p className="text-sm font-semibold">Move-in ready</p>
+                            </div>
+                            <div className="rounded-full bg-white/15 px-2.5 py-1 text-xs backdrop-blur">{index === 0 ? "Video" : "Photo"}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="px-4 py-14">
-        <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2">
-          <div id="for-tenants" className="rounded-2xl border border-slate-200 bg-white p-7">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
-              <Search className="h-6 w-6 text-blue-700" />
+        <section className="px-4 pb-8 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className={`rounded-[30px] border p-7 ${styles.card}`}>
+              <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme === "light" ? "text-blue-700" : "text-cyan-300"}`}>Lifestyle</p>
+              <h2 className={`mt-3 text-3xl font-semibold tracking-tight ${styles.heading}`}>
+                Not just listings. A better feeling around finding where you’ll live.
+              </h2>
+              <p className={`mt-4 leading-7 ${styles.cardMuted}`}>
+                RoomBay should make people feel like housing is finally easier: faster to browse, easier to understand, and less stressful to act on.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                {[
+                  "Fast visual discovery",
+                  "Clearer trust signals",
+                  "Optional shared accommodation help",
+                ].map((item) => (
+                  <span
+                    key={item}
+                    className={`rounded-full border px-4 py-2 text-sm ${theme === "light" ? "border-slate-200 bg-white text-slate-700" : "border-white/10 bg-white/5 text-white/75"}`}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
             </div>
-            <h3 className="mb-2 text-2xl font-bold text-slate-900">For Tenants</h3>
-            <p className="mb-5 text-slate-600">From search to move-in, manage your complete rental journey in one flow.</p>
-            <ul className="space-y-3 text-sm text-slate-700">
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-blue-600" /> Verified listings and landlord profiles</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-blue-600" /> Share listing with matched roommate</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-blue-600" /> Application, lease, and payment status tracking</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-blue-600" /> AI assistant for platform guidance</li>
-            </ul>
-            <div className="mt-6">
-              <Link href="/register?role=STUDENT">
-                <Button className="rounded-full">Join as tenant</Button>
+
+            <div className="grid gap-5 sm:grid-cols-3">
+              {lifestyleShots.map((src, index) => (
+                <div key={src} className={`relative overflow-hidden rounded-[30px] border ${styles.card}`}>
+                  <div className="relative aspect-[4/5]">
+                    <Image src={src} alt={`RoomBay lifestyle ${index + 1}`} fill className="object-cover transition duration-500 hover:scale-105" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+                    <div className="absolute bottom-4 left-4 right-4 text-white">
+                      <p className="text-xs text-white/70">RoomBay experience</p>
+                      <p className="mt-1 text-sm font-semibold">
+                        {index === 0 ? "Comfortable spaces" : index === 1 ? "Modern discovery" : "Better living flow"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="px-4 py-18 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-10 max-w-2xl">
+              <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme === "light" ? "text-blue-700" : "text-cyan-300"}`}>Why RoomBay</p>
+              <h2 className={`mt-3 text-3xl font-semibold tracking-tight sm:text-4xl ${styles.heading}`}>
+                A housing product that feels premium, fast, and easy to trust.
+              </h2>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-3">
+              {features.map((feature) => {
+                const Icon = feature.icon
+                return (
+                  <div key={feature.title} className={`rounded-[28px] border p-7 backdrop-blur-xl ${styles.sectionCard}`}>
+                    <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl ${theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950"}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className={`text-xl font-semibold ${styles.heading}`}>{feature.title}</h3>
+                    <p className={`mt-3 leading-7 ${styles.cardMuted}`}>{feature.description}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="how-it-works" className={`border-y px-4 py-18 backdrop-blur-sm sm:px-6 lg:px-8 ${styles.darkSection}`}>
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-2xl">
+                <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme === "light" ? "text-violet-700" : "text-violet-300"}`}>How it works</p>
+                <h2 className={`mt-3 text-3xl font-semibold tracking-tight sm:text-4xl ${styles.heading}`}>
+                  Built to move users from first scroll to real action fast.
+                </h2>
+              </div>
+              <p className={`max-w-xl ${styles.cardMuted}`}>
+                Discovery comes first. Heavier steps only appear when the user is already interested.
+              </p>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-3">
+              {steps.map((step, index) => {
+                const Icon = step.icon
+                return (
+                  <div key={step.title} className={`rounded-[28px] border p-7 shadow-[0_20px_60px_rgba(0,0,0,0.05)] ${styles.sectionCard2}`}>
+                    <div className="mb-5 flex items-center justify-between">
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${theme === "light" ? "bg-white text-slate-950 shadow-sm" : "bg-white text-slate-950 shadow-sm"}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className={theme === "light" ? "text-sm font-semibold text-slate-300" : "text-sm font-semibold text-white/30"}>0{index + 1}</span>
+                    </div>
+                    <h3 className={`text-xl font-semibold ${styles.heading}`}>{step.title}</h3>
+                    <p className={`mt-3 leading-7 ${styles.cardMuted}`}>{step.copy}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="trust" className="px-4 py-18 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className={`rounded-[32px] border p-8 backdrop-blur-2xl sm:p-10 ${styles.trustHero}`}>
+              <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${styles.trustPill}`}>
+                <Shield className="h-4 w-4" />
+                Built on trust
+              </div>
+              <h2 className={`mt-5 text-3xl font-semibold tracking-tight sm:text-4xl ${styles.heading}`}>
+                Better signals create faster, more confident decisions.
+              </h2>
+              <p className={`mt-4 max-w-xl leading-7 ${styles.trustText}`}>
+                RoomBay gives users cleaner clarity before they commit time: verification-aware browsing, better listing context, and clearer action paths.
+              </p>
+              <div className="mt-8 space-y-4">
+                <div className={`rounded-2xl border p-4 ${styles.glass}`}>
+                  <p className={`text-sm font-semibold ${styles.heading}`}>Visual-first browsing</p>
+                  <p className={`mt-1 text-sm ${styles.cardMuted}`}>Users understand the place before they dive deeper.</p>
+                </div>
+                <div className={`rounded-2xl border p-4 ${styles.glass}`}>
+                  <p className={`text-sm font-semibold ${styles.heading}`}>Guided action flow</p>
+                  <p className={`mt-1 text-sm ${styles.cardMuted}`}>Messaging, saving, and applying feel more immediate and intentional.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-3 lg:grid-cols-1">
+              {trustItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <div key={item.title} className={`rounded-[28px] border p-7 backdrop-blur-xl ${styles.sectionCard}`}>
+                    <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ${theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950"}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <h3 className={`text-lg font-semibold ${styles.heading}`}>{item.title}</h3>
+                    <p className={`mt-2 leading-7 ${styles.trustText}`}>{item.description}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 pb-20 pt-4 sm:px-6 lg:px-8">
+          <div className={`mx-auto max-w-6xl rounded-[36px] border px-6 py-12 text-center sm:px-10 sm:py-14 ${styles.cta}`}>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">Start now</p>
+            <h2 className="mx-auto mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-5xl">
+              Stop digging through listings. Start discovering homes that feel right.
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-blue-100/85 sm:text-lg">
+              Fast housing access, quick actions, and optional roommate help — all in one modern flow.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href="/listings">
+                <Button size="lg" className={`h-13 rounded-full px-7 text-base ${theme === "light" ? "bg-white text-slate-950 hover:bg-slate-200" : "bg-white text-slate-950 hover:bg-slate-200"}`}>
+                  Browse listings
+                </Button>
               </Link>
-            </div>
-          </div>
-
-          <div id="for-landlords" className="rounded-2xl border border-slate-200 bg-white p-7">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50">
-              <Building2 className="h-6 w-6 text-emerald-700" />
-            </div>
-            <h3 className="mb-2 text-2xl font-bold text-slate-900">For Landlords</h3>
-            <p className="mb-5 text-slate-600">List properties, review applications, and monitor lease and payment outcomes.</p>
-            <ul className="space-y-3 text-sm text-slate-700">
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Listing approval workflow with image review</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Application management and lease lifecycle</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Payment visibility per lease</li>
-              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Basic performance analytics</li>
-            </ul>
-            <div className="mt-6">
               <Link href="/register?role=LANDLORD">
-                <Button variant="outline" className="rounded-full">Start listing</Button>
+                <Button size="lg" variant="outline" className={`h-13 rounded-full px-7 text-base ${theme === "light" ? "border-white/60 bg-white/10 text-white hover:bg-white/16" : "border-white/20 bg-white/10 text-white hover:bg-white/14"}`}>
+                  List your property
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
               </Link>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </main>
 
-      <section className="bg-slate-900 px-4 py-14">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm text-slate-200">
-            <MessageSquare className="h-4 w-4" />
-            Platform Brain
-          </div>
-          <h2 className="mb-3 text-3xl font-bold text-white">Need help at any step?</h2>
-          <p className="mx-auto mb-8 max-w-2xl text-slate-300">
-            Use the in-app AI assistant to get context-aware guidance about listings, applications,
-            verification, lease, and payment steps.
-          </p>
-          <Link href="/register">
-            <Button size="lg" className="rounded-full bg-white px-8 text-slate-900 hover:bg-slate-100">
-              Get started now
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      <section className="px-4 py-14">
-        <div className="mx-auto max-w-4xl text-center">
-          <h2 className="mb-3 text-2xl font-bold text-slate-900">Built on trust and transparency</h2>
-          <p className="mb-8 text-slate-600">Admin review, document verification, and clear status updates across key flows.</p>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <Shield className="mx-auto mb-3 h-6 w-6 text-blue-600" />
-              <p className="font-medium text-slate-900">Verification-aware</p>
-              <p className="text-sm text-slate-600">Tenant and landlord document checks before trust decisions.</p>
+      <footer className={`border-t px-4 py-8 backdrop-blur-xl sm:px-6 lg:px-8 ${styles.footer}`}>
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-9 w-9 items-center justify-center rounded-2xl ${styles.footerLogo}`}>
+              <Home className="h-4 w-4" />
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <FileCheck2 className="mx-auto mb-3 h-6 w-6 text-emerald-600" />
-              <p className="font-medium text-slate-900">Approval workflow</p>
-              <p className="text-sm text-slate-600">Listings and payments move through explicit review steps.</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <Bell className="mx-auto mb-3 h-6 w-6 text-amber-600" />
-              <p className="font-medium text-slate-900">Status visibility</p>
-              <p className="text-sm text-slate-600">Users can track outcomes rather than guessing what happened.</p>
+            <div>
+              <p className={styles.heading + " font-semibold"}>RoomBay</p>
+              <p className={theme === "light" ? "text-sm text-slate-500" : "text-sm text-white/45"}>Fast housing access</p>
             </div>
           </div>
-          <p className="mt-6 text-sm text-slate-600">
-            Need help with a decision? In-app support and dispute pathways are available before payment commitment.
-          </p>
-        </div>
-      </section>
 
-      <section className="bg-blue-600 px-4 py-14">
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="mb-4 text-3xl font-bold text-white">Ready to launch your next rental decision?</h2>
-          <p className="mb-8 text-blue-100">
-            Create an account in minutes and start with the flow that matches your role.
-          </p>
-          <div className="flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/register?role=STUDENT">
-              <Button size="lg" variant="secondary" className="rounded-full px-7">Join as tenant</Button>
-            </Link>
-            <Link href="/register?role=LANDLORD">
-              <Button size="lg" variant="secondary" className="rounded-full px-7">Join as landlord</Button>
-            </Link>
+          <div className="flex flex-wrap gap-5 text-sm">
+            <Link href="/listings" className={theme === "light" ? "transition hover:text-slate-950" : "transition hover:text-white"}>Browse listings</Link>
+            <Link href="/login" className={theme === "light" ? "transition hover:text-slate-950" : "transition hover:text-white"}>Login</Link>
+            <Link href="/register" className={theme === "light" ? "transition hover:text-slate-950" : "transition hover:text-white"}>Create account</Link>
           </div>
-        </div>
-      </section>
 
-      <footer className="bg-slate-950 px-4 py-8 text-slate-400">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-4 flex items-center justify-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-              <Home className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold text-white">RoomBay</span>
-          </div>
-          <div className="mb-5 flex flex-wrap justify-center gap-5 text-sm">
-            <Link href="/login" className="transition hover:text-white">Login</Link>
-            <Link href="/register" className="transition hover:text-white">Register</Link>
-            <Link href="/listings" className="transition hover:text-white">Browse listings</Link>
-          </div>
-          <p className="text-center text-sm">© 2026 RoomBay. All rights reserved.</p>
+          <p className="text-sm">© 2026 RoomBay. All rights reserved.</p>
         </div>
       </footer>
     </div>
