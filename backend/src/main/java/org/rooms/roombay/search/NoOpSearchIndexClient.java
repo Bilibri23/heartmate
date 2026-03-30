@@ -1,7 +1,7 @@
 package org.rooms.roombay.search;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -14,7 +14,7 @@ import java.util.UUID;
  */
 @Component
 @Slf4j
-@ConditionalOnMissingBean(SearchIndexClient.class)
+@ConditionalOnProperty(name = "roombay.search.elasticsearch.enabled", havingValue = "false", matchIfMissing = true)
 public class NoOpSearchIndexClient implements SearchIndexClient {
 
     @Override

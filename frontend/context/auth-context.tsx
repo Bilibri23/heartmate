@@ -96,10 +96,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  // Protect routes
+  // Protect routes — allow browsing listings/search without an account (housing-first)
   useEffect(() => {
-    const publicRoutes = ['/login', '/register', '/', '/forgot-password'];
-    if (!isLoading && !user && !publicRoutes.includes(pathname)) {
+    const isPublicRoute = (path: string) => {
+      const exact = ['/login', '/register', '/', '/forgot-password'];
+      if (exact.includes(path)) return true;
+      if (path === '/search') return true;
+      if (path === '/listings' || path.startsWith('/listings/')) return true;
+      return false;
+    };
+    if (!isLoading && !user && !isPublicRoute(pathname)) {
       router.push('/login');
     }
   }, [user, isLoading, pathname, router]);

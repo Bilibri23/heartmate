@@ -55,6 +55,8 @@ public class SecurityConfig {
                         // Swagger/API docs
                         .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         // PUBLIC: Allow browsing listings without login (critical for growth)
+                        .requestMatchers("GET", "/api/search").permitAll()
+                        .requestMatchers("GET", "/api/feed").permitAll()
                         .requestMatchers("GET", "/api/listings", "/api/listings/search", "/api/listings/featured").permitAll()
                         .requestMatchers("GET", "/api/listings/{id}").permitAll()
                         // Authenticated endpoints

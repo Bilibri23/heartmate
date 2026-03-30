@@ -41,7 +41,7 @@ interface RecommendedListing {
 }
 
 export default function ForYouPage() {
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
   const { user } = useAuth()
   const [listings, setListings] = useState<RecommendedListing[]>([])
   const [trendingListings, setTrendingListings] = useState<RecommendedListing[]>([])
@@ -75,46 +75,29 @@ export default function ForYouPage() {
     isAvailable: l.isAvailable ?? (l.status ? l.status === "ACTIVE" : null),
   })
 
-  // Fetch all sections on initial load (Netflix-style: all rows in parallel)
+  // Single compound feed (GET /api/feed) — replaces multiple /search + /recommendations round-trips
   const fetchAllSections = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const [recResponse, activeListingsResponse] = await Promise.allSettled([
-        user?.id ? api.get("/recommendations/listings") : Promise.reject(),
-        api.get("/listings/active", { params: user?.id ? { userId: user.id } : {} }),
-      ])
-
-      // For You: recommendations (if user) or ES forYou mode
-      if (recResponse.status === "fulfilled") {
-        const recData = Array.isArray(recResponse.value.data) ? recResponse.value.data : []
-        if (recData.length > 0) {
-          setListings(recData.map(normalizeListing))
-        } else {
-          const forYouRes = await api.get("/search", { params: { mode: "forYou", size: 12, userId: user?.id } })
-          const content = forYouRes.data?.content ?? forYouRes.data ?? []
-          setListings(content.map(normalizeListing))
-        }
-      } else {
-        const forYouRes = await api.get("/search", { params: { mode: "forYou", size: 12, userId: user?.id } })
-        const content = forYouRes.data?.content ?? forYouRes.data ?? []
-        setListings(content.map(normalizeListing))
-      }
-
-      // Trending & Recent: fetch in parallel
-      const [trendingRes, recentRes] = await Promise.all([
-        api.get("/search", { params: { mode: "trending", size: 12, userId: user?.id } }),
-        api.get("/search", { params: { mode: "recent", size: 12, userId: user?.id } }),
-      ])
-      const trendingContent = trendingRes.data?.content ?? trendingRes.data ?? []
-      const recentContent = recentRes.data?.content ?? recentRes.data ?? []
-      setTrendingListings(trendingContent.map(normalizeListing))
-      setRecentListings(recentContent.map(normalizeListing))
+      const res = await api.get("/feed", {
+        params: {
+          sections: "forYou,trending,recent",
+          size: 12,
+          lang: language === "fr" ? "fr" : "en",
+        },
+      })
+      const data = res.data || {}
+      const forYouItems = data.forYou?.items ?? []
+      const trendingItems = data.trending?.items ?? []
+      const recentItems = data.recent?.items ?? []
+      setListings(forYouItems.map(normalizeListing))
+      setTrendingListings(trendingItems.map(normalizeListing))
+      setRecentListings(recentItems.map(normalizeListing))
     } catch (err: any) {
       console.error("Failed to fetch listings:", err)
       setError(err.message || "Failed to load listings")
-      // Fallback to active listings
       try {
         const res = await api.get("/listings/active", { params: user?.id ? { userId: user.id } : {} })
         const all = res.data || []
@@ -127,7 +110,7 @@ export default function ForYouPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [user?.id])
+  }, [user?.id, language])
 
   useEffect(() => {
     fetchAllSections()

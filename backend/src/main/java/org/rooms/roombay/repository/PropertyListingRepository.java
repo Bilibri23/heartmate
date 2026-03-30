@@ -54,5 +54,22 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
     @Query(value = "SELECT * FROM property_listings WHERE status = 'ACTIVE' " +
            "ORDER BY views_count DESC, created_at DESC LIMIT :limit", nativeQuery = true)
     List<PropertyListing> findTopByViewsCount(@Param("limit") int limit);
+
+    @Query("SELECT l FROM PropertyListing l WHERE l.status = 'ACTIVE' ORDER BY l.createdAt DESC")
+    Page<PropertyListing> findActiveOrderByRecent(Pageable pageable);
+
+    @Query("SELECT l FROM PropertyListing l WHERE l.status = 'ACTIVE' ORDER BY l.viewsCount DESC, l.createdAt DESC")
+    Page<PropertyListing> findActiveOrderByTrending(Pageable pageable);
+
+    @Query("SELECT l FROM PropertyListing l WHERE l.status = 'ACTIVE' " +
+           "AND ((l.videoTourUrl IS NOT NULL AND TRIM(l.videoTourUrl) <> '') " +
+           "OR (l.videoTourEmbedCode IS NOT NULL AND TRIM(l.videoTourEmbedCode) <> '')) " +
+           "ORDER BY l.viewsCount DESC, l.createdAt DESC")
+    Page<PropertyListing> findActiveWithVideoTour(Pageable pageable);
+
+    @Query("SELECT COUNT(l) FROM PropertyListing l WHERE l.status = 'ACTIVE' " +
+           "AND ((l.videoTourUrl IS NOT NULL AND TRIM(l.videoTourUrl) <> '') " +
+           "OR (l.videoTourEmbedCode IS NOT NULL AND TRIM(l.videoTourEmbedCode) <> '')) ")
+    long countActiveWithVideoTour();
 }
 

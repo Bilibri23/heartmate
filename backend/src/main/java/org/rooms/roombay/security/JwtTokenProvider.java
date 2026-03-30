@@ -1,18 +1,23 @@
-package org.rooms.roombuddy.security;
+package org.rooms.roombay.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.UUID;
 
 @Component
 @Slf4j
 public class JwtTokenProvider {
+
+    private static final int MIN_SECRET_BYTES = 32;
 
     @Value("${spring.jwt.secret}")
     private String jwtSecret;
@@ -23,8 +28,22 @@ public class JwtTokenProvider {
     @Value("${spring.jwt.refresh-token-expiration}") // 7 days in milliseconds
     private long refreshTokenExpiration;
 
+    @PostConstruct
+    void validateJwtSecret() {
+        if (!StringUtils.hasText(jwtSecret)) {
+            throw new IllegalStateException(
+                    "JWT is not configured: set JWT_SECRET (or spring.jwt.secret) to a secret of at least 32 bytes.");
+        }
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "JWT_SECRET must be at least " + MIN_SECRET_BYTES
+                            + " bytes (256 bits) HS256; current length is " + keyBytes.length);
+        }
+    }
+
     private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateAccessToken(UUID userId, String email, String role) {

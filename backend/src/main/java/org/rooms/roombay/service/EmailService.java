@@ -1,4 +1,4 @@
-package org.rooms.roombuddy.service;
+package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -13,19 +14,33 @@ import org.springframework.stereotype.Service;
 public class EmailService {
     
     private final JavaMailSender mailSender;
-    
-    @Value("${spring.mail.username}")
+
+    /** Optional; otherwise uses MAIL_USERNAME */
+    @Value("${app.mail.from:}")
+    private String mailFromOverride;
+
+    @Value("${spring.mail.username:}")
     private String fromEmail;
     
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
+
+    private void applyFrom(SimpleMailMessage message) {
+        String from = StringUtils.hasText(mailFromOverride) ? mailFromOverride.trim()
+                : (StringUtils.hasText(fromEmail) ? fromEmail.trim() : null);
+        if (from != null) {
+            message.setFrom(from);
+        } else {
+            log.warn("Email From is not set (configure MAIL_USERNAME or app.mail.from); SMTP may reject or fail to parse headers");
+        }
+    }
     
     public void sendPasswordResetEmail(String toEmail, String resetToken) {
         log.info("Sending password reset email to: {}", toEmail);
         
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            applyFrom(message);
             message.setTo(toEmail);
             message.setSubject("Password Reset Request - RoomBay");
             message.setText(buildPasswordResetEmailBody(resetToken));
@@ -49,7 +64,7 @@ public class EmailService {
         
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            applyFrom(message);
             message.setTo(toEmail);
             message.setSubject("Tenant Verification Status - RoomBay");
             message.setText(buildVerificationStatusEmailBody(status, reason));
@@ -113,7 +128,7 @@ public class EmailService {
         
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            applyFrom(message);
             message.setTo(toEmail);
             message.setSubject("New Roommate Match - RoomBay");
             message.setText(buildMatchAcceptedEmailBody(matchedUserName));
@@ -210,7 +225,7 @@ public class EmailService {
     private void sendEmail(String toEmail, String subject, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            applyFrom(message);
             message.setTo(toEmail);
             message.setSubject(subject);
             message.setText(body);

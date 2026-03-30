@@ -116,11 +116,13 @@
             <artifactId>cloudinary-http44</artifactId>
             <version>1.36.0</version>
         </dependency>
+        <!-- Loads .env files; see DotenvEnvironmentPostProcessor (backend/.env when CWD is repo root) -->
         <dependency>
             <groupId>io.github.cdimascio</groupId>
-            <artifactId>dotenv-vault-spring-boot-starter</artifactId>
-            <version>3.0.0</version>
+            <artifactId>dotenv-java</artifactId>
+            <version>3.2.0</version>
         </dependency>
+
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
@@ -236,6 +238,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <mainClass>org.rooms.roombay.RoombuddyApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

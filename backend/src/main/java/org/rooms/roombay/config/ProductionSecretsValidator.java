@@ -6,6 +6,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,6 +33,11 @@ public class ProductionSecretsValidator {
 
         if (!missing.isEmpty()) {
             throw new IllegalStateException("Missing required non-dev configuration values: " + String.join(", ", missing));
+        }
+
+        String jwt = environment.getProperty("spring.jwt.secret");
+        if (StringUtils.hasText(jwt) && jwt.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT_SECRET must be at least 32 bytes (256 bits) for HS256.");
         }
     }
 

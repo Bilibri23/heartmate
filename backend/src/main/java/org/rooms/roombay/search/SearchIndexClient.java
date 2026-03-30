@@ -1,5 +1,8 @@
 package org.rooms.roombay.search;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Component;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -8,6 +11,7 @@ import java.util.UUID;
  * (Elasticsearch/OpenSearch/Meilisearch). Implement with a no-op for DB-only
  * operation, or with a real client when the search cluster is available.
  */
+
 public interface SearchIndexClient {
 
     /**

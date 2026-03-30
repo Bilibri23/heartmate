@@ -351,19 +351,18 @@ public class AuthService {
     }
 
     private String issueRefreshToken(User user) {
-        UUID sessionId = UUID.randomUUID();
         UUID tokenId = UUID.randomUUID();
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId(), sessionId, tokenId);
-        refreshTokenSessionRepository.save(
+        // Do not set id on new sessions: a non-null id makes JpaRepository.save() use merge(),
+        // which caused StaleObjectStateException for inserts. Let @GeneratedValue assign id.
+        RefreshTokenSession session = refreshTokenSessionRepository.save(
                 RefreshTokenSession.builder()
-                        .id(sessionId)
                         .user(user)
                         .tokenId(tokenId)
                         .expiresAt(LocalDateTime.now().plusDays(7))
                         .revoked(false)
                         .build()
         );
-        return refreshToken;
+        return jwtTokenProvider.generateRefreshToken(user.getId(), session.getId(), tokenId);
     }
 
     private void sendEmailVerification(User user) {

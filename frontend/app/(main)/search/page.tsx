@@ -224,6 +224,9 @@ const DEFAULT_FILTERS: Filters = {
   sortBy: "createdAt", sortDir: "DESC",
 }
 
+/** Hide reels mode until enough listings include a video tour (server count from /api/feed). */
+const MIN_REELS_INVENTORY = 3
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SearchPage() {
   const { formatCurrency, language, t } = useLanguage()
@@ -252,6 +255,7 @@ export default function SearchPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [viewMode, setViewMode] = useState<"list" | "map" | "reels">("list")
+  const [videoTourListingCount, setVideoTourListingCount] = useState<number | null>(null)
 
   // Saved searches
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
@@ -259,6 +263,28 @@ export default function SearchPage() {
   const [saveSearchName, setSaveSearchName] = useState("")
 
   const safeFilters = filters ?? DEFAULT_FILTERS
+
+  const reelsAvailable =
+    videoTourListingCount !== null && videoTourListingCount >= MIN_REELS_INVENTORY
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get("/feed", { params: { sections: "reels", size: 1 } })
+      .then((res) => {
+        if (!cancelled) setVideoTourListingCount(res.data?.videoTourListingCount ?? 0)
+      })
+      .catch(() => {
+        if (!cancelled) setVideoTourListingCount(0)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!reelsAvailable && viewMode === "reels") setViewMode("list")
+  }, [reelsAvailable, viewMode])
 
   // ── Autocomplete ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -739,21 +765,23 @@ export default function SearchPage() {
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
             </div>
-            {/* View toggle — List / Map / Reels */}
+            {/* View toggle — List / Map / Reels (reels only when enough video-tour inventory) */}
             <div className="flex bg-slate-100 rounded-full p-0.5">
-              <button onClick={() => setViewMode("list")}
+              <button type="button" onClick={() => setViewMode("list")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "list" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}>
                 <List className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => setViewMode("map")}
+              <button type="button" onClick={() => setViewMode("map")}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "map" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}>
                 <Map className="h-3.5 w-3.5" />
               </button>
-              <button onClick={() => setViewMode("reels")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"}`}
-                title="Reels feed">
-                <Clapperboard className="h-3.5 w-3.5" />
-              </button>
+              {reelsAvailable && (
+                <button type="button" onClick={() => setViewMode("reels")}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"}`}
+                  title="Reels feed">
+                  <Clapperboard className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
