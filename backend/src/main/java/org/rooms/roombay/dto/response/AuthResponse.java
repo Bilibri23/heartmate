@@ -20,4 +20,7 @@ public class AuthResponse {
     private String role;
     private String firstName;
     private String lastName;
+    /** Present so clients can prompt for verification after value moments */
+    private Boolean emailVerified;
+    private Boolean phoneVerified;
 }

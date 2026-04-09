@@ -73,10 +73,9 @@ export default function CoApplicationInvitationsPage() {
     setIsResponding(true)
     try {
       await coApplicationService.acceptInvitation(invitation.id)
-      toast.success("Invitation accepted!", {
-        description: "You can now apply together for this listing."
+      toast.success("Opening listing", {
+        description: "Apply on your own when ready—your roommate can apply separately too."
       })
-      // Redirect to the listing to apply together
       router.push(`/listings/${invitation.listingId}`)
     } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to accept invitation")
@@ -141,8 +140,16 @@ export default function CoApplicationInvitationsPage() {
           <button onClick={() => router.push("/applications")} className="p-1">
             <ArrowLeft className="h-5 w-5 text-slate-700" />
           </button>
-          <h1 className="font-semibold text-slate-900">Co-Application Invitations</h1>
+          <h1 className="font-semibold text-slate-900">Share with roommate</h1>
         </div>
+      </div>
+
+      <div className="mx-4 mt-3 rounded-2xl border border-blue-100 bg-blue-50/90 px-4 py-3 text-sm text-slate-700">
+        <p className="font-medium text-slate-900">How it works now</p>
+        <p className="mt-1 text-slate-600">
+          Each person applies separately. Open a listing, use <strong>Share</strong>, or go to{" "}
+          <Link href="/matches" className="text-blue-600 underline">Matches</Link> to nudge a roommate—no joint submission required.
+        </p>
       </div>
 
       {/* Tabs */}
@@ -207,14 +214,19 @@ export default function CoApplicationInvitationsPage() {
             </h3>
             <p className="text-slate-500 text-sm mb-4">
               {activeTab === "received"
-                ? "When your matched roommate invites you to apply together, it will appear here."
-                : "Invitations you send to your matched roommates will appear here."}
+                ? "Older roommate link invites still show here. New flow: share a listing from Search or Matches."
+                : "Sent invites you created earlier appear here. Prefer Share on the listing for new invites."}
             </p>
-            <Link href="/search">
-              <Button variant="outline" className="rounded-xl">
-                Browse Listings
-              </Button>
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Link href="/matches">
+                <Button className="rounded-xl">Go to Matches</Button>
+              </Link>
+              <Link href="/search">
+                <Button variant="outline" className="rounded-xl">
+                  Browse listings
+                </Button>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -342,7 +354,7 @@ export default function CoApplicationInvitationsPage() {
                     <Link href={`/listings/${invitation.listingId}`}>
                       <Button className="w-full rounded-xl">
                         <Home className="h-4 w-4 mr-2" />
-                        Apply Together Now
+                        Open listing
                       </Button>
                     </Link>
                   </div>

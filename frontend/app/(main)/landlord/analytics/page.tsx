@@ -58,23 +58,23 @@ export default function LandlordAnalyticsPage() {
       const listings = listingsRes.data || []
       
       // Compute analytics from listings data
-      const totalViews = listings.reduce((sum: number, l: any) => sum + (l.viewsCount || 0), 0)
-      const totalFavorites = listings.reduce((sum: number, l: any) => sum + (l.favoritesCount || 0), 0)
-      const totalApplications = listings.reduce((sum: number, l: any) => sum + (l.applicationsCount || 0), 0)
+      const totalViews = listings.reduce((sum: number, l: any) => sum + (l.viewsCount ?? l.viewCount ?? 0), 0)
+      const totalFavorites = listings.reduce((sum: number, l: any) => sum + (l.favoritesCount ?? 0), 0)
+      const totalApplications = listings.reduce((sum: number, l: any) => sum + (l.applicationsCount ?? l.applicationCount ?? 0), 0)
       const activeListings = listings.filter((l: any) => l.status === "ACTIVE").length
       const rentedListings = listings.filter((l: any) => l.status === "RENTED").length
       const occupancyRate = listings.length > 0 ? Math.round((rentedListings / listings.length) * 100) : 0
       
       // Top listings by views
       const topListings = [...listings]
-        .sort((a: any, b: any) => (b.viewsCount || 0) - (a.viewsCount || 0))
+        .sort((a: any, b: any) => (b.viewsCount ?? b.viewCount ?? 0) - (a.viewsCount ?? a.viewCount ?? 0))
         .slice(0, 5)
         .map((l: any) => ({
           id: l.id,
           title: l.title,
-          views: l.viewsCount || 0,
-          favorites: l.favoritesCount || 0,
-          applications: l.applicationsCount || 0
+          views: l.viewsCount ?? l.viewCount ?? 0,
+          favorites: l.favoritesCount ?? 0,
+          applications: l.applicationsCount ?? l.applicationCount ?? 0
         }))
       
       setData({

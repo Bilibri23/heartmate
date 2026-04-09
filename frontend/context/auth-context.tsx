@@ -39,6 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: response.firstName,
           lastName: response.lastName,
           role: response.role,
+          emailVerified: response.emailVerified,
+          phoneVerified: response.phoneVerified,
         };
         localStorage.setItem('token', response.accessToken);
         localStorage.setItem('refreshToken', response.refreshToken);
@@ -69,6 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           firstName: response.firstName,
           lastName: response.lastName,
           role: response.role,
+          emailVerified: response.emailVerified,
+          phoneVerified: response.phoneVerified,
         };
         localStorage.setItem('token', response.accessToken);
         localStorage.setItem('refreshToken', response.refreshToken);
@@ -99,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Protect routes — allow browsing listings/search without an account (housing-first)
   useEffect(() => {
     const isPublicRoute = (path: string) => {
-      const exact = ['/login', '/register', '/', '/forgot-password'];
+      const exact = ['/login', '/register', '/', '/forgot-password', '/auth/oauth-callback'];
       if (exact.includes(path)) return true;
       if (path === '/search') return true;
       if (path === '/listings' || path.startsWith('/listings/')) return true;

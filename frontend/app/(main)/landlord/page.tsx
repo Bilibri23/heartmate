@@ -26,7 +26,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
-import { QuickTour } from "@/components/ui/quick-tour"
 import api from "@/lib/api"
 
 interface LandlordStats {
@@ -118,7 +117,6 @@ export default function LandlordDashboard() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <QuickTour role="LANDLORD" storageKey="roombay_landlord_tour" />
       <MobileHeader title="Dashboard" />
 
       {/* Content */}
@@ -133,7 +131,7 @@ export default function LandlordDashboard() {
 
         <div className="p-4 space-y-6">
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-3">
+          <div data-tour="landlord-stats" className="grid grid-cols-2 gap-3">
             {isLoading ? (
               <>
                 {[1, 2, 3, 4].map((i) => (
@@ -157,7 +155,7 @@ export default function LandlordDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex gap-3">
+          <div data-tour="landlord-quick-actions" className="flex gap-3">
             <Link href="/landlord/listings/new" className="flex-1">
               <Button className="w-full h-12 rounded-xl">
                 <Plus className="h-5 w-5 mr-2" />
@@ -173,7 +171,7 @@ export default function LandlordDashboard() {
           </div>
 
           {/* My Listings */}
-          <div>
+          <div data-tour="landlord-listings">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-semibold text-slate-900">My Listings</h2>
               <Link href="/landlord/listings" className="text-sm text-blue-600">

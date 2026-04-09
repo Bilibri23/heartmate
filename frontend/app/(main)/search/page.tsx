@@ -194,7 +194,10 @@ interface Listing {
   neighborhood: string; propertyType: string
   photos: { photoUrl: string; isPrimary: boolean }[]
   bedrooms: number; bathrooms: number; verified: boolean
+  trustTier?: string | null
   featured: boolean; isFavorited: boolean
+  videoTourUrl?: string
+  virtualTourProvider?: string
 }
 
 interface Filters {
@@ -749,7 +752,7 @@ export default function SearchPage() {
               </>
             )}
           </p>
-          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0" data-tour="search-view-modes">
             {/* Sort */}
             <div className="relative">
               <select
@@ -776,9 +779,13 @@ export default function SearchPage() {
                 <Map className="h-3.5 w-3.5" />
               </button>
               {reelsAvailable && (
-                <button type="button" onClick={() => setViewMode("reels")}
+                <button
+                  type="button"
+                  data-tour="search-reels-btn"
+                  onClick={() => setViewMode("reels")}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"}`}
-                  title="Reels feed">
+                  title="Reels feed"
+                >
                   <Clapperboard className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -869,6 +876,7 @@ export default function SearchPage() {
                       bathrooms={listing.bathrooms}
                       imageUrl={listing.photos?.find(p => p.isPrimary)?.photoUrl || listing.photos?.[0]?.photoUrl}
                       isVerified={listing.verified}
+                      trustTier={listing.trustTier}
                       isFeatured={listing.featured}
                       isFavorited={listing.isFavorited}
                       onFavoriteToggle={handleFavoriteToggle}

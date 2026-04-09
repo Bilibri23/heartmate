@@ -2,8 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, MessageCircle, User, Sparkles, Building2, FileText, Plus, Shield, Users, Settings } from "lucide-react"
-import { useLanguage } from "@/context/language-context"
+import { Home, Search, MessageCircle, User, Sparkles, Building2, FileText, Plus, Shield, Settings, Flag } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -13,7 +12,7 @@ interface NavItem {
   label: string
 }
 
-// Student navigation items
+// Tenant (STUDENT role) navigation items
 const studentNavItems: NavItem[] = [
   { href: "/for-you", icon: Sparkles, label: "For You" },
   { href: "/search", icon: Search, label: "Search" },
@@ -36,6 +35,7 @@ const adminNavItems: NavItem[] = [
   { href: "/admin", icon: Home, label: "Dashboard" },
   { href: "/admin/verifications", icon: Shield, label: "Verify" },
   { href: "/admin/listings", icon: Building2, label: "Listings" },
+  { href: "/admin/reports", icon: Flag, label: "Reports" },
   { href: "/admin/payments", icon: FileText, label: "Payments" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ]
@@ -58,7 +58,10 @@ export function BottomNav() {
   const navItems = getNavItems()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-lg safe-area-bottom">
+    <nav
+      data-tour="bottom-nav"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-lg safe-area-bottom"
+    >
       <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-2">
         {navItems.map((item) => {
           const isActive = pathname === item.href || 

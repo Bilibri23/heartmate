@@ -42,9 +42,16 @@ public class ListingResponse {
     private LocalDate availableTo;
     private String status;
     private Boolean verified;
+    /**
+     * Simplified trust signal for tenants: combines listing admin review and landlord KYC.
+     * HIGH, VERIFIED, REVIEWED, STANDARD.
+     */
+    private String trustTier;
     private Boolean featured;
     private Integer viewsCount;
     private Integer favoritesCount;
+    /** Populated for landlord listing aggregates (applications received per listing). */
+    private Integer applicationsCount;
     private List<PhotoDTO> photos;
     private String primaryPhotoUrl;
     private Boolean isFavorite;

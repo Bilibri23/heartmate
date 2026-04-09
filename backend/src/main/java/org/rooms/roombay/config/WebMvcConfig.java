@@ -16,8 +16,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(rateLimitInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
-                    "/api/auth/register",
-                    "/api/auth/login",
                     "/actuator/**",
                     "/swagger-ui/**",
                     "/api-docs/**"

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { ListingCard } from "@/components/cards/listing-card"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
-import { QuickTour } from "@/components/ui/quick-tour"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
@@ -33,6 +32,7 @@ interface RecommendedListing {
   isFavorited: boolean
   viewsCount: number
   verified: boolean
+  trustTier?: string | null
   featured: boolean
   averageRating?: number
   reviewCount?: number
@@ -68,6 +68,7 @@ export default function ForYouPage() {
     isFavorited: l.isFavorited ?? false,
     viewsCount: l.viewsCount ?? 0,
     verified: l.verified,
+    trustTier: l.trustTier ?? null,
     featured: l.featured,
     averageRating: l.averageRating ?? null,
     reviewCount: l.reviewCount ?? 0,
@@ -166,6 +167,7 @@ export default function ForYouPage() {
                 bathrooms={listing.bathrooms}
                 imageUrl={listing.primaryPhotoUrl || undefined}
                 isVerified={listing.verified}
+                trustTier={listing.trustTier}
                 isFeatured={listing.featured}
                 isFavorited={listing.isFavorited}
                 matchScore={listing.matchScore}
@@ -187,11 +189,15 @@ export default function ForYouPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <QuickTour role="STUDENT" storageKey="roombay_student_tour" />
-      <MobileHeader title={t.nav.forYou} />
+      <div data-tour="tenant-welcome">
+        <MobileHeader title={t.nav.forYou} />
+      </div>
 
       {/* Filter bar */}
-      <div className="sticky top-14 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+      <div
+        data-tour="tenant-filter-bar"
+        className="sticky top-14 z-30 bg-white/95 backdrop-blur border-b border-slate-200"
+      >
         <div className="flex px-4 py-2">
           <Link href="/search" className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm font-medium transition-colors">
             <Filter className="h-4 w-4" />
@@ -234,14 +240,16 @@ export default function ForYouPage() {
           {!isLoading && !error && (
             <>
               {/* Row 1: For You */}
-              <ListingRow
-                title={t.nav.forYou}
-                subtitle={user ? "Personalized for you" : "Featured & verified picks"}
-                icon={Star}
-                iconBg="bg-amber-100 text-amber-600"
-                listings={listings}
-                emptyMsg={user ? "Complete your preferences for personalized picks" : "No listings yet"}
-              />
+              <div data-tour="tenant-feed">
+                <ListingRow
+                  title={t.nav.forYou}
+                  subtitle={user ? "Personalized for you" : "Featured & verified picks"}
+                  icon={Star}
+                  iconBg="bg-amber-100 text-amber-600"
+                  listings={listings}
+                  emptyMsg={user ? "Complete your preferences for personalized picks" : "No listings yet"}
+                />
+              </div>
 
               {/* Row 2: Trending */}
               <ListingRow

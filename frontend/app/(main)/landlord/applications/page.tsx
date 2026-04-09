@@ -242,7 +242,7 @@ export default function LandlordApplicationsPage() {
                                 ? "bg-green-100 text-green-700" 
                                 : "bg-blue-100 text-blue-700"
                             }`}>
-                              {app.coApplicantConfirmed ? "Both Confirmed" : "Joint Application"}
+                              {app.coApplicantConfirmed ? "Both noted" : "Roommate link (legacy)"}
                             </span>
                           </div>
                         )}
@@ -253,7 +253,7 @@ export default function LandlordApplicationsPage() {
                       For: {app.listingTitle}
                       {app.isCoApplication && (
                         <span className="ml-1 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
-                          Joint Application
+                          Roommate link
                         </span>
                       )}
                     </p>
@@ -332,7 +332,7 @@ export default function LandlordApplicationsPage() {
                             ? "bg-green-100 text-green-700" 
                             : "bg-blue-100 text-blue-700"
                         }`}>
-                          {selectedApp.coApplicantConfirmed ? "Both Confirmed" : "Joint Application Submitted"}
+                          {selectedApp.coApplicantConfirmed ? "Both noted" : "Legacy roommate link"}
                         </span>
                       </div>
                       <p className="text-sm text-slate-500">{selectedApp.coApplicantEmail}</p>

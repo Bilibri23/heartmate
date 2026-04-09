@@ -10,6 +10,7 @@ import org.rooms.roombay.dto.request.PasswordResetRequest;
 import org.rooms.roombay.dto.request.RegisterRequest;
 import org.rooms.roombay.dto.request.ResetPasswordRequest;
 import org.rooms.roombay.dto.request.ChangePasswordRequest;
+import org.rooms.roombay.dto.response.AuthMeResponse;
 import org.rooms.roombay.dto.response.AuthResponse;
 import org.rooms.roombay.dto.response.ApiResponse;
 import org.rooms.roombay.dto.response.ProfileCompletionResponse;
@@ -37,6 +38,13 @@ public class AuthController {
         log.info("Registration request for email: {}", request.getEmail());
         AuthResponse response = authService.register(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Current user", description = "Basic profile for the authenticated user (e.g. after OAuth redirect)")
+    public ResponseEntity<AuthMeResponse> getMe() {
+        var userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(authService.getAuthenticatedUser(userId));
     }
 
     @PostMapping("/login")

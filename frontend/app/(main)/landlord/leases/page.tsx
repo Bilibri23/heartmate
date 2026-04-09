@@ -167,7 +167,7 @@ export default function LandlordLeasesPage() {
                     {pendingSignatureCount} lease{pendingSignatureCount > 1 ? 's' : ''} awaiting your signature
                   </p>
                   <p className="text-sm text-blue-700">
-                    Students have accepted. Please review and sign.
+                    Tenants have accepted. Please review and sign.
                   </p>
                 </div>
               </div>

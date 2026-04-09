@@ -164,7 +164,7 @@ export default function AdminUsersPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="STUDENT">Students</SelectItem>
+              <SelectItem value="STUDENT">Tenants</SelectItem>
               <SelectItem value="LANDLORD">Landlords</SelectItem>
               <SelectItem value="ADMIN">Admins</SelectItem>
             </SelectContent>

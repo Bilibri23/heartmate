@@ -6,7 +6,7 @@ import { Toaster } from "sonner";
 import { AssistantWidget } from "@/components/ai/assistant-widget";
 
 export const metadata: Metadata = {
-  title: "RoomBay - Student Housing in Cameroon",
+  title: "RoomBay — Rentals in Cameroon",
   description: "Find your perfect student accommodation in Cameroon. Search rooms, apartments, and connect with verified landlords.",
   manifest: "/manifest.json",
   appleWebApp: {

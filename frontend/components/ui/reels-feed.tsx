@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { useLanguage } from "@/context/language-context"
 import { cn } from "@/lib/utils"
+import { trustTierChipClassName } from "@/lib/listing-trust-tier"
 
 // Uses API field names directly (rentAmount not price)
 interface ReelListing {
@@ -24,6 +25,7 @@ interface ReelListing {
     videoTourUrl?: string        // self-hosted Cloudinary MP4
     virtualTourProvider?: string // 'video' | '360' | legacy
     isVerified?: boolean
+    trustTier?: string | null
     isFeatured?: boolean
     isFavorited?: boolean
     matchScore?: number
@@ -38,7 +40,7 @@ interface ReelsFeedProps {
 }
 
 export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProps) {
-    const { formatCurrency } = useLanguage()
+    const { formatCurrency, t } = useLanguage()
     const [currentIndex, setCurrentIndex] = useState(0)
     const [favorited, setFavorited] = useState<Record<string, boolean>>(
         Object.fromEntries(listings.map(l => [l.id, l.isFavorited ?? false]))
@@ -276,11 +278,41 @@ export function ReelsFeed({ listings, onFavoriteToggle, onClose }: ReelsFeedProp
                                 <Sparkles className="h-3 w-3" /> {listing.matchScore}% match
                             </span>
                         )}
-                        {listing.isVerified && (
-                            <span className="flex items-center gap-1 rounded-full bg-emerald-500/80 px-3 py-1 text-xs font-bold text-white">
-                                <CheckCircle className="h-3 w-3" /> Verified
-                            </span>
-                        )}
+                        {(() => {
+                            const tier = listing.trustTier
+                            const chip = trustTierChipClassName(tier, "reel")
+                            const label = (() => {
+                                switch (tier) {
+                                    case "HIGH": return t.listings.trustTierHigh
+                                    case "VERIFIED": return t.listings.trustTierVerified
+                                    case "REVIEWED": return t.listings.trustTierReviewed
+                                    default: return null
+                                }
+                            })()
+                            const title = (() => {
+                                switch (tier) {
+                                    case "HIGH": return t.listings.trustTierTitleHigh
+                                    case "VERIFIED": return t.listings.trustTierTitleVerified
+                                    case "REVIEWED": return t.listings.trustTierTitleReviewed
+                                    default: return null
+                                }
+                            })()
+                            if (label && chip) {
+                                return (
+                                    <span title={title ?? undefined} className={cn(chip, "text-white")}>
+                                        <CheckCircle className="h-3 w-3" /> {label}
+                                    </span>
+                                )
+                            }
+                            if (listing.isVerified) {
+                                return (
+                                    <span className="flex items-center gap-1 rounded-full bg-emerald-500/80 px-3 py-1 text-xs font-bold text-white">
+                                        <CheckCircle className="h-3 w-3" /> {t.listings.verified}
+                                    </span>
+                                )
+                            }
+                            return null
+                        })()}
                     </div>
 
                     {/* Price — uses rentAmount */}

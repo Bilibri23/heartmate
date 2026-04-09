@@ -271,7 +271,7 @@ export default function LandingPage() {
                 type="button"
                 aria-label="Use dark mode"
                 onClick={() => setTheme("dark")}
-                className={`rounded-full p-2 transition ${theme === "dark" ? theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950" : theme === "light" ? "text-slate-500 hover:text-slate-950" : "text-white/70 hover:text-white"}`}
+                className={`rounded-full p-2 transition ${theme === "dark" ? "bg-white text-slate-950" : theme === "light" ? "text-slate-500 hover:text-slate-950" : "text-white/70 hover:text-white"}`}
               >
                 <Moon className="h-4 w-4" />
               </button>

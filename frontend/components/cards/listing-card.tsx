@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Heart, MapPin, Bed, Bath, CheckCircle, Star, Sparkles, Camera } from "lucide-react"
 import { useLanguage } from "@/context/language-context"
 import { cn } from "@/lib/utils"
+import { trustTierChipClassName } from "@/lib/listing-trust-tier"
 import { useState } from "react"
 
 interface ListingCardProps {
@@ -18,6 +19,8 @@ interface ListingCardProps {
   imageUrl?: string
   images?: string[]
   isVerified?: boolean
+  /** From API: HIGH | VERIFIED | REVIEWED | STANDARD */
+  trustTier?: string | null
   isFeatured?: boolean
   isFavorited?: boolean
   rating?: number
@@ -38,6 +41,7 @@ export function ListingCard({
   imageUrl,
   images = [],
   isVerified = false,
+  trustTier = null,
   isFeatured = false,
   isFavorited = false,
   rating,
@@ -59,6 +63,23 @@ export function ListingCard({
   const currentImg = gallery[imgIndex] || imageUrl
 
   const normalizedStatus = status?.toUpperCase?.()
+  const trustChipClass = trustTierChipClassName(trustTier, "card")
+  const trustLabel = (() => {
+    switch (trustTier) {
+      case "HIGH": return t.listings.trustTierHigh
+      case "VERIFIED": return t.listings.trustTierVerified
+      case "REVIEWED": return t.listings.trustTierReviewed
+      default: return null
+    }
+  })()
+  const trustTitle = (() => {
+    switch (trustTier) {
+      case "HIGH": return t.listings.trustTierTitleHigh
+      case "VERIFIED": return t.listings.trustTierTitleVerified
+      case "REVIEWED": return t.listings.trustTierTitleReviewed
+      default: return null
+    }
+  })()
   const isUnavailable =
     typeof isAvailable === "boolean"
       ? !isAvailable
@@ -117,9 +138,14 @@ export function ListingCard({
                   ⭐ FEATURED
                 </span>
               )}
-              {isVerified && (
+              {trustLabel && trustChipClass && (
+                <span title={trustTitle ?? undefined} className={trustChipClass}>
+                  <CheckCircle className="h-3 w-3" /> {trustLabel}
+                </span>
+              )}
+              {!trustLabel && isVerified && (
                 <span className="flex items-center gap-1 rounded-full bg-emerald-500/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-bold text-white">
-                  <CheckCircle className="h-3 w-3" /> VERIFIED
+                  <CheckCircle className="h-3 w-3" /> {t.listings.verified}
                 </span>
               )}
             </div>

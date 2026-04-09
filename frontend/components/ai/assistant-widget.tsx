@@ -28,7 +28,10 @@ export function AssistantWidget() {
 
   return (
     <>
-      <div className="fixed bottom-20 right-4 z-50">
+      <div
+        data-tour="roombay-ai-assistant"
+        className="fixed bottom-20 right-4 z-50"
+      >
         <Button
           onClick={() => setOpen(true)}
           className="h-12 w-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
@@ -40,7 +43,7 @@ export function AssistantWidget() {
       </div>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl p-0 overflow-hidden">
+        <SheetContent side="bottom" showClose={false} className="h-[85vh] rounded-t-3xl p-0 overflow-hidden">
           <div className="flex h-full flex-col">
             <SheetHeader className="p-4 border-b border-slate-200 bg-white">
               <div className="flex items-center justify-between gap-3">

@@ -63,10 +63,25 @@ export default function HouseholdPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-4xl">
+      <div
+        className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        role="note"
+      >
+        <strong className="font-semibold">Not part of the current MVP.</strong> RoomBay focuses on discovery,
+        applications, and leases. Shared household expenses may change; use{" "}
+        <Link href="/for-you" className="underline font-medium">
+          For You
+        </Link>{" "}
+        and{" "}
+        <Link href="/messages" className="underline font-medium">
+          Messages
+        </Link>{" "}
+        for day-to-day coordination.
+      </div>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900">My Households</h1>
         <p className="text-slate-500 mt-1">
-          Manage your shared living spaces with roommates
+          Manage your shared living spaces with roommates (legacy / optional)
         </p>
       </div>
 

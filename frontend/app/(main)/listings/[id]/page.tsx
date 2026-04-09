@@ -61,6 +61,7 @@ import { toast } from "sonner"
 import { shareListingService } from "@/services/share-listing"
 import { useProfileCompletion } from "@/hooks/use-profile-completion"
 import { CompletionBanner } from "@/components/profile/completion-banner"
+import { trustTierChipClassName } from "@/lib/listing-trust-tier"
 
 interface ListingDetail {
   id: string
@@ -91,6 +92,8 @@ interface ListingDetail {
   videoTourThumbnail?: string
   videoTourDuration?: number
   verified: boolean
+  /** HIGH | VERIFIED | REVIEWED | STANDARD from API */
+  trustTier?: string | null
   featured: boolean
   status: string
   viewsCount: number
@@ -207,8 +210,8 @@ export default function ListingDetailPage() {
 
   const MESSAGE_TEMPLATES = [
     {
-      label: "🎓 Student",
-      text: `Hi, I'm a student and I'm very interested in this property. I'm looking for a comfortable place near my university. When would it be possible to schedule a visit? I'm reliable and respectful of shared spaces. Thank you!`,
+      label: "🎓 Tenant",
+      text: `Hi, I'm looking for a place in this area and I'm very interested in this property. When would it be possible to schedule a visit? I'm reliable and respectful of shared spaces. Thank you!`,
     },
     {
       label: "💼 Professional",
@@ -656,12 +659,43 @@ export default function ListingDetailPage() {
               {language === "fr" ? "Visite virtuelle" : "Virtual Tour"}
             </span>
           )}
-          {listing.verified && (
-            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-medium">
-              <CheckCircle className="h-3.5 w-3.5" />
-              {t.listings.verified}
-            </span>
-          )}
+          {(() => {
+            const tier = listing.trustTier
+            const chip = trustTierChipClassName(tier, "detail")
+            const label = (() => {
+              switch (tier) {
+                case "HIGH": return t.listings.trustTierHigh
+                case "VERIFIED": return t.listings.trustTierVerified
+                case "REVIEWED": return t.listings.trustTierReviewed
+                default: return null
+              }
+            })()
+            const title = (() => {
+              switch (tier) {
+                case "HIGH": return t.listings.trustTierTitleHigh
+                case "VERIFIED": return t.listings.trustTierTitleVerified
+                case "REVIEWED": return t.listings.trustTierTitleReviewed
+                default: return null
+              }
+            })()
+            if (label && chip) {
+              return (
+                <span title={title ?? undefined} className={chip}>
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  {label}
+                </span>
+              )
+            }
+            if (listing.verified) {
+              return (
+                <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/90 backdrop-blur-sm text-white text-xs font-medium">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  {t.listings.verified}
+                </span>
+              )
+            }
+            return null
+          })()}
           {listing.featured && (
             <span className="px-2.5 py-1 rounded-full bg-amber-500/90 backdrop-blur-sm text-white text-xs font-medium">
               {t.listings.featured}

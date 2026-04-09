@@ -48,11 +48,26 @@ Run Search Reindex from Admin Settings.
 
 ## AI assistant
 
+### Where are embeddings stored?
+Retrieval uses **PostgreSQL with the pgvector extension**, not FAISS. Chunks and vectors live in tables created by Flyway migration `V32__create_ai_rag_tables.sql`; similarity search is implemented in `AiRagRepository`.
+
 ### Which provider is active?
-Based on backend env `AI_PROVIDER` (`openai`, `ollama`, or `auto`).
+Based on backend env `AI_PROVIDER` (`openai`, `ollama`, or `auto`). For **self-hosted only**, use `ollama` and do not set `OPENAI_API_KEY`.
 
 ### Why does AI fail with model not found?
 Configured Ollama model is not pulled yet.
 
 ### How do I refresh AI knowledge?
 Update docs and run Admin "Ingest Docs".
+
+## Production / VPS (checklist)
+
+1. **Ollama** on the same VPS or reachable URL: install models you configured (`OLLAMA_CHAT_MODEL`, `OLLAMA_EMBEDDING_MODEL`).
+2. **Env vars:** `AI_PROVIDER=ollama` for self-hosted-only; leave `OPENAI_API_KEY` unset. Optional: `AI_DOCS_DIR` absolute path to the repo `docs/` folder if the JVM working directory is not the repo root.
+3. **PostgreSQL:** Ensure extension **pgvector** is enabled where the app runs Flyway migrations (or applied manually) so RAG tables exist.
+4. **After changing markdown:** run ingest again so chunks and embeddings stay current.
+5. **Elasticsearch:** See [`backend/docs/ELASTICSEARCH-SETUP.md`](../backend/docs/ELASTICSEARCH-SETUP.md) and [`NEXT-TODOS.md`](NEXT-TODOS.md).
+
+## Knowledge files ingested by default
+
+All `*.md` under `docs/` (default `AI_DOCS_DIR=../docs` from `backend/`). Cameroon and safety content includes [`rag-cameroon-rental-basics.md`](rag-cameroon-rental-basics.md), [`rag-cameroon-safety-scams.md`](rag-cameroon-safety-scams.md), [`rag-roombay-platform-usage.md`](rag-roombay-platform-usage.md).

@@ -1,13 +1,16 @@
 package org.rooms.roombay.ai;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.exception.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +25,7 @@ import java.util.Map;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OllamaClient {
 
     private final RestClient.Builder restClientBuilder;
@@ -29,28 +33,39 @@ public class OllamaClient {
     @Value("${OLLAMA_BASE_URL:http://localhost:11434}")
     private String baseUrl;
 
-    @Value("${OLLAMA_CHAT_MODEL:llama3.1}")
+    @Value("${OLLAMA_CHAT_MODEL:llama3.2}")
     private String chatModel;
 
     @Value("${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}")
     private String embeddingModel;
 
     public List<Double> embed(String input) {
-        Map<String, Object> payload = Map.of(
-                "model", embeddingModel,
-                "input", input
-        );
+        Map<String, Object> payload = Map.of("model", embeddingModel, "input", input);
 
         var client = restClientBuilder
                 .baseUrl(baseUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
-        Map<?, ?> res = client.post()
-                .uri("/api/embed")
-                .body(payload)
-                .retrieve()
-                .body(Map.class);
+        Map<?, ?> res;
+        try {
+            res = client.post()
+                    .uri("/api/embed")
+                    .body(payload)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            String fallbackModel = chooseFallbackEmbeddingModel(client, embeddingModel);
+            if (fallbackModel == null) {
+                throw new BadRequestException("Ollama embedding model not found: '" + embeddingModel + "'. Pull one (e.g. `ollama pull nomic-embed-text`) or set OLLAMA_EMBEDDING_MODEL.");
+            }
+            log.warn("[AI] Ollama embedding model '{}' missing. Falling back to '{}'.", embeddingModel, fallbackModel);
+            res = client.post()
+                    .uri("/api/embed")
+                    .body(Map.of("model", fallbackModel, "input", input))
+                    .retrieve()
+                    .body(Map.class);
+        }
 
         if (res == null) throw new BadRequestException("Ollama embedding request failed");
         List<?> embeddings = (List<?>) res.get("embeddings");
@@ -71,27 +86,91 @@ public class OllamaClient {
                 "Retrieved_context_chunks:\n" + contextJson + "\n\n" +
                 "Answer:";
 
-        Map<String, Object> payload = Map.of(
-                "model", chatModel,
-                "prompt", prompt,
-                "stream", false
-        );
+        Map<String, Object> payload = Map.of("model", chatModel, "prompt", prompt, "stream", false);
 
         var client = restClientBuilder
                 .baseUrl(baseUrl)
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
 
-        Map<?, ?> res = client.post()
-                .uri("/api/generate")
-                .body(payload)
-                .retrieve()
-                .body(Map.class);
+        Map<?, ?> res;
+        try {
+            res = client.post()
+                    .uri("/api/generate")
+                    .body(payload)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            String fallbackModel = chooseFallbackChatModel(client, chatModel);
+            if (fallbackModel == null) {
+                throw new BadRequestException("Ollama chat model not found: '" + chatModel + "'. Pull a model first (e.g. `ollama pull llama3.2`) or set OLLAMA_CHAT_MODEL.");
+            }
+            log.warn("[AI] Ollama model '{}' missing. Falling back to '{}'.", chatModel, fallbackModel);
+            res = client.post()
+                    .uri("/api/generate")
+                    .body(Map.of("model", fallbackModel, "prompt", prompt, "stream", false))
+                    .retrieve()
+                    .body(Map.class);
+        }
 
         if (res == null) throw new BadRequestException("Ollama chat request failed");
         String response = (String) res.get("response");
         if (response == null) throw new BadRequestException("Ollama chat response missing 'response'");
         return response.trim();
+    }
+
+    private String chooseFallbackChatModel(RestClient client, String preferredModel) {
+        try {
+            Map<?, ?> res = client.get().uri("/api/tags").retrieve().body(Map.class);
+            if (res == null) return null;
+            List<?> models = (List<?>) res.get("models");
+            if (models == null || models.isEmpty()) return null;
+
+            List<String> names = new ArrayList<>();
+            for (Object m : models) {
+                if (m instanceof Map<?, ?> mm) {
+                    Object n = mm.get("name");
+                    if (n instanceof String s && !s.isBlank()) {
+                        names.add(s);
+                    }
+                }
+            }
+            if (names.isEmpty()) return null;
+            if (names.contains(preferredModel)) return preferredModel;
+            for (String name : names) {
+                if (name.startsWith("llama")) return name;
+            }
+            return names.get(0);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String chooseFallbackEmbeddingModel(RestClient client, String preferredModel) {
+        try {
+            Map<?, ?> res = client.get().uri("/api/tags").retrieve().body(Map.class);
+            if (res == null) return null;
+            List<?> models = (List<?>) res.get("models");
+            if (models == null || models.isEmpty()) return null;
+
+            List<String> names = new ArrayList<>();
+            for (Object m : models) {
+                if (m instanceof Map<?, ?> mm) {
+                    Object n = mm.get("name");
+                    if (n instanceof String s && !s.isBlank()) {
+                        names.add(s);
+                    }
+                }
+            }
+            if (names.isEmpty()) return null;
+            if (names.contains(preferredModel)) return preferredModel;
+            for (String name : names) {
+                if (name.contains("embed")) return name;
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
 

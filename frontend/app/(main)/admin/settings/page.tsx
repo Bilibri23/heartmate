@@ -22,7 +22,7 @@ export default function AdminSettingsPage() {
     maintenanceMode: false,
     allowNewRegistrations: true,
     requireEmailVerification: true,
-    requireStudentVerification: true,
+    requireTenantVerification: true,
     autoApproveListings: false,
     maxListingsPerLandlord: 10,
     platformFeePercent: 5,
@@ -149,10 +149,10 @@ export default function AdminSettingsPage() {
             </div>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-slate-900">Require Student Verification</p>
-                <p className="text-sm text-slate-500">Students must verify before applying</p>
+                <p className="font-medium text-slate-900">Require tenant identity verification</p>
+                <p className="text-sm text-slate-500">Tenants must verify (gov ID + selfie) before applying</p>
               </div>
-              <Switch checked={settings.requireStudentVerification} onCheckedChange={(v) => setSettings(s => ({...s, requireStudentVerification: v}))} />
+              <Switch checked={settings.requireTenantVerification} onCheckedChange={(v) => setSettings(s => ({...s, requireTenantVerification: v}))} />
             </div>
             <div className="flex items-center justify-between">
               <div>

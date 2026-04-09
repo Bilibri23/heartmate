@@ -32,7 +32,8 @@ import {
   Search,
   ChevronRight,
   UserCheck,
-  Building
+  Building,
+  Flag,
 } from "lucide-react"
 
 interface Statistics {
@@ -298,6 +299,15 @@ export default function AdminDashboardPage() {
                         <ChevronRight className="h-5 w-5 text-slate-400" />
                       </div>
                     </Link>
+                    <Link href="/admin/reports">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <Flag className="h-5 w-5 text-amber-600" />
+                          <span className="text-slate-700">Reports triage</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-slate-400" />
+                      </div>
+                    </Link>
                     <Link href="/admin/payments">
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                         <div className="flex items-center gap-3">
@@ -444,7 +454,7 @@ export default function AdminDashboardPage() {
                         <span className="font-semibold">{statistics.totalUsers}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                        <span className="text-slate-600">Students</span>
+                        <span className="text-slate-600">Tenants</span>
                         <span className="font-semibold">{statistics.totalStudents}</span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-slate-100">

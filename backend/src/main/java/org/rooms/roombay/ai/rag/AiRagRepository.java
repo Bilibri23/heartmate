@@ -102,7 +102,19 @@ public class AiRagRepository {
 
     public List<ChunkRow> topKSimilar(List<Double> queryEmbedding, int k) {
         try {
+            if (queryEmbedding.isEmpty() || k <= 0) {
+                return List.of();
+            }
             String vectorLiteral = toVectorLiteral(queryEmbedding);
+            int queryDims = queryEmbedding.size();
+            Integer storedDims = jdbcTemplate.queryForObject(
+                    "SELECT COALESCE(MAX(vector_dims(embedding)), 0) FROM ai_chunks",
+                    Integer.class
+            );
+            if (storedDims != null && storedDims > 0 && storedDims != queryDims) {
+                // Avoid hard-failing chat when the embedding provider/model changed dimensions.
+                return List.of();
+            }
 
             RowMapper<ChunkRow> mapper = (rs, i) -> ChunkRow.builder()
                     .id(UUID.fromString(rs.getString("id")))
@@ -118,11 +130,12 @@ public class AiRagRepository {
                     SELECT c.id, c.document_id, c.chunk_index, c.chunk_text, d.source, d.title
                     FROM ai_chunks c
                     JOIN ai_documents d ON d.id = c.document_id
+                    WHERE vector_dims(c.embedding) = ?
                     ORDER BY c.embedding <=> ?::vector
                     LIMIT ?
                     """,
                     mapper,
-                    vectorLiteral, k
+                    queryDims, vectorLiteral, k
             );
         } catch (Exception e) {
             throw new BadRequestException("Vector search failed: " + e.getMessage());

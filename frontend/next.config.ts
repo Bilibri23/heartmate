@@ -31,10 +31,19 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    const backend = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082';
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082'}/api/:path*`,
+        destination: `${backend}/api/:path*`,
+      },
+      {
+        source: '/oauth2/:path*',
+        destination: `${backend}/oauth2/:path*`,
+      },
+      {
+        source: '/login/oauth2/:path*',
+        destination: `${backend}/login/oauth2/:path*`,
       },
     ];
   },

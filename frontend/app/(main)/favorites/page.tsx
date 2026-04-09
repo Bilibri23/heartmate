@@ -23,6 +23,7 @@ interface Listing {
   bedrooms: number
   bathrooms: number
   verified: boolean
+  trustTier?: string | null
   featured: boolean
 }
 
@@ -129,6 +130,7 @@ export default function FavoritesPage() {
                   bathrooms={listing.bathrooms}
                   imageUrl={listing.photos?.find(p => p.isPrimary)?.photoUrl || listing.photos?.[0]?.photoUrl}
                   isVerified={listing.verified}
+                  trustTier={listing.trustTier}
                   isFeatured={listing.featured}
                   isFavorited={true}
                   onFavoriteToggle={handleFavoriteToggle}

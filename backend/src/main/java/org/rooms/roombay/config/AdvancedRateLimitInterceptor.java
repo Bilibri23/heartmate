@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -147,14 +149,19 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
     
     private String getUserId(HttpServletRequest request) {
         try {
-            // Try to get from security context
-            Object principal = request.getUserPrincipal();
-            if (principal != null) {
-                return principal.getClass().getName();
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof UUID uid) {
+                return uid.toString();
             }
-            // Try to get from header (if set by JWT filter)
-            String userId = request.getHeader("X-User-Id");
-            return userId;
+            if (auth != null && auth.getPrincipal() instanceof String s) {
+                try {
+                    UUID.fromString(s);
+                    return s;
+                } catch (IllegalArgumentException ignored) {
+                    // fall through
+                }
+            }
+            return request.getHeader("X-User-Id");
         } catch (Exception e) {
             return null;
         }

@@ -147,7 +147,7 @@ export default function LandlordProfilePage() {
 
       <div className="flex-1 overflow-y-auto pb-24">
         {/* Profile Header */}
-        <div className="bg-gradient-to-br from-blue-600 to-purple-700 px-4 pt-6 pb-8">
+        <div data-tour="ll-profile-hero" className="bg-gradient-to-br from-blue-600 to-purple-700 px-4 pt-6 pb-8">
           {isLoading ? (
             <div className="flex items-center gap-4">
               <Skeleton className="h-20 w-20 rounded-full" />
@@ -215,7 +215,16 @@ export default function LandlordProfilePage() {
         {/* Menu Sections */}
         <div className="p-4 space-y-6">
           {menuItems.map((section) => (
-            <div key={section.section}>
+            <div
+              key={section.section}
+              data-tour={
+                section.section === "Properties"
+                  ? "ll-profile-section-properties"
+                  : section.section === "Account"
+                    ? "ll-profile-section-account"
+                    : undefined
+              }
+            >
               <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-1">
                 {section.section}
               </h2>

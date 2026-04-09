@@ -4,6 +4,8 @@
 
 **Date:** March 2025
 
+**Canonical engineering docs:** This file plus [`PRODUCT-BACKLOG.md`](PRODUCT-BACKLOG.md) define MVP scope. Implementation tracking: [`mvp-vision-vs-implementation-gaps.md`](mvp-vision-vs-implementation-gaps.md). **VPS / go-live checklist (4 items):** [`NEXT-TODOS.md`](NEXT-TODOS.md). AI RAG retrieval uses **pgvector** in PostgreSQL (see [`ai-faq.md`](ai-faq.md)).
+
 ---
 
 ## 1. User Personas (Revised)

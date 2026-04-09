@@ -28,7 +28,7 @@ public class User {
     @Column(unique = true, nullable = false)
     private String phone;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @Column(name = "first_name", nullable = false)
@@ -86,6 +86,13 @@ public class User {
     @Column(name = "login_count")
     @Builder.Default
     private Integer loginCount = 0;
+
+    /** e.g. GOOGLE — set with oauth_subject when user signs in via OAuth */
+    @Column(name = "oauth_provider", length = 32)
+    private String oauthProvider;
+
+    @Column(name = "oauth_subject", length = 255)
+    private String oauthSubject;
 
     // Mobile Money payment details (for landlords)
     @Column(name = "mtn_momo_number")

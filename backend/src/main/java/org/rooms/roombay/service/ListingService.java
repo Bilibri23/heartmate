@@ -6,6 +6,7 @@ import org.rooms.roombay.dto.request.ListingApprovalRequest;
 import org.rooms.roombay.dto.request.ListingRequest;
 import org.rooms.roombay.dto.response.ListingResponse;
 import org.rooms.roombay.dto.response.PhotoDTO;
+import org.rooms.roombay.entity.LandlordVerification;
 import org.rooms.roombay.entity.ListingFavorite;
 import org.rooms.roombay.entity.ListingPhoto;
 import org.rooms.roombay.entity.ListingSearchOutbox;
@@ -43,6 +44,7 @@ public class ListingService {
     private final RoomApplicationRepository applicationRepository;
     private final ListingSearchOutboxRepository listingSearchOutboxRepository;
     private final SecurityAuditService securityAuditService;
+    private final LandlordVerificationRepository landlordVerificationRepository;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -415,7 +417,11 @@ public class ListingService {
         log.info("Getting listings for landlord: {}", landlordId);
         List<PropertyListing> listings = listingRepository.findByLandlordId(landlordId);
         return listings.stream()
-                .map(listing -> mapToResponse(listing, landlordId))
+                .map(listing -> {
+                    ListingResponse r = mapToResponse(listing, landlordId);
+                    r.setApplicationsCount((int) applicationRepository.countByListingId(listing.getId()));
+                    return r;
+                })
                 .collect(Collectors.toList());
     }
     
@@ -642,6 +648,11 @@ public class ListingService {
         }
         
         Boolean isFavorite = userId != null && favoriteRepository.existsByUserIdAndListingId(userId, listing.getId());
+
+        LandlordVerification landlordVerification = landlordVerificationRepository
+                .findByUserId(listing.getLandlord().getId())
+                .orElse(null);
+        String trustTier = computeTrustTier(listing, landlordVerification);
         
         // Get review stats for listing
         Double averageRating = reviewRepository.getAverageRatingForListing(listing.getId());
@@ -689,6 +700,7 @@ public class ListingService {
                 .availableTo(listing.getAvailableTo())
                 .status(listing.getStatus().name())
                 .verified(listing.getVerified())
+                .trustTier(trustTier)
                 .featured(listing.getFeatured())
                 .viewsCount(listing.getViewsCount())
                 .favoritesCount(listing.getFavoritesCount())
@@ -707,6 +719,27 @@ public class ListingService {
                 .createdAt(listing.getCreatedAt())
                 .updatedAt(listing.getUpdatedAt())
                 .build();
+    }
+
+    /**
+     * Tenant-facing trust tier: listing review (verified) plus landlord verification strength.
+     */
+    private static String computeTrustTier(PropertyListing listing, LandlordVerification lv) {
+        boolean listingReviewed = Boolean.TRUE.equals(listing.getVerified());
+        if (!listingReviewed) {
+            return "STANDARD";
+        }
+        boolean trustedFlag = lv != null && Boolean.TRUE.equals(lv.getIsTrustedLandlord());
+        int score = lv != null && lv.getTrustScore() != null ? lv.getTrustScore() : 0;
+        boolean identityOk = lv != null && lv.getIdentityStatus() == LandlordVerification.VerificationStatus.VERIFIED;
+
+        if (trustedFlag || score >= 70) {
+            return "HIGH";
+        }
+        if (identityOk) {
+            return "VERIFIED";
+        }
+        return "REVIEWED";
     }
 
     /**

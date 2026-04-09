@@ -90,7 +90,7 @@ export default function ProfilePage() {
 
       <div className="flex-1 overflow-y-auto">
         {/* Profile Header */}
-        <div className="bg-white px-4 py-6 border-b border-slate-100">
+        <div data-tour="profile-header" className="bg-white px-4 py-6 border-b border-slate-100">
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20 border-2 border-slate-100">
               <AvatarImage src={undefined} />
@@ -117,7 +117,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Verification Status */}
-          <div className="mt-4">
+          <div data-tour="profile-verification" className="mt-4">
             {isVerified ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 rounded-xl">
                 <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -180,7 +180,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Settings Menu */}
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+          <div data-tour="profile-menu-settings" className="bg-white rounded-2xl overflow-hidden shadow-sm">
             {settingsItems.map((item, index) => {
               const Icon = item.icon
               return (

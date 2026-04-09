@@ -6,6 +6,7 @@ import org.rooms.roombay.dto.request.LoginRequest;
 import org.rooms.roombay.dto.request.RegisterRequest;
 import org.rooms.roombay.dto.request.ResetPasswordRequest;
 import org.rooms.roombay.dto.request.ChangePasswordRequest;
+import org.rooms.roombay.dto.response.AuthMeResponse;
 import org.rooms.roombay.dto.response.AuthResponse;
 import org.rooms.roombay.entity.PasswordResetToken;
 import org.rooms.roombay.entity.EmailVerificationToken;
@@ -18,11 +19,13 @@ import org.rooms.roombay.repository.EmailVerificationTokenRepository;
 import org.rooms.roombay.repository.RefreshTokenSessionRepository;
 import org.rooms.roombay.repository.UserRepository;
 import org.rooms.roombay.security.JwtTokenProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -39,6 +42,13 @@ public class AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final RefreshTokenSessionRepository refreshTokenSessionRepository;
     private final EmailService emailService;
+
+    /** When false, login succeeds without email/phone verification (remind later in UI). */
+    @Value("${app.verification.require-for-login:false}")
+    private boolean verificationRequiredForLogin;
+
+    @Value("${app.email.send-verification-on-register:false}")
+    private boolean sendVerificationEmailOnRegister;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@(.+)$");
     private static final int TOKEN_EXPIRATION_HOURS = 1;
@@ -90,9 +100,10 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
         log.info("User registered successfully with ID: {}", savedUser.getId());
-        sendEmailVerification(savedUser);
+        if (sendVerificationEmailOnRegister) {
+            sendEmailVerification(savedUser);
+        }
 
-        // Generate tokens
         String accessToken = jwtTokenProvider.generateAccessToken(
                 savedUser.getId(),
                 savedUser.getEmail(),
@@ -100,15 +111,7 @@ public class AuthService {
         );
         String refreshToken = issueRefreshToken(savedUser);
 
-        return AuthResponse.builder()
-                .userId(savedUser.getId())
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .expiresIn(3600L) // 1 hour in seconds
-                .role(savedUser.getRole().name())
-                .firstName(savedUser.getFirstName())
-                .lastName(savedUser.getLastName())
-                .build();
+        return buildAuthResponse(savedUser, accessToken, refreshToken);
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -124,7 +127,9 @@ public class AuthService {
                     .orElseThrow(() -> new ResourceNotFoundException("Invalid email or password"));
         }
 
-        // Verify password
+        if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+            throw new BadRequestException("This account uses Google sign-in.");
+        }
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new BadRequestException("Invalid email or password");
         }
@@ -134,11 +139,13 @@ public class AuthService {
                 user.getAccountStatus() != User.AccountStatus.PENDING) {
             throw new BadRequestException("Account is " + user.getAccountStatus());
         }
-        if (!Boolean.TRUE.equals(user.getEmailVerified())) {
-            throw new BadRequestException("Please verify your email before logging in.");
-        }
-        if (!Boolean.TRUE.equals(user.getPhoneVerified())) {
-            throw new BadRequestException("Please verify your phone number before logging in.");
+        if (verificationRequiredForLogin) {
+            if (!Boolean.TRUE.equals(user.getEmailVerified())) {
+                throw new BadRequestException("Please verify your email before logging in.");
+            }
+            if (!Boolean.TRUE.equals(user.getPhoneVerified())) {
+                throw new BadRequestException("Please verify your phone number before logging in.");
+            }
         }
 
         // Update last active
@@ -155,15 +162,13 @@ public class AuthService {
 
         log.info("User logged in successfully: {}", user.getId());
 
-        return AuthResponse.builder()
-                .userId(user.getId())
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .expiresIn(3600L)
-                .role(user.getRole().name())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .build();
+        return buildAuthResponse(user, accessToken, refreshToken);
+    }
+
+    public AuthMeResponse getAuthenticatedUser(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return AuthMeResponse.from(user);
     }
 
     public AuthResponse refreshToken(String refreshToken) {
@@ -196,15 +201,7 @@ public class AuthService {
         );
         String newRefreshToken = issueRefreshToken(user);
 
-        return AuthResponse.builder()
-                .userId(user.getId())
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .expiresIn(3600L)
-                .role(user.getRole().name())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .build();
+        return buildAuthResponse(user, newAccessToken, newRefreshToken);
     }
     
     public void requestPasswordReset(String email) {
@@ -288,6 +285,9 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
+        if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+            throw new BadRequestException("Set a password first or use Google sign-in.");
+        }
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new BadRequestException("Current password is incorrect");
         }
@@ -363,6 +363,80 @@ public class AuthService {
                         .build()
         );
         return jwtTokenProvider.generateRefreshToken(user.getId(), session.getId(), tokenId);
+    }
+
+    /**
+     * Google OAuth: find or create user, issue JWTs. Email from Google is treated as verified.
+     */
+    public AuthResponse authenticateWithGoogle(String subject, String email, String firstName, String lastName) {
+        if (subject == null || subject.isBlank()) {
+            throw new BadRequestException("Invalid OAuth subject");
+        }
+        if (email == null || email.isBlank()) {
+            throw new BadRequestException("Google did not return an email address.");
+        }
+        String normalizedEmail = email.trim().toLowerCase();
+
+        User user = userRepository.findByOauthProviderAndOauthSubject("GOOGLE", subject).orElse(null);
+        if (user != null) {
+            user.setLastActive(LocalDateTime.now());
+            user = userRepository.save(user);
+        } else {
+            Optional<User> byEmail = userRepository.findByEmail(normalizedEmail);
+            if (byEmail.isPresent()) {
+                user = byEmail.get();
+                if (user.getOauthSubject() != null && !subject.equals(user.getOauthSubject())) {
+                    throw new BadRequestException("This email is linked to another sign-in method.");
+                }
+                user.setOauthProvider("GOOGLE");
+                user.setOauthSubject(subject);
+                user.setEmailVerified(true);
+                user.setLastActive(LocalDateTime.now());
+                user = userRepository.save(user);
+            } else {
+                String phonePlaceholder = "og" + UUID.randomUUID().toString().replace("-", "").substring(0, 18);
+                String fn = (firstName != null && !firstName.isBlank()) ? firstName.trim() : "User";
+                String ln = (lastName != null && !lastName.isBlank()) ? lastName.trim() : "";
+                user = User.builder()
+                        .email(normalizedEmail)
+                        .phone(phonePlaceholder)
+                        .passwordHash(null)
+                        .firstName(fn)
+                        .lastName(ln)
+                        .role(User.UserRole.STUDENT)
+                        .accountStatus(User.AccountStatus.PENDING)
+                        .emailVerified(true)
+                        .phoneVerified(false)
+                        .profileCompleted(false)
+                        .oauthProvider("GOOGLE")
+                        .oauthSubject(subject)
+                        .build();
+                user = userRepository.save(user);
+                log.info("Registered new user via Google OAuth: {}", user.getId());
+            }
+        }
+
+        String accessToken = jwtTokenProvider.generateAccessToken(
+                user.getId(),
+                user.getEmail(),
+                user.getRole().name()
+        );
+        String refreshToken = issueRefreshToken(user);
+        return buildAuthResponse(user, accessToken, refreshToken);
+    }
+
+    private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
+        return AuthResponse.builder()
+                .userId(user.getId())
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .expiresIn(3600L)
+                .role(user.getRole().name())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .emailVerified(user.getEmailVerified())
+                .phoneVerified(user.getPhoneVerified())
+                .build();
     }
 
     private void sendEmailVerification(User user) {

@@ -13,10 +13,10 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  Download,
   Filter,
-  ChevronRight,
-  Home
+  Home,
+  ExternalLink,
+  FileImage
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -40,6 +40,9 @@ interface Payment {
   leaseReferenceCode?: string
   listingTitle?: string
   momoTransactionId?: string
+  paymentProofUrl?: string
+  rejectionReason?: string
+  verificationNotes?: string
   createdAt: string
   // Legacy nested fields (for backwards compatibility)
   tenant?: {
@@ -251,6 +254,9 @@ export default function LandlordPaymentsPage() {
                         <p className="text-xs text-slate-400 mt-1">
                           {new Date(payment.createdAt || payment.paymentDate || Date.now()).toLocaleDateString()}
                         </p>
+                        {payment.momoTransactionId && (
+                          <p className="text-xs text-slate-500 mt-0.5">Ref: {payment.momoTransactionId}</p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
@@ -263,6 +269,31 @@ export default function LandlordPaymentsPage() {
                       </span>
                     </div>
                   </div>
+                  {payment.paymentProofUrl && (
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2">
+                      <p className="text-xs font-medium text-slate-600 mb-2 flex items-center gap-1">
+                        <FileImage className="h-3.5 w-3.5" /> Tenant payment proof
+                      </p>
+                      <div className="relative">
+                        <img
+                          src={payment.paymentProofUrl}
+                          alt="Payment proof"
+                          className="max-h-40 w-full rounded-lg object-contain bg-white"
+                        />
+                        <a
+                          href={payment.paymentProofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="absolute top-2 right-2 rounded-lg bg-white/90 p-1.5 shadow"
+                        >
+                          <ExternalLink className="h-4 w-4 text-slate-600" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  {payment.status === "REJECTED" && payment.rejectionReason && (
+                    <p className="mt-2 text-xs text-red-600">Reason: {payment.rejectionReason}</p>
+                  )}
                 </div>
               ))}
             </div>

@@ -1,6 +1,7 @@
 package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.AiModelRouter;
 import org.rooms.roombay.ai.rag.AiRagRepository;
 import org.rooms.roombay.dto.request.AiChatRequest;
@@ -21,6 +22,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiAssistantService {
 
     private final AiModelRouter modelRouter;
@@ -35,7 +37,14 @@ public class AiAssistantService {
         UUID userId = SecurityUtils.getCurrentUserId(); // ensure authenticated
         // persona is provided by client; we still keep system prompt strict and role-agnostic.
         List<Double> qEmb = modelRouter.embed(request.getMessage());
-        var chunks = ragRepository.topKSimilar(qEmb, 8);
+        List<AiRagRepository.ChunkRow> chunks;
+        try {
+            chunks = ragRepository.topKSimilar(qEmb, 8);
+        } catch (Exception e) {
+            // Keep assistant available even when vector index/schema has drift.
+            log.warn("[AI] RAG retrieval failed, continuing without context: {}", e.getMessage());
+            chunks = List.of();
+        }
 
         List<Map<String, Object>> contextChunks = chunks.stream().map(c -> {
             Map<String, Object> m = new java.util.HashMap<>();

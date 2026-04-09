@@ -139,7 +139,7 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div data-tour="tenant-applications" className="flex flex-col min-h-screen bg-slate-50">
       <MobileHeader title={t.applications.title} />
 
 

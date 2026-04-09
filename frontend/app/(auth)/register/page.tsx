@@ -141,6 +141,18 @@ function RegisterContent() {
             </button>
           </div>
 
+          {process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === "true" && (
+            <div className="mb-6">
+              <Button type="button" variant="outline" className="h-11 w-full rounded-xl border-slate-200" asChild>
+                <a href="/oauth2/authorization/google">Sign up with Google</a>
+              </Button>
+              <div className="relative my-5 text-center text-xs text-slate-400">
+                <span className="bg-white px-2">or register with email</span>
+                <div className="absolute inset-x-0 top-1/2 -z-10 h-px bg-slate-200" aria-hidden />
+              </div>
+            </div>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

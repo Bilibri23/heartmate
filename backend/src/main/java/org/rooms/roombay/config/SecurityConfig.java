@@ -1,6 +1,6 @@
 package org.rooms.roombay.config;
 
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,22 +25,35 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
     
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler;
 
     @Value("${cors.allowed-origins:}")
     private String corsAllowedOrigins;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          @Autowired(required = false) RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.oauth2SuccessHandler = oauth2SuccessHandler;
+    }
     
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        if (oauth2SuccessHandler != null) {
+            http.oauth2Login(o -> o.successHandler(oauth2SuccessHandler));
+        }
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // OAuth2 authorization-code flow needs a session during the redirect; API calls stay JWT-based.
+                .sessionManagement(session -> session.sessionCreationPolicy(
+                        oauth2SuccessHandler != null
+                                ? SessionCreationPolicy.IF_REQUIRED
+                                : SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         // Public auth endpoints
                         .requestMatchers(
                                 "/api/auth/register",

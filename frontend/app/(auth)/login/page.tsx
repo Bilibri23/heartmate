@@ -146,6 +146,18 @@ export default function LoginPage() {
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign In
               </Button>
+
+              {process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === "true" && (
+                <>
+                  <div className="relative my-6 text-center text-xs text-slate-400">
+                    <span className="bg-white px-2">or</span>
+                    <div className="absolute inset-x-0 top-1/2 -z-10 h-px bg-slate-200" aria-hidden />
+                  </div>
+                  <Button type="button" variant="outline" className="h-11 w-full rounded-xl border-slate-200" asChild>
+                    <a href="/oauth2/authorization/google">Continue with Google</a>
+                  </Button>
+                </>
+              )}
             </form>
           </Form>
 

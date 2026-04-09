@@ -307,8 +307,11 @@ export default function AdminListingsPage() {
             <div className="mt-4 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)] pb-8">
               {/* Listing Photos - Admin must view all before approve/reject */}
               {(() => {
-                const photoUrls = selectedListing.photos?.map(p => p.photoUrl) || selectedListing.images || 
-                  (selectedListing.primaryPhotoUrl ? [selectedListing.primaryPhotoUrl] : [])
+                const fromPhotos = selectedListing.photos?.map(p => p.photoUrl).filter(Boolean) || []
+                const fromLegacy = selectedListing.images || []
+                const merged = [...fromPhotos, ...fromLegacy]
+                if (selectedListing.primaryPhotoUrl) merged.unshift(selectedListing.primaryPhotoUrl)
+                const photoUrls = [...new Set(merged.filter(Boolean) as string[])]
                 return photoUrls.length > 0 ? (
                   <div className="space-y-3">
                     <p className="text-sm font-medium text-slate-700 flex items-center gap-2">

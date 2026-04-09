@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.rooms.roombay.entity.User;
 import org.rooms.roombay.repository.UserRepository;
 import org.springframework.lang.NonNull;
@@ -28,6 +29,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+
+    @Value("${app.verification.enforce-for-api:false}")
+    private boolean verificationEnforceForApi;
     
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
@@ -45,7 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UUID userId = jwtTokenProvider.getUserIdFromToken(jwt);
                 String role = jwtTokenProvider.getRoleFromToken(jwt);
 
-                if (isVerificationEnforcedPath(request.getRequestURI())) {
+                if (verificationEnforceForApi && isVerificationEnforcedPath(request.getRequestURI())) {
                     User user = userRepository.findById(userId).orElse(null);
                     if (user == null || !Boolean.TRUE.equals(user.getEmailVerified()) || !Boolean.TRUE.equals(user.getPhoneVerified())) {
                         response.setStatus(HttpServletResponse.SC_FORBIDDEN);

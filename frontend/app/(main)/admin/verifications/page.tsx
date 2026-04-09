@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import api from "@/lib/api"
-import { Search, Shield, CheckCircle, XCircle, GraduationCap, Calendar, ExternalLink, Building2, User } from "lucide-react"
+import { Search, Shield, CheckCircle, XCircle, IdCard, Calendar, ExternalLink, Building2, User } from "lucide-react"
 
 interface TenantVerification {
   id: string
@@ -152,7 +152,7 @@ export default function AdminVerificationsPage() {
               activeTab === "tenants" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
             }`}
           >
-            <GraduationCap className="h-4 w-4" /> Tenants
+            <IdCard className="h-4 w-4" /> Tenants
           </button>
           <button
             onClick={() => setActiveTab("landlords")}
@@ -203,7 +203,7 @@ export default function AdminVerificationsPage() {
                   {getStatusBadge(v.status)}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-slate-500">
-                  <span className="flex items-center gap-1"><GraduationCap className="h-4 w-4" />{v.idType ? `${v.idType} • ${v.idNumber}` : v.university || "—"}</span>
+                  <span className="flex items-center gap-1"><IdCard className="h-4 w-4" />{v.idType ? `${v.idType} • ${v.idNumber}` : v.university || "—"}</span>
                   <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(v.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -212,7 +212,7 @@ export default function AdminVerificationsPage() {
         ) : (
           <div className="space-y-4 pb-24">
             {filteredLandlords.map((v) => (
-              <div key={v.id} className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer" onClick={() => { setSelectedLandlord(v); setSelectedStudent(null); setIsDetailOpen(true) }}>
+              <div key={v.id} className="bg-white rounded-2xl p-4 shadow-sm cursor-pointer" onClick={() => { setSelectedLandlord(v); setSelectedTenant(null); setIsDetailOpen(true) }}>
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="font-semibold text-slate-900">{v.userName}</p>
@@ -251,8 +251,8 @@ export default function AdminVerificationsPage() {
                   </>
                 ) : (
                   <>
-                    <p><span className="text-slate-500">University:</span> {selectedTenant.university || "—"}</p>
-                    <p><span className="text-slate-500">Student ID:</span> {selectedTenant.studentId || "—"}</p>
+                    <p><span className="text-slate-500">University (legacy):</span> {selectedTenant.university || "—"}</p>
+                    <p><span className="text-slate-500">Campus / student ref (legacy):</span> {selectedTenant.studentId || "—"}</p>
                   </>
                 )}
                 <p><span className="text-slate-500">Submitted:</span> {new Date(selectedTenant.createdAt).toLocaleString()}</p>

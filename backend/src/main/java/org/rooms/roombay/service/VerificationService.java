@@ -48,7 +48,7 @@ public class VerificationService {
                 && request.getStudentIdPhotoUrl() != null && !request.getStudentIdPhotoUrl().isBlank();
         
         if (!hasGovId && !hasStudentId) {
-            throw new BadRequestException("Provide either gov ID (idType, idNumber, idPhotoUrl) or student ID (university, studentId, studentIdPhotoUrl)");
+            throw new BadRequestException("Provide either government ID (idType, idNumber, idPhotoUrl) or legacy campus ID (university, studentId, studentIdPhotoUrl)");
         }
         
         if (verificationRepository.existsByUserId(userId)) {
