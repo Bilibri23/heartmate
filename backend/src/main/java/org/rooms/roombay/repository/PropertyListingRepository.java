@@ -32,6 +32,8 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
     List<PropertyListing> findPendingListings();
     
     long countByLandlordId(UUID landlordId);
+
+    long countByLandlordIdAndVerifiedTrue(UUID landlordId);
     
     // Analytics methods
     @Query("SELECT COUNT(l) FROM PropertyListing l WHERE l.status != 'DELETED'")

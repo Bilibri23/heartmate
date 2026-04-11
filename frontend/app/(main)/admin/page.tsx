@@ -34,6 +34,7 @@ import {
   UserCheck,
   Building,
   Flag,
+  Mail,
 } from "lucide-react"
 
 interface Statistics {
@@ -299,11 +300,26 @@ export default function AdminDashboardPage() {
                         <ChevronRight className="h-5 w-5 text-slate-400" />
                       </div>
                     </Link>
+                    <Link href="/admin/support-inquiries">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <Mail className="h-5 w-5 text-blue-600" />
+                          <div>
+                            <span className="text-slate-700">Support messages</span>
+                            <p className="text-xs text-slate-500">Help &amp; Support form</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-slate-400" />
+                      </div>
+                    </Link>
                     <Link href="/admin/reports">
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                         <div className="flex items-center gap-3">
                           <Flag className="h-5 w-5 text-amber-600" />
-                          <span className="text-slate-700">Reports triage</span>
+                          <div>
+                            <span className="text-slate-700">Reports triage</span>
+                            <p className="text-xs text-slate-500">Flagged listings &amp; users</p>
+                          </div>
                         </div>
                         <ChevronRight className="h-5 w-5 text-slate-400" />
                       </div>

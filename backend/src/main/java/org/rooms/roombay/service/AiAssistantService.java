@@ -9,6 +9,7 @@ import org.rooms.roombay.dto.request.AiChatRequest;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.entity.RoomApplication;
 import org.rooms.roombay.repository.AiChatLogRepository;
+import org.rooms.roombay.repository.LandlordVerificationRepository;
 import org.rooms.roombay.repository.LeaseRepository;
 import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
@@ -32,6 +33,7 @@ public class AiAssistantService {
     private final RoomApplicationRepository roomApplicationRepository;
     private final LeaseRepository leaseRepository;
     private final PropertyListingRepository propertyListingRepository;
+    private final LandlordVerificationRepository landlordVerificationRepository;
     private final AiChatLogRepository chatLogRepository;
     private final AiChatRateLimiter aiChatRateLimiter;
 
@@ -115,18 +117,25 @@ public class AiAssistantService {
                 personaLine,
                 noKb,
                 "",
+                "Terminology (do not confuse these):",
+                "- Listing verification / listing trust: whether a property listing or landlord has been reviewed or verified for the marketplace (badges on listing cards, landlord verification, admin review).",
+                "- Tenant / student verification: the renter's identity verification for applying or safety — not the same as listing verification.",
+                "- If the user asks how to know listings are verified, explain listing trust signals and landlord/listing verification — do NOT pivot to tenant ID upload unless they asked about tenant/student verification.",
+                "",
                 "Rules:",
                 "- Only answer questions about RoomBay features, workflows, and policies.",
-                "- Use the retrieved context chunks to ground your answer; do not invent features.",
-                "- If the answer isn't in the context, say what you can infer and ask the user to check a specific page in the app.",
+                "- Use the retrieved context chunks and the User_context lines to ground your answer; do not invent features.",
+                "- Never claim that landlords view, receive, or verify tenant government ID or selfie uploads; tenant verification documents are reviewed by admin. Landlords see application and lease-related information as the app provides — not the tenant verification document packet.",
+                "- For “what makes RoomBay unique” or differentiation questions, prioritize: (1) vision — home discovery as easy as booking a ride or shopping on Amazon; (2) feed/reels-style low-friction discovery (TikTok-like skim) and very fast first-pass decisions; (3) trust layers (admin-reviewed verification, leases) without misstating landlord access to tenant ID docs.",
+                "- If the answer isn't in the context, say so briefly and point to a relevant in-app screen.",
                 "- Keep answers concise and actionable.",
-                "- When referencing context, include chunkIds in parentheses like (chunkId: <id>).",
+                "- Do not repeat internal labels like SUGGESTIONS_JSON or JSON ACTION in the user-facing answer.",
                 "",
-                "Output format:",
-                "1) Provide the answer normally.",
-                "2) Then on a new line write: SUGGESTED_ACTIONS_JSON: <json>",
-                "Where <json> is a JSON array of up to 3 actions. Each action has:",
-                "{ \"id\": \"string\", \"label\": \"string\", \"type\": \"NAVIGATE|COPY_TEXT\", \"actionUrl\": \"string?\", \"copyText\": \"string?\" }"
+                "Output format (strict):",
+                "1) Write only the human-readable answer in plain language (no markdown headings required).",
+                "2) Immediately on the next line, exactly: SUGGESTED_ACTIONS_JSON: followed by a single JSON array (no other text after the array).",
+                "Each action: { \"id\": \"string\", \"label\": \"string\", \"type\": \"NAVIGATE|COPY_TEXT\", \"actionUrl\": \"string?\", \"copyText\": \"string?\" }",
+                "Example last line: SUGGESTED_ACTIONS_JSON: [{\"id\":\"search\",\"label\":\"Open search\",\"type\":\"NAVIGATE\",\"actionUrl\":\"/search\"}]"
         );
     }
 
@@ -138,12 +147,19 @@ public class AiAssistantService {
 
         if (persona == AiChatRequest.Persona.TENANT) {
             var v = studentVerificationRepository.findByUserId(userId);
-            lines.add("tenantVerificationStatus=" + v.map(ver -> ver.getStatus().name()).orElse("NONE"));
+            lines.add("tenantStudentVerificationStatus=" + v.map(ver -> ver.getStatus().name()).orElse("NONE"));
             lines.add("applicationsTotal=" + roomApplicationRepository.countByStudentId(userId));
             lines.add("applicationsPending=" + roomApplicationRepository.countByStudentIdAndStatus(userId, RoomApplication.Status.PENDING));
             lines.add("leasesTotal=" + leaseRepository.countByStudentId(userId));
         } else {
             lines.add("listingsTotal=" + propertyListingRepository.countByLandlordId(userId));
+            lines.add("listingsMarkedVerifiedCount=" + propertyListingRepository.countByLandlordIdAndVerifiedTrue(userId));
+            landlordVerificationRepository.findByUserId(userId).ifPresentOrElse(lv -> {
+                lines.add("landlordVerificationLevel=" + lv.getVerificationLevel().name());
+                lines.add("landlordIdentityStatus=" + lv.getIdentityStatus().name());
+                lines.add("landlordBusinessStatus=" + lv.getBusinessStatus().name());
+                lines.add("landlordPropertyStatus=" + lv.getPropertyStatus().name());
+            }, () -> lines.add("landlordKyc=NONE"));
             lines.add("applicationsTotal=" + roomApplicationRepository.countByLandlordId(userId));
             lines.add("applicationsPending=" + roomApplicationRepository.countByLandlordIdAndStatus(userId, RoomApplication.Status.PENDING));
             lines.add("leasesTotal=" + leaseRepository.countByLandlordId(userId));
@@ -160,21 +176,61 @@ public class AiAssistantService {
 
     private ParsedAssistant parseAssistantOutput(String raw) {
         if (raw == null) return new ParsedAssistant("", List.of());
-        String marker = "SUGGESTED_ACTIONS_JSON:";
-        int idx = raw.lastIndexOf(marker);
-        if (idx < 0) {
-            return new ParsedAssistant(raw.trim(), List.of());
+        String trimmed = raw.trim();
+        String[] markers = { "SUGGESTED_ACTIONS_JSON:", "SUGGESTIONS_JSON:", "SUGGESTED_ACTIONS:" };
+        int bestIdx = -1;
+        String bestMarker = null;
+        for (String m : markers) {
+            int i = trimmed.lastIndexOf(m);
+            if (i > bestIdx) {
+                bestIdx = i;
+                bestMarker = m;
+            }
         }
-        String answer = raw.substring(0, idx).trim();
-        String json = raw.substring(idx + marker.length()).trim();
+        if (bestIdx < 0 || bestMarker == null) {
+            return new ParsedAssistant(sanitizeAnswerText(trimmed), List.of());
+        }
+        String answerPart = sanitizeAnswerText(trimmed.substring(0, bestIdx));
+        String json = trimmed.substring(bestIdx + bestMarker.length()).trim();
+        int lb = json.indexOf('[');
+        int rb = json.lastIndexOf(']');
+        if (lb >= 0 && rb > lb) {
+            json = json.substring(lb, rb + 1);
+        }
         try {
             var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             var listType = mapper.getTypeFactory().constructCollectionType(List.class, AiChatResponse.SuggestedAction.class);
             List<AiChatResponse.SuggestedAction> actions = mapper.readValue(json, listType);
-            return new ParsedAssistant(answer, actions != null ? actions : List.of());
+            return new ParsedAssistant(answerPart, actions != null ? actions : List.of());
         } catch (Exception e) {
-            return new ParsedAssistant(answer.isBlank() ? raw.trim() : answer, List.of());
+            log.debug("[AI] Could not parse suggested actions JSON: {}", e.getMessage());
+            return new ParsedAssistant(answerPart.isBlank() ? sanitizeAnswerText(trimmed) : answerPart, List.of());
         }
+    }
+
+    /** Remove model junk lines and internal chunk references from the visible answer. */
+    private static String sanitizeAnswerText(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String[] lines = text.split("\\R");
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            String t = line.trim();
+            if (t.isEmpty()) {
+                sb.append("\n");
+                continue;
+            }
+            String upper = t.toUpperCase();
+            if (upper.startsWith("SUGGESTIONS:") && upper.contains("JSON")) continue;
+            if (t.contains("[SUGGESTIONS_JSON]")) continue;
+            if (t.contains("(JSON ACTION)")) continue;
+            if (upper.contains("SUGGESTED_ACTIONS_JSON")) continue;
+            sb.append(line).append("\n");
+        }
+        String s = sb.toString().trim();
+        s = s.replaceAll("(?i)\\(chunkId:\\s*[a-f0-9\\-]{36}\\)\\s*", "");
+        return s.trim();
     }
 }
 

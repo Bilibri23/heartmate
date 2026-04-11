@@ -9,6 +9,9 @@ Go to `/verification`, select ID type, enter ID number, upload ID photo and self
 ### Why is verification pending?
 Verification is manually reviewed by admin. Use refresh on verification page.
 
+### Do landlords see my government ID and selfie?
+**No.** Tenant verification documents are reviewed by **admin**, not by landlords. Landlords use applications and lease flows; they do **not** receive your ID photos or selfie from verification.
+
 ### How do I share a listing with a roommate?
 Open listing details, tap share, choose a matched roommate, and send.
 
@@ -31,6 +34,9 @@ Use `/landlord/applications` to review and accept/reject applicants.
 
 ### How is tenant management determined?
 Tenants should be derived from active leases.
+
+### Can I see tenant verification ID and selfie as a landlord?
+**No.** Those documents are for **admin review** only. You see application and **lease-related** information in the landlord flows, not the tenant’s verification document package.
 
 ### What analytics are available?
 Basic listing views and application counts.

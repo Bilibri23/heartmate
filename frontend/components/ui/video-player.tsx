@@ -9,6 +9,8 @@ interface VideoPlayerProps {
   thumbnail?: string
   title?: string
   className?: string
+  /** contain = letterboxing for odd aspect ratios; cover = fill frame (better for listing walkthroughs) */
+  objectFit?: "contain" | "cover"
   autoPlay?: boolean
   showControls?: boolean
   onPlay?: () => void
@@ -22,6 +24,7 @@ export function VideoPlayer({
   thumbnail,
   title = "Virtual Tour",
   className = "",
+  objectFit = "contain",
   autoPlay = false,
   showControls = true,
   onPlay,
@@ -147,14 +150,14 @@ export function VideoPlayer({
   return (
     <div 
       ref={containerRef}
-      className={`relative bg-black rounded-xl overflow-hidden ${className}`}
+      className={`relative bg-slate-950 rounded-xl overflow-hidden ${className}`}
     >
       {src && (
         <video
           ref={videoRef}
           src={src}
           poster={thumbnail}
-          className="w-full h-full object-contain"
+          className={`w-full h-full ${objectFit === "cover" ? "object-cover" : "object-contain"}`}
           playsInline
           muted={isMuted}
           onClick={togglePlay}

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Search, MessageCircle, User, Sparkles, Building2, FileText, Plus, Shield, Settings, Flag } from "lucide-react"
+import { Home, Search, MessageCircle, User, Sparkles, Building2, FileText, Plus, Shield, Settings, Flag, Mail } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { cn } from "@/lib/utils"
 
@@ -10,6 +10,23 @@ interface NavItem {
   href: string
   icon: React.ElementType
   label: string
+}
+
+function isNavItemActive(pathname: string | null | undefined, href: string): boolean {
+  if (!pathname) return false
+  if (href === "/admin") {
+    return pathname === "/admin" || pathname === "/admin/"
+  }
+  if (href.startsWith("/admin/")) {
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
+  if (href === "/landlord") {
+    return pathname === "/landlord"
+  }
+  if (href.startsWith("/landlord/")) {
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
+  return pathname === href || pathname.startsWith(`${href}/`)
 }
 
 // Tenant (STUDENT role) navigation items
@@ -35,6 +52,7 @@ const adminNavItems: NavItem[] = [
   { href: "/admin", icon: Home, label: "Dashboard" },
   { href: "/admin/verifications", icon: Shield, label: "Verify" },
   { href: "/admin/listings", icon: Building2, label: "Listings" },
+  { href: "/admin/support-inquiries", icon: Mail, label: "Support" },
   { href: "/admin/reports", icon: Flag, label: "Reports" },
   { href: "/admin/payments", icon: FileText, label: "Payments" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
@@ -62,11 +80,9 @@ export function BottomNav() {
       data-tour="bottom-nav"
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-lg safe-area-bottom"
     >
-      <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-2">
+      <div className="mx-auto flex h-16 max-w-lg items-center justify-around px-1 sm:px-2">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || 
-            (item.href !== "/" && item.href !== "/landlord" && pathname?.startsWith(item.href)) ||
-            (item.href === "/landlord" && pathname === "/landlord")
+          const isActive = isNavItemActive(pathname, item.href)
           const Icon = item.icon
 
           // Special styling for the Add button (landlord)
@@ -92,7 +108,7 @@ export function BottomNav() {
               ) : (
                 <>
                   <Icon className={cn("h-5 w-5", isActive && "scale-110")} />
-                  <span className="text-[10px] font-medium">
+                  <span className="text-[9px] sm:text-[10px] font-medium leading-tight text-center px-0.5">
                     {item.label}
                   </span>
                 </>

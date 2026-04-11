@@ -30,10 +30,7 @@ public class AiIngestionService {
      * Ingests all markdown docs from docsDir into pgvector.
      */
     public AiIngestResponse ingestDocs(boolean force) {
-        Path dir = Path.of(docsDir);
-        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
-            throw new BadRequestException("Docs directory not found: " + dir.toAbsolutePath());
-        }
+        Path dir = resolveDocsDir();
 
         List<Path> files;
         try {
@@ -90,6 +87,24 @@ public class AiIngestionService {
                 .chunksInserted(chunksInserted)
                 .skippedUnchanged(skippedUnchanged)
                 .build();
+    }
+
+    /**
+     * {@code AI_DOCS_DIR} is often {@code ../docs} when the JVM cwd is {@code backend/}, but IDEs usually
+     * use the repo root, where {@code docs/} sits next to {@code backend/}. If the configured path is missing,
+     * fall back to {@code ./docs} relative to {@code user.dir}.
+     */
+    private Path resolveDocsDir() {
+        Path primary = Path.of(docsDir).toAbsolutePath().normalize();
+        if (Files.isDirectory(primary)) {
+            return primary;
+        }
+        Path fallback = Path.of("docs").toAbsolutePath().normalize();
+        if (Files.isDirectory(fallback)) {
+            log.warn("[AI] AI_DOCS_DIR not found at {}, using {}", primary, fallback);
+            return fallback;
+        }
+        throw new BadRequestException("Docs directory not found. Set AI_DOCS_DIR (tried " + primary + " and " + fallback + ")");
     }
 
     private static String extractTitle(String text, String fallback) {

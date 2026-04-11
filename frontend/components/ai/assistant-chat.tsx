@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Send, Loader2, ExternalLink, Copy } from "lucide-react"
+import { Send, Loader2, ExternalLink, Copy, Volume2, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
@@ -47,7 +47,33 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
   const [input, setInput] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [speakingId, setSpeakingId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
+
+  const stopSpeaking = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+    setSpeakingId(null)
+  }
+
+  const speakMessage = (id: string, text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) {
+      toast.error("Read aloud is not supported in this browser.")
+      return
+    }
+    const plain = text.replace(/\s+/g, " ").trim()
+    if (!plain) return
+    window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(plain)
+    u.rate = 1
+    u.onend = () => setSpeakingId(null)
+    u.onerror = () => setSpeakingId(null)
+    setSpeakingId(id)
+    window.speechSynthesis.speak(u)
+  }
+
+  useEffect(() => () => stopSpeaking(), [])
 
   const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending])
 
@@ -102,6 +128,32 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
             )}
           >
             <div className="whitespace-pre-wrap">{m.content}</div>
+            {m.role === "assistant" && m.content.trim().length > 0 && (
+              <div className="mt-2 flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-lg text-slate-500 hover:text-blue-700"
+                  aria-label={speakingId === m.id ? "Stop reading" : "Read answer aloud"}
+                  onClick={() =>
+                    speakingId === m.id ? stopSpeaking() : speakMessage(m.id, m.content)
+                  }
+                >
+                  {speakingId === m.id ? (
+                    <>
+                      <Square className="h-3.5 w-3.5 mr-1 fill-current" />
+                      Stop
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="h-3.5 w-3.5 mr-1" />
+                      Read aloud
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
             {m.role === "assistant" && m.ragGrounded === false && (
               <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-2 py-1.5">
                 No matching help docs were found for this question, so this reply is not doc-grounded. Try rephrasing or run admin doc ingest if the knowledge base is empty.

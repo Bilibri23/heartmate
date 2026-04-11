@@ -53,7 +53,6 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { VideoPlayer } from "@/components/ui/video-player"
-import { VirtualTour3D } from "@/components/ui/virtual-tour-3d"
 import { VirtualTourEmbed } from "@/components/ui/virtual-tour-embed"
 import api from "@/lib/api"
 import Link from "next/link"
@@ -62,6 +61,7 @@ import { shareListingService } from "@/services/share-listing"
 import { useProfileCompletion } from "@/hooks/use-profile-completion"
 import { CompletionBanner } from "@/components/profile/completion-banner"
 import { trustTierChipClassName } from "@/lib/listing-trust-tier"
+import { cn } from "@/lib/utils"
 
 interface ListingDetail {
   id: string
@@ -256,14 +256,6 @@ export default function ListingDetailPage() {
         })
         setListing(response.data)
         setIsFavorited(response.data?.isFavorited || response.data?.isFavorite || false)
-
-        // Debug: Log virtual tour data
-        console.log('Virtual Tour Data:', {
-          videoTourUrl: response.data?.videoTourUrl,
-          virtualTourProvider: response.data?.virtualTourProvider,
-          videoTour: response.data?.videoTour,
-          videoTourEmbedCode: response.data?.videoTourEmbedCode
-        })
 
         // Track view (don't await, fire and forget)
         api.post(`/listings/${params.id}/view`, null, {
@@ -567,8 +559,8 @@ export default function ListingDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      {/* Photo Gallery */}
-      <div className="relative h-80 sm:h-[28rem] bg-slate-200 overflow-hidden">
+      {/* Photo gallery — taller hero, one readable story layer (price + title + location) */}
+      <div className="relative min-h-[min(52vh,26rem)] sm:min-h-0 sm:h-[22rem] bg-slate-200 overflow-hidden">
         {listing.photos && listing.photos.length > 0 ? (
           <>
             <Image
@@ -578,41 +570,56 @@ export default function ListingDetailPage() {
               className="object-cover transition-opacity duration-300"
               priority
             />
-            {/* Bottom gradient overlay */}
-            <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/60 via-black/20 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/10 pointer-events-none" />
 
             {listing.photos.length > 1 && (
               <>
                 <button
+                  type="button"
+                  aria-label={language === "fr" ? "Photo précédente" : "Previous photo"}
                   onClick={prevPhoto}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md hover:bg-white transition-colors"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:bg-white transition-colors"
                 >
-                  <ChevronLeft className="h-5 w-5 text-slate-700" />
+                  <ChevronLeft className="h-5 w-5 text-slate-800" />
                 </button>
                 <button
+                  type="button"
+                  aria-label={language === "fr" ? "Photo suivante" : "Next photo"}
                   onClick={nextPhoto}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-md hover:bg-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-10 h-11 w-11 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:bg-white transition-colors"
                 >
-                  <ChevronRight className="h-5 w-5 text-slate-700" />
+                  <ChevronRight className="h-5 w-5 text-slate-800" />
                 </button>
-
-                {/* Photo counter + dots */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-sm text-white text-xs font-medium">
+                <div className="absolute bottom-[6.5rem] sm:bottom-24 left-1/2 -translate-x-1/2 z-10">
+                  <span className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md text-white text-xs font-semibold tabular-nums shadow-sm">
                     {currentPhotoIndex + 1} / {listing.photos.length}
                   </span>
                 </div>
               </>
             )}
 
-            {/* Overlaid title & price on hero */}
-            <div className="absolute bottom-12 left-4 right-4 text-white pointer-events-none hidden sm:block">
-              <p className="text-2xl font-bold drop-shadow-lg">{formatCurrency(listing.rentAmount)}<span className="text-base font-normal opacity-80"> {t.listings.perMonth}</span></p>
-              <h1 className="text-lg font-semibold drop-shadow-md mt-1">{listing.title}</h1>
+            <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-5 pt-12 text-white pointer-events-none bg-gradient-to-t from-black/80 via-black/45 to-transparent">
+              <p className="text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-md">
+                {formatCurrency(listing.rentAmount)}
+                <span className="text-base sm:text-lg font-semibold text-white/90"> {t.listings.perMonth}</span>
+              </p>
+              <h1 className="text-lg sm:text-xl font-semibold leading-snug mt-1 drop-shadow-md line-clamp-2">
+                {listing.title}
+              </h1>
+              <p className="text-sm text-white/90 mt-2 flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 shrink-0 text-sky-300" />
+                {listing.neighborhood}, {listing.city}
+              </p>
+              {listing.viewsCount > 0 && (
+                <p className="text-xs text-white/70 mt-1.5 flex items-center gap-1">
+                  <Eye className="h-3.5 w-3.5" />
+                  {listing.viewsCount} {language === "fr" ? "vues" : "views"}
+                </p>
+              )}
             </div>
           </>
         ) : (
-          <div className="flex h-full items-center justify-center bg-slate-100">
+          <div className="flex h-full min-h-[14rem] items-center justify-center bg-slate-100">
             <div className="text-center">
               <span className="text-6xl">🏠</span>
               <p className="text-slate-400 text-sm mt-2">{language === "fr" ? "Aucune photo" : "No photos"}</p>
@@ -704,92 +711,21 @@ export default function ListingDetailPage() {
         </div>
       </div>
 
-      {/* Virtual Tour Section */}
-      {(listing.videoTour || listing.videoTourUrl || listing.videoTourEmbedCode) && (
-        <div className="px-4 py-4 bg-slate-50">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-              <div className="w-2 h-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full animate-pulse" />
-              {listing.virtualTourProvider === '360' ? t.listings.virtualTour360 : t.listings.virtualTour}
-            </h3>
-            {/* Only show toggle for legacy listings without a clear provider */}
-            {(!listing.virtualTourProvider || (listing.virtualTourProvider !== '360' && listing.virtualTourProvider !== 'video')) && (
-              <Button
-                size="sm"
-                variant={is3DTourMode ? "default" : "outline"}
-                onClick={() => setIs3DTourMode(!is3DTourMode)}
-                className="rounded-xl"
-              >
-                {is3DTourMode ? t.listings.mode360 : t.listings.videoMode}
-              </Button>
-            )}
-          </div>
-
-          {/* 360° self-hosted tour via Pannellum */}
-          {listing.virtualTourProvider === '360' && (
-            <VirtualTourEmbed
-              tourUrl={listing.videoTour?.videoUrl || listing.videoTourUrl}
-              title={`${listing.title} - 360° Tour`}
-              className="rounded-xl"
-              onFlag={() => handleFlagContent(listing.id)}
-              listingId={listing.id}
-            />
-          )}
-
-          {/* Video walkthrough (self-hosted MP4) */}
-          {listing.virtualTourProvider === 'video' && (
-            <VideoPlayer
-              src={listing.videoTour?.videoUrl || listing.videoTourUrl || undefined}
-              thumbnail={listing.videoTour?.thumbnailUrl || listing.videoTourThumbnail}
-              title={`${listing.title} - Video Tour`}
-              className="h-64 rounded-xl"
-              onFlag={() => handleFlagContent(listing.id)}
-              onPlay={() => { }}
-            />
-          )}
-
-          {/* Legacy: listings without a clear provider — keep old toggle behaviour */}
-          {(!listing.virtualTourProvider || (listing.virtualTourProvider !== '360' && listing.virtualTourProvider !== 'video')) && (
-            is3DTourMode ? (
-              <VirtualTourEmbed
-                tourUrl={listing.videoTour?.videoUrl || listing.videoTourUrl}
-                embedCode={listing.videoTourEmbedCode}
-                title={`${listing.title} - 3D Virtual Tour`}
-                className="h-96 rounded-xl"
-                onFlag={() => handleFlagContent(listing.id)}
-                listingId={listing.id}
-              />
-            ) : (
-              <VideoPlayer
-                src={listing.videoTour?.videoUrl || listing.videoTourUrl || undefined}
-                thumbnail={listing.videoTour?.thumbnailUrl || listing.videoTourThumbnail}
-                title={`${listing.title} - Virtual Tour`}
-                className="h-64 rounded-xl"
-                onFlag={() => handleFlagContent(listing.id)}
-                onPlay={() => { }}
-              />
-            )
-          )}
-
-          {/* Tour info chips */}
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <div className="bg-white rounded-lg p-2 text-center">
-              <div className="text-xs text-slate-500 mb-1">{t.listings.experience}</div>
-              <div className="text-sm font-medium text-slate-900">
-                {listing.virtualTourProvider === '360' ? t.listings.view360 : t.listings.standard}
-              </div>
-            </div>
-            <div className="bg-white rounded-lg p-2 text-center">
-              <div className="text-xs text-slate-500 mb-1">{t.listings.controls}</div>
-              <div className="text-sm font-medium text-slate-900">
-                {listing.virtualTourProvider === '360' ? t.listings.interactive : t.listings.playPause}
-              </div>
-            </div>
-            <div className="bg-white rounded-lg p-2 text-center">
-              <div className="text-xs text-slate-500 mb-1">{t.listings.quality}</div>
-              <div className="text-sm font-medium text-slate-900">HD</div>
-            </div>
-          </div>
+      {listing.photos && listing.photos.length > 1 && (
+        <div className="relative z-20 -mt-5 px-3 flex gap-2 overflow-x-auto py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {listing.photos.map((photo, i) => (
+            <button
+              key={photo.id}
+              type="button"
+              onClick={() => setCurrentPhotoIndex(i)}
+              className={cn(
+                "relative shrink-0 w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-xl overflow-hidden ring-2 ring-offset-2 ring-offset-slate-50 transition-all shadow-md",
+                i === currentPhotoIndex ? "ring-blue-600 scale-[1.02]" : "ring-transparent opacity-80 hover:opacity-100"
+              )}
+            >
+              <Image src={photo.photoUrl} alt="" width={72} height={72} className="object-cover w-full h-full" />
+            </button>
+          ))}
         </div>
       )}
 
@@ -817,35 +753,79 @@ export default function ListingDetailPage() {
         </div>
       )}
 
-      {/* Content */}
-      <div className="bg-white rounded-t-3xl -mt-6 relative z-10">
-        <div className="p-5 space-y-6 max-w-2xl mx-auto">
-          {/* Price & Title (shown on mobile, hidden on sm+ where it's overlaid) */}
-          <div>
-            <div className="flex items-baseline gap-2 mb-1 sm:hidden">
-              <span className="text-2xl font-bold text-slate-900">
-                {formatCurrency(listing.rentAmount)}
-              </span>
-              <span className="text-slate-400 text-sm">{t.listings.perMonth}</span>
-            </div>
-            <h1 className="text-xl font-bold text-slate-900 sm:hidden">{listing.title}</h1>
-            {/* Desktop: simpler heading since hero shows price */}
-            <div className="hidden sm:block">
-              <h1 className="text-2xl font-bold text-slate-900">{listing.title}</h1>
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-slate-500">
-              <MapPin className="h-4 w-4 text-blue-500" />
-              <span className="text-sm font-medium">
-                {listing.neighborhood}, {listing.city}
-              </span>
-            </div>
-            {listing.viewsCount > 0 && (
-              <div className="flex items-center gap-1.5 mt-1 text-slate-400">
-                <Eye className="h-3.5 w-3.5" />
-                <span className="text-xs">{listing.viewsCount} {language === "fr" ? "vues" : "views"}</span>
+      {/* Content — sheet over hero; tour lives here so it feels part of one listing story */}
+      <div className="bg-white rounded-t-[1.75rem] -mt-8 relative z-10 shadow-[0_-10px_44px_-12px_rgba(15,23,42,0.14)]">
+        <div className="flex justify-center pt-3 pb-0.5 sm:hidden" aria-hidden>
+          <div className="h-1 w-11 rounded-full bg-slate-200" />
+        </div>
+        <div className="p-5 pt-3 space-y-6 max-w-2xl mx-auto">
+          {(listing.videoTour || listing.videoTourUrl || listing.videoTourEmbedCode) && (
+            <div className="rounded-2xl border border-slate-200/90 overflow-hidden bg-white shadow-sm ring-1 ring-slate-100/80">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+                <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-gradient-to-r from-violet-500 to-blue-600 shrink-0" />
+                  {listing.virtualTourProvider === "360" ? t.listings.virtualTour360 : t.listings.virtualTour}
+                </h2>
+                {(!listing.virtualTourProvider ||
+                  (listing.virtualTourProvider !== "360" && listing.virtualTourProvider !== "video")) && (
+                  <Button
+                    size="sm"
+                    variant={is3DTourMode ? "default" : "outline"}
+                    onClick={() => setIs3DTourMode(!is3DTourMode)}
+                    className="rounded-xl text-xs"
+                  >
+                    {is3DTourMode ? t.listings.mode360 : t.listings.videoMode}
+                  </Button>
+                )}
               </div>
-            )}
-          </div>
+              <div className="p-2 sm:p-3 bg-slate-950">
+                {listing.virtualTourProvider === "360" && (
+                  <VirtualTourEmbed
+                    tourUrl={listing.videoTour?.videoUrl || listing.videoTourUrl}
+                    title={`${listing.title} - 360° Tour`}
+                    className="rounded-xl overflow-hidden"
+                    height="h-[min(52vw,17rem)] sm:h-80"
+                    onFlag={() => handleFlagContent(listing.id)}
+                    listingId={listing.id}
+                  />
+                )}
+                {listing.virtualTourProvider === "video" && (
+                  <VideoPlayer
+                    src={listing.videoTour?.videoUrl || listing.videoTourUrl || undefined}
+                    thumbnail={listing.videoTour?.thumbnailUrl || listing.videoTourThumbnail}
+                    title={`${listing.title} - Video Tour`}
+                    className="aspect-video w-full max-h-[min(70vh,28rem)] min-h-[12rem] rounded-xl"
+                    objectFit="cover"
+                    onFlag={() => handleFlagContent(listing.id)}
+                    onPlay={() => {}}
+                  />
+                )}
+                {(!listing.virtualTourProvider ||
+                  (listing.virtualTourProvider !== "360" && listing.virtualTourProvider !== "video")) &&
+                  (is3DTourMode ? (
+                    <VirtualTourEmbed
+                      tourUrl={listing.videoTour?.videoUrl || listing.videoTourUrl}
+                      embedCode={listing.videoTourEmbedCode}
+                      title={`${listing.title} - 3D Virtual Tour`}
+                      className="rounded-xl overflow-hidden"
+                      height="h-[min(60vw,19rem)] sm:h-96"
+                      onFlag={() => handleFlagContent(listing.id)}
+                      listingId={listing.id}
+                    />
+                  ) : (
+                    <VideoPlayer
+                      src={listing.videoTour?.videoUrl || listing.videoTourUrl || undefined}
+                      thumbnail={listing.videoTour?.thumbnailUrl || listing.videoTourThumbnail}
+                      title={`${listing.title} - Virtual Tour`}
+                      className="aspect-video w-full max-h-[min(70vh,28rem)] min-h-[12rem] rounded-xl"
+                      objectFit="cover"
+                      onFlag={() => handleFlagContent(listing.id)}
+                      onPlay={() => {}}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
 
           {/* Quick Stats */}
           <div className="grid grid-cols-3 gap-3">

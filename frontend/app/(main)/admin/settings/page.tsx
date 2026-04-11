@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import api, { uploadApi } from "@/lib/api"
 import { toast } from "sonner"
-import { Settings, Bell, Shield, Database, Mail, Globe, Save, RefreshCw, LogOut, Users, Search } from "lucide-react"
+import { Settings, Bell, Shield, Database, Mail, Globe, Save, RefreshCw, LogOut, Users, Search, Flag } from "lucide-react"
 import Link from "next/link"
 
 export default function AdminSettingsPage() {
@@ -274,6 +274,14 @@ export default function AdminSettingsPage() {
             <Users className="h-5 w-5 text-indigo-600" /> Quick Links
           </h3>
           <div className="space-y-2">
+            <Link href="/admin/support-inquiries" className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
+              <span className="font-medium text-slate-700">Support messages</span>
+              <Mail className="h-5 w-5 text-blue-500" />
+            </Link>
+            <Link href="/admin/reports" className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
+              <span className="font-medium text-slate-700">Reports triage</span>
+              <Flag className="h-5 w-5 text-amber-500" />
+            </Link>
             <Link href="/admin/users" className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
               <span className="font-medium text-slate-700">User Management</span>
               <Users className="h-5 w-5 text-slate-400" />

@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,46 +30,59 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminReportController {
-    
+
     private final ReportService reportService;
-    
+
     /**
-     * Get all reports with pagination and filters
+     * Get all reports with pagination and filters. Returns a plain JSON object (not Spring Data Page) for reliable serialization.
      */
     @GetMapping
     @Operation(summary = "Get all reports", description = "Get all reports with pagination and filters (Admin only)")
-    public ResponseEntity<Page<ReportResponse>> getAllReports(
+    public ResponseEntity<Map<String, Object>> getAllReports(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String entityType,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir) {
-        
+
         log.info("Admin {} fetching reports - status: {}, entityType: {}, page: {}, size: {}",
                 SecurityUtils.getCurrentUserId(), status, entityType, page, size);
-        
+
         Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        
+
         Page<ReportResponse> reports;
-        
-        if (status != null) {
-            Report.ReportStatus reportStatus = Report.ReportStatus.valueOf(status.toUpperCase());
+        if (status != null && !status.isBlank()) {
+            Report.ReportStatus reportStatus = Report.ReportStatus.valueOf(status.toUpperCase().trim());
             reports = reportService.getReportsByStatus(reportStatus, pageable);
-        } else if (entityType != null) {
-            Report.EntityType type = Report.EntityType.valueOf(entityType.toUpperCase());
+        } else if (entityType != null && !entityType.isBlank()) {
+            Report.EntityType type = Report.EntityType.valueOf(entityType.toUpperCase().trim());
             reports = reportService.getReportsByEntityType(type, pageable);
         } else {
             reports = reportService.getAllReports(pageable);
         }
-        
-        return ResponseEntity.ok(reports);
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("content", reports.getContent());
+        body.put("totalElements", reports.getTotalElements());
+        body.put("totalPages", reports.getTotalPages());
+        body.put("number", reports.getNumber());
+        body.put("size", reports.getSize());
+        body.put("last", reports.isLast());
+        body.put("first", reports.isFirst());
+        return ResponseEntity.ok(body);
     }
-    
-    /**
-     * Get urgent/high priority reports
-     */
+
+    /** Static path before /{reportId} so "statistics" is never parsed as a UUID. */
+    @GetMapping("/statistics")
+    @Operation(summary = "Get report statistics", description = "Get comprehensive report statistics (Admin only)")
+    public ResponseEntity<Map<String, Object>> getReportStatistics() {
+        log.info("Admin {} fetching report statistics", SecurityUtils.getCurrentUserId());
+        Map<String, Object> stats = reportService.getReportStatistics();
+        return ResponseEntity.ok(stats);
+    }
+
     @GetMapping("/urgent")
     @Operation(summary = "Get urgent reports", description = "Get high priority pending reports (Admin only)")
     public ResponseEntity<List<ReportResponse>> getUrgentReports() {
@@ -76,10 +90,7 @@ public class AdminReportController {
         List<ReportResponse> reports = reportService.getUrgentReports();
         return ResponseEntity.ok(reports);
     }
-    
-    /**
-     * Get report by ID
-     */
+
     @GetMapping("/{reportId}")
     @Operation(summary = "Get report by ID", description = "Get detailed report information (Admin only)")
     public ResponseEntity<ReportResponse> getReportById(@PathVariable UUID reportId) {
@@ -87,68 +98,48 @@ public class AdminReportController {
         ReportResponse report = reportService.getReportById(reportId);
         return ResponseEntity.ok(report);
     }
-    
-    /**
-     * Resolve a report
-     */
+
     @PostMapping("/{reportId}/resolve")
     @Operation(summary = "Resolve report", description = "Resolve a report with action taken (Admin only)")
     public ResponseEntity<ReportResponse> resolveReport(
             @PathVariable UUID reportId,
             @RequestParam String action,
             @RequestParam(required = false) String notes) {
-        
+
         UUID adminId = SecurityUtils.getCurrentUserId();
         log.info("Admin {} resolving report: {} with action: {}", adminId, reportId, action);
-        
+
         Report.ReportAction reportAction = Report.ReportAction.valueOf(action.toUpperCase());
         ReportResponse resolvedReport = reportService.resolveReport(reportId, adminId, notes, reportAction);
-        
+
         return ResponseEntity.ok(resolvedReport);
     }
-    
-    /**
-     * Dismiss a report
-     */
+
     @PostMapping("/{reportId}/dismiss")
     @Operation(summary = "Dismiss report", description = "Dismiss a report without action (Admin only)")
     public ResponseEntity<ReportResponse> dismissReport(
             @PathVariable UUID reportId,
             @RequestParam(required = false) String reason) {
-        
+
         UUID adminId = SecurityUtils.getCurrentUserId();
         log.info("Admin {} dismissing report: {}", adminId, reportId);
-        
+
         ReportResponse dismissedReport = reportService.dismissReport(reportId, adminId, reason);
         return ResponseEntity.ok(dismissedReport);
     }
-    
-    /**
-     * Update report priority
-     */
+
     @PutMapping("/{reportId}/priority")
     @Operation(summary = "Update report priority", description = "Update the priority of a report (Admin only)")
     public ResponseEntity<ReportResponse> updatePriority(
             @PathVariable UUID reportId,
             @RequestParam String priority) {
-        
-        log.info("Admin {} updating report priority: {} to {}", 
-            SecurityUtils.getCurrentUserId(), reportId, priority);
-        
+
+        log.info("Admin {} updating report priority: {} to {}",
+                SecurityUtils.getCurrentUserId(), reportId, priority);
+
         Report.ReportPriority reportPriority = Report.ReportPriority.valueOf(priority.toUpperCase());
         ReportResponse updatedReport = reportService.updatePriority(reportId, reportPriority);
-        
+
         return ResponseEntity.ok(updatedReport);
-    }
-    
-    /**
-     * Get report statistics
-     */
-    @GetMapping("/statistics")
-    @Operation(summary = "Get report statistics", description = "Get comprehensive report statistics (Admin only)")
-    public ResponseEntity<Map<String, Object>> getReportStatistics() {
-        log.info("Admin {} fetching report statistics", SecurityUtils.getCurrentUserId());
-        Map<String, Object> stats = reportService.getReportStatistics();
-        return ResponseEntity.ok(stats);
     }
 }
