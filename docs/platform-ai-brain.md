@@ -25,6 +25,6 @@ The Shepherd onboarding tour highlights the floating **RoomBay Assistant** butto
 
 ## Roadmap (short)
 
-- Unified “assistant” contract: user asks → retrieve → generate → cite sources.
+- **Done (platform contract):** user asks → embed → retrieve (pgvector) → generate (Ollama/OpenAI) → cite sources; `ragGrounded` in API when no chunks matched; in-memory per-user limit on `POST /api/ai/chat` via `ratelimit.ai.chat.requests-per-minute` (no Redis).
 - Optional admin-only analytics on common questions and failed retrievals.
-- Stricter rate limits on AI endpoints (in addition to global API limits).
+- Optional Redis-backed limits for AI if you enable Redis cluster-wide.

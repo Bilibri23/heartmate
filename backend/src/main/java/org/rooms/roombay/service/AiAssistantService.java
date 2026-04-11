@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.AiModelRouter;
 import org.rooms.roombay.ai.rag.AiRagRepository;
+import org.rooms.roombay.config.AiChatRateLimiter;
 import org.rooms.roombay.dto.request.AiChatRequest;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.entity.RoomApplication;
@@ -32,9 +33,12 @@ public class AiAssistantService {
     private final LeaseRepository leaseRepository;
     private final PropertyListingRepository propertyListingRepository;
     private final AiChatLogRepository chatLogRepository;
+    private final AiChatRateLimiter aiChatRateLimiter;
 
     public AiChatResponse chat(AiChatRequest request) {
+        long started = System.currentTimeMillis();
         UUID userId = SecurityUtils.getCurrentUserId(); // ensure authenticated
+        aiChatRateLimiter.checkAllowed(userId);
         // persona is provided by client; we still keep system prompt strict and role-agnostic.
         List<Double> qEmb = modelRouter.embed(request.getMessage());
         List<AiRagRepository.ChunkRow> chunks;
@@ -55,7 +59,8 @@ public class AiAssistantService {
             return m;
         }).toList();
 
-        String system = buildSystemPrompt(request.getPersona());
+        boolean ragGrounded = !chunks.isEmpty();
+        String system = buildSystemPrompt(request.getPersona(), ragGrounded);
         String userContext = buildUserContext(userId, request.getPersona());
         String raw = modelRouter.chat(system, request.getMessage(), contextChunks, userContext);
         ParsedAssistant parsed = parseAssistantOutput(raw);
@@ -71,7 +76,11 @@ public class AiAssistantService {
                 .answer(parsed.answer)
                 .citations(citations)
                 .suggestedActions(parsed.actions)
+                .ragGrounded(ragGrounded)
                 .build();
+
+        log.info("[AI] chat user={} ragChunks={} grounded={} ms={}",
+                userId, chunks.size(), ragGrounded, System.currentTimeMillis() - started);
 
         chatLogRepository.insert(
                 userId,
@@ -84,14 +93,27 @@ public class AiAssistantService {
         return response;
     }
 
-    private String buildSystemPrompt(AiChatRequest.Persona persona) {
+    private String buildSystemPrompt(AiChatRequest.Persona persona, boolean hasDocContext) {
         String personaLine = persona == AiChatRequest.Persona.LANDLORD
                 ? "You are helping a landlord user of RoomBay."
                 : "You are helping a tenant user of RoomBay.";
 
+        String noKb = "";
+        if (!hasDocContext) {
+            noKb = String.join("\n",
+                    "",
+                    "Critical: No documentation chunks were retrieved from the RoomBay knowledge base for this question.",
+                    "- Say clearly that you are answering without doc-grounded context.",
+                    "- Do not invent RoomBay-specific screens, URLs, or policies.",
+                    "- Suggest the user open Search, Profile, or Landlord dashboard as appropriate, or contact support.",
+                    "- Keep the reply short."
+            );
+        }
+
         return String.join("\n",
                 "You are RoomBay Assistant for the RoomBay platform.",
                 personaLine,
+                noKb,
                 "",
                 "Rules:",
                 "- Only answer questions about RoomBay features, workflows, and policies.",

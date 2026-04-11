@@ -15,6 +15,7 @@ type ChatMessage = {
   id: string
   role: ChatRole
   content: string
+  ragGrounded?: boolean
   citations?: AiCitation[]
   suggestedActions?: {
     id: string
@@ -70,13 +71,18 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
         id: uid(),
         role: "assistant",
         content: res.answer,
+        ragGrounded: res.ragGrounded,
         citations: res.citations,
         suggestedActions: res.suggestedActions,
         createdAt: Date.now(),
       }
       setMessages((prev) => [...prev, asstMsg])
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Assistant is unavailable. Please try again.")
+      if (e?.response?.status === 429) {
+        setError(e?.response?.data?.message || "Too many assistant requests. Please wait a minute and try again.")
+      } else {
+        setError(e?.response?.data?.message || "Assistant is unavailable. Please try again.")
+      }
     } finally {
       setIsSending(false)
     }
@@ -96,6 +102,11 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
             )}
           >
             <div className="whitespace-pre-wrap">{m.content}</div>
+            {m.role === "assistant" && m.ragGrounded === false && (
+              <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-2 py-1.5">
+                No matching help docs were found for this question, so this reply is not doc-grounded. Try rephrasing or run admin doc ingest if the knowledge base is empty.
+              </p>
+            )}
             {m.role === "assistant" && m.citations && m.citations.length > 0 && (
               <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-1">
                 <p className="text-xs font-medium text-slate-500">Sources</p>

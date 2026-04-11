@@ -16,6 +16,8 @@ export type AiChatRequest = {
 export type AiChatResponse = {
   answer: string
   citations: AiCitation[]
+  /** From API: false when no RAG chunks matched (run admin ingest or fix embeddings). */
+  ragGrounded?: boolean
   suggestedActions?: {
     id: string
     label: string

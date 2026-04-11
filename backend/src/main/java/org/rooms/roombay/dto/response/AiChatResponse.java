@@ -16,6 +16,8 @@ public class AiChatResponse {
     private String answer;
     private List<Citation> citations;
     private List<SuggestedAction> suggestedActions;
+    /** False when no RAG chunks matched (ingest missing, dimension mismatch, or irrelevant query). */
+    private Boolean ragGrounded;
 
     @Data
     @Builder
