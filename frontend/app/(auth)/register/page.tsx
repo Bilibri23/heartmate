@@ -53,6 +53,12 @@ function RegisterContent() {
   const [selectedRole, setSelectedRole] = useState<"TENANT" | "LANDLORD">(roleFromUrl || "TENANT")
   const defaultCountry = getDefaultCountry()
   const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry)
+  // Default to visible so local testing doesn't silently hide OAuth.
+  const showGoogleOAuth = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED !== "false"
+  const backendOrigin = (
+    process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/api\/?$/, "") || "http://localhost:8082"
+  ).replace(/\/$/, "")
+  const googleOAuthUrl = `${backendOrigin}/oauth2/authorization/google`
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -141,10 +147,10 @@ function RegisterContent() {
             </button>
           </div>
 
-          {process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === "true" && (
+          {showGoogleOAuth && (
             <div className="mb-6">
               <Button type="button" variant="outline" className="h-11 w-full rounded-xl border-slate-200" asChild>
-                <a href="/oauth2/authorization/google">Sign up with Google</a>
+                <a href={googleOAuthUrl}>Sign up with Google</a>
               </Button>
               <div className="relative my-5 text-center text-xs text-slate-400">
                 <span className="bg-white px-2">or register with email</span>

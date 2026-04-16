@@ -30,6 +30,12 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  // Default to visible so local testing doesn't silently hide OAuth.
+  const showGoogleOAuth = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED !== "false"
+  const backendOrigin = (
+    process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/api\/?$/, "") || "http://localhost:8082"
+  ).replace(/\/$/, "")
+  const googleOAuthUrl = `${backendOrigin}/oauth2/authorization/google`
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -147,14 +153,14 @@ export default function LoginPage() {
                 Sign In
               </Button>
 
-              {process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === "true" && (
+              {showGoogleOAuth && (
                 <>
                   <div className="relative my-6 text-center text-xs text-slate-400">
                     <span className="bg-white px-2">or</span>
                     <div className="absolute inset-x-0 top-1/2 -z-10 h-px bg-slate-200" aria-hidden />
                   </div>
                   <Button type="button" variant="outline" className="h-11 w-full rounded-xl border-slate-200" asChild>
-                    <a href="/oauth2/authorization/google">Continue with Google</a>
+                    <a href={googleOAuthUrl}>Continue with Google</a>
                   </Button>
                 </>
               )}

@@ -127,7 +127,11 @@ public class AuthService {
                     .orElseThrow(() -> new ResourceNotFoundException("Invalid email or password"));
         }
 
+        boolean isOAuthAccount = user.getOauthProvider() != null && user.getOauthSubject() != null;
         if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+            throw new BadRequestException("This account uses Google sign-in.");
+        }
+        if (isOAuthAccount && !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new BadRequestException("This account uses Google sign-in.");
         }
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
@@ -400,7 +404,8 @@ public class AuthService {
                 user = User.builder()
                         .email(normalizedEmail)
                         .phone(phonePlaceholder)
-                        .passwordHash(null)
+                        // DB keeps password_hash non-null; store an unusable random hash for OAuth-first users.
+                        .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                         .firstName(fn)
                         .lastName(ln)
                         .role(User.UserRole.STUDENT)
