@@ -510,7 +510,7 @@ public class ListingService {
     @Transactional(readOnly = true)
     public List<ListingResponse> getFavorites(UUID userId) {
         log.info("Getting favorites for user: {}", userId);
-        List<ListingFavorite> favorites = favoriteRepository.findByUserId(userId);
+        List<ListingFavorite> favorites = favoriteRepository.findByUserIdWithListingAndLandlord(userId);
         return favorites.stream()
                 .map(favorite -> mapToResponse(favorite.getListing(), userId))
                 .collect(Collectors.toList());

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import api, { uploadApi } from "@/lib/api"
+import { uploadApi } from "@/lib/api"
 import { toast } from "sonner"
 import { Settings, Bell, Shield, Database, Mail, Globe, Save, RefreshCw, LogOut, Users, Search, Flag } from "lucide-react"
 import Link from "next/link"
@@ -18,6 +18,14 @@ export default function AdminSettingsPage() {
   const router = useRouter()
   const [isSaving, setIsSaving] = useState(false)
   const [isAiIngesting, setIsAiIngesting] = useState(false)
+  const [graphStats, setGraphStats] = useState<{
+    documentCount: number
+    chunkCount: number
+    entityCount: number
+    edgeCount: number
+    chunkEntityLinkCount: number
+    graphRagEnabled: boolean
+  } | null>(null)
   const [settings, setSettings] = useState({
     maintenanceMode: false,
     allowNewRegistrations: true,
@@ -62,6 +70,19 @@ export default function AdminSettingsPage() {
     if (user?.role === "ADMIN") fetchSearchStatus()
   }, [user?.role])
 
+  const fetchGraphStats = async () => {
+    try {
+      const res = await uploadApi.get("/ai/admin/graph-stats")
+      setGraphStats(res.data)
+    } catch {
+      setGraphStats(null)
+    }
+  }
+
+  useEffect(() => {
+    if (user?.role === "ADMIN") fetchGraphStats()
+  }, [user?.role])
+
   const handleReindexSearch = async () => {
     setIsReindexing(true)
     try {
@@ -95,9 +116,14 @@ export default function AdminSettingsPage() {
     try {
       const res = await uploadApi.post(`/ai/admin/ingest?force=${force ? "true" : "false"}`)
       const data = res.data
+      const graph =
+        typeof data?.graphEntitiesWritten === "number"
+          ? ` GraphRAG: ${data.graphEntitiesWritten} entity upserts, ${data?.graphEdgesWritten ?? 0} edges.`
+          : ""
       toast.success(
-        `AI docs ingested: ${data?.documentsProcessed ?? 0} docs, ${data?.chunksInserted ?? 0} chunks`
+        `AI docs ingested: ${data?.documentsProcessed ?? 0} docs, ${data?.chunksInserted ?? 0} chunks.${graph}`
       )
+      fetchGraphStats()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "AI ingest failed")
     } finally {
@@ -206,14 +232,28 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        {/* AI Assistant (RAG) */}
+        {/* AI Assistant (RAG + GraphRAG) */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
           <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <Globe className="h-5 w-5 text-indigo-600" /> AI Assistant
           </h3>
           <p className="text-sm text-slate-500 mb-4">
-            Ingest `docs/*.md` into pgvector so the assistant can answer questions with citations.
+            Ingest <code className="text-xs bg-slate-100 px-1 rounded">docs/*.md</code> into pgvector and build a GraphRAG layer (headings, links, topics) for
+            relationship-aware retrieval. Use force to rebuild vectors and the graph.
           </p>
+          {graphStats ? (
+            <div className="text-sm space-y-1 mb-4 p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p className={graphStats.graphRagEnabled ? "text-green-700" : "text-amber-700"}>
+                GraphRAG retrieval: {graphStats.graphRagEnabled ? "on" : "off"} (see <code className="text-xs">roombay.ai.graph-rag-enabled</code>)
+              </p>
+              <p className="text-slate-600">
+                Docs {graphStats.documentCount} · Chunks {graphStats.chunkCount} · Entities {graphStats.entityCount} · Edges {graphStats.edgeCount} · Chunk–entity
+                links {graphStats.chunkEntityLinkCount}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 mb-4">Graph stats unavailable (backend running?)</p>
+          )}
           <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
@@ -228,9 +268,12 @@ export default function AdminSettingsPage() {
               onClick={() => handleAiIngest(true)}
               disabled={isAiIngesting}
               className="rounded-xl"
-              title="Re-embed everything even if unchanged"
+              title="Re-embed everything and rebuild GraphRAG even if checksums unchanged"
             >
-              Force Re-ingest
+              Force Re-ingest (rebuild graph)
+            </Button>
+            <Button variant="ghost" size="sm" onClick={fetchGraphStats} className="rounded-xl">
+              Refresh graph stats
             </Button>
           </div>
         </div>

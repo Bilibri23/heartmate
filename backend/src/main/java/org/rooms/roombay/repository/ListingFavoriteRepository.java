@@ -18,6 +18,9 @@ public interface ListingFavoriteRepository extends JpaRepository<ListingFavorite
     boolean existsByUserIdAndListingId(UUID userId, UUID listingId);
     
     List<ListingFavorite> findByUserId(UUID userId);
+
+    @Query("SELECT f FROM ListingFavorite f JOIN FETCH f.listing l JOIN FETCH l.landlord WHERE f.user.id = :userId")
+    List<ListingFavorite> findByUserIdWithListingAndLandlord(@Param("userId") UUID userId);
     
     @Query("SELECT COUNT(f) FROM ListingFavorite f WHERE f.listing.id = :listingId")
     Long countByListingId(@Param("listingId") UUID listingId);

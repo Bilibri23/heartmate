@@ -33,17 +33,21 @@ function uid() {
 
 export function AssistantChat({ persona }: { persona: AiPersona }) {
   const router = useRouter()
+  const threadStorageKey = `rb.ai.thread.${persona}`
+  const messagesStorageKey = `rb.ai.messages.${persona}`
+  const initialAssistantMessage = {
+    id: uid(),
+    role: "assistant" as const,
+    content:
+      persona === "LANDLORD"
+        ? "Hi! I’m your RoomBay assistant. Ask me about listing approval, applications, leases, payments, or how to use the landlord dashboard."
+        : "Hi! I’m your RoomBay assistant. Ask me about searching, applying, verification, roommate matching, leases, or payments.",
+    createdAt: Date.now(),
+  }
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      id: uid(),
-      role: "assistant",
-      content:
-        persona === "LANDLORD"
-          ? "Hi! I’m your RoomBay assistant. Ask me about listing approval, applications, leases, payments, or how to use the landlord dashboard."
-          : "Hi! I’m your RoomBay assistant. Ask me about searching, applying, verification, roommate matching, leases, or payments.",
-      createdAt: Date.now(),
-    },
+    initialAssistantMessage,
   ])
+  const [threadId, setThreadId] = useState<string | null>(null)
   const [input, setInput] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -75,6 +79,38 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
 
   useEffect(() => () => stopSpeaking(), [])
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = window.sessionStorage.getItem(threadStorageKey)
+    setThreadId(saved && saved.trim().length > 0 ? saved : null)
+  }, [threadStorageKey])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = window.sessionStorage.getItem(messagesStorageKey)
+    if (!saved) return
+    try {
+      const parsed = JSON.parse(saved) as ChatMessage[]
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setMessages(parsed)
+      }
+    } catch {
+      // Ignore corrupt storage and keep default greeting.
+    }
+  }, [messagesStorageKey])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (threadId && threadId.trim().length > 0) {
+      window.sessionStorage.setItem(threadStorageKey, threadId)
+    }
+  }, [threadId, threadStorageKey])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    window.sessionStorage.setItem(messagesStorageKey, JSON.stringify(messages))
+  }, [messages, messagesStorageKey])
+
   const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending])
 
   useEffect(() => {
@@ -92,7 +128,10 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
     setIsSending(true)
 
     try {
-      const res = await aiAssistantService.chat({ message: text, persona })
+      const res = await aiAssistantService.chat({ message: text, persona, threadId: threadId ?? undefined })
+      if (res.threadId) {
+        setThreadId(res.threadId)
+      }
       const asstMsg: ChatMessage = {
         id: uid(),
         role: "assistant",

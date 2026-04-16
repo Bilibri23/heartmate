@@ -40,6 +40,7 @@ public class AiRagSchemaInitializer implements ApplicationRunner {
                 )
                 """);
             ensureAiChunksTable(embeddingDimensions);
+            ensureGraphRagTables();
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS ai_chat_logs (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -116,5 +117,50 @@ public class AiRagSchemaInitializer implements ApplicationRunner {
         jdbcTemplate.execute(
                 "CREATE INDEX IF NOT EXISTS idx_ai_chunks_embedding_cos ON ai_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)"
         );
+    }
+
+    /**
+     * GraphRAG tables (see also V37__ai_graph_rag_tables.sql when Flyway is enabled).
+     */
+    private void ensureGraphRagTables() {
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS ai_entities (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    canonical_key TEXT NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    label TEXT,
+                    source_document_id UUID NOT NULL REFERENCES ai_documents(id) ON DELETE CASCADE,
+                    metadata JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT uq_ai_entities_canonical UNIQUE (canonical_key)
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_entities_document ON ai_entities(source_document_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_entities_type ON ai_entities(entity_type)");
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS ai_chunk_entities (
+                    chunk_id UUID NOT NULL REFERENCES ai_chunks(id) ON DELETE CASCADE,
+                    entity_id UUID NOT NULL REFERENCES ai_entities(id) ON DELETE CASCADE,
+                    weight REAL NOT NULL DEFAULT 1.0,
+                    PRIMARY KEY (chunk_id, entity_id)
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_chunk_entities_entity ON ai_chunk_entities(entity_id)");
+
+        jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS ai_edges (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    src_entity_id UUID NOT NULL REFERENCES ai_entities(id) ON DELETE CASCADE,
+                    dst_entity_id UUID NOT NULL REFERENCES ai_entities(id) ON DELETE CASCADE,
+                    relation_type TEXT NOT NULL,
+                    weight REAL NOT NULL DEFAULT 1.0,
+                    metadata JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT uq_ai_edges_unique UNIQUE (src_entity_id, dst_entity_id, relation_type)
+                )
+                """);
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_edges_src ON ai_edges(src_entity_id)");
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_ai_edges_dst ON ai_edges(dst_entity_id)");
     }
 }

@@ -5,8 +5,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.rooms.roombay.ai.rag.AiGraphRagService;
 import org.rooms.roombay.dto.request.AiChatRequest;
 import org.rooms.roombay.dto.response.AiChatResponse;
+import org.rooms.roombay.dto.response.AiGraphStatsResponse;
 import org.rooms.roombay.dto.response.AiIngestResponse;
 import org.rooms.roombay.service.AiAssistantService;
 import org.rooms.roombay.service.AiIngestionService;
@@ -25,6 +27,7 @@ public class AiAssistantController {
 
     private final AiAssistantService aiAssistantService;
     private final AiIngestionService aiIngestionService;
+    private final AiGraphRagService aiGraphRagService;
 
     @Value("${roombay.ai.ingest-dev-key:}")
     private String ingestDevKey;
@@ -40,6 +43,13 @@ public class AiAssistantController {
     @Operation(summary = "Ingest docs", description = "Admin-only: ingest docs/*.md into pgvector for RAG")
     public ResponseEntity<AiIngestResponse> ingest(@RequestParam(defaultValue = "false") boolean force) {
         return ResponseEntity.ok(aiIngestionService.ingestDocs(force));
+    }
+
+    @GetMapping("/admin/graph-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "GraphRAG stats", description = "Counts for documents, chunks, entities, and edges")
+    public ResponseEntity<AiGraphStatsResponse> graphStats() {
+        return ResponseEntity.ok(aiGraphRagService.getGraphStats());
     }
 
     /**
@@ -59,6 +69,23 @@ public class AiAssistantController {
         }
         log.info("RAG doc ingest via ingest-dev (local key)");
         return ResponseEntity.ok(aiIngestionService.ingestDocs(force));
+    }
+
+    /**
+     * Same dev-key gate as {@link #ingestDev}; use when you do not have an admin JWT for
+     * {@link #graphStats()}.
+     */
+    @GetMapping("/graph-stats-dev")
+    @Operation(summary = "GraphRAG stats (dev key)", description = "Requires ROOMBAY_AI_INGEST_DEV_KEY and matching X-RoomBay-Ingest-Key header")
+    public ResponseEntity<AiGraphStatsResponse> graphStatsDev(
+            @RequestHeader(value = "X-RoomBay-Ingest-Key", required = false) String key) {
+        if (ingestDevKey == null || ingestDevKey.isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (key == null || !ingestDevKey.equals(key)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(aiGraphRagService.getGraphStats());
     }
 }
 

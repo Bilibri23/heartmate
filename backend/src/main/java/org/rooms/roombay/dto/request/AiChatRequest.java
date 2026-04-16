@@ -19,6 +19,12 @@ public class AiChatRequest {
     @NotNull(message = "Persona is required")
     private Persona persona;
 
+    /**
+     * Optional conversation thread identifier for short-term memory continuity.
+     * When absent, the server generates a new thread id and returns it in the response.
+     */
+    private String threadId;
+
     public enum Persona {
         TENANT,
         LANDLORD

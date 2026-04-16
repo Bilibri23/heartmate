@@ -3,6 +3,7 @@ package org.rooms.roombay.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.AiModelRouter;
+import org.rooms.roombay.ai.rag.AiGraphRagService;
 import org.rooms.roombay.ai.rag.AiRagRepository;
 import org.rooms.roombay.config.AiChatRateLimiter;
 import org.rooms.roombay.dto.request.AiChatRequest;
@@ -15,6 +16,7 @@ import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.StudentVerificationRepository;
 import org.rooms.roombay.security.SecurityUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,7 +30,7 @@ import java.util.UUID;
 public class AiAssistantService {
 
     private final AiModelRouter modelRouter;
-    private final AiRagRepository ragRepository;
+    private final AiGraphRagService graphRagService;
     private final StudentVerificationRepository studentVerificationRepository;
     private final RoomApplicationRepository roomApplicationRepository;
     private final LeaseRepository leaseRepository;
@@ -36,16 +38,21 @@ public class AiAssistantService {
     private final LandlordVerificationRepository landlordVerificationRepository;
     private final AiChatLogRepository chatLogRepository;
     private final AiChatRateLimiter aiChatRateLimiter;
+    private final AiMemoryService aiMemoryService;
+
+    @Value("${roombay.ai.memory.max-turns:6}")
+    private int memoryMaxTurns;
 
     public AiChatResponse chat(AiChatRequest request) {
         long started = System.currentTimeMillis();
         UUID userId = SecurityUtils.getCurrentUserId(); // ensure authenticated
         aiChatRateLimiter.checkAllowed(userId);
+        String threadId = resolveThreadId(request.getThreadId());
         // persona is provided by client; we still keep system prompt strict and role-agnostic.
         List<Double> qEmb = modelRouter.embed(request.getMessage());
         List<AiRagRepository.ChunkRow> chunks;
         try {
-            chunks = ragRepository.topKSimilar(qEmb, 8);
+            chunks = graphRagService.retrieve(qEmb, 8);
         } catch (Exception e) {
             // Keep assistant available even when vector index/schema has drift.
             log.warn("[AI] RAG retrieval failed, continuing without context: {}", e.getMessage());
@@ -64,7 +71,10 @@ public class AiAssistantService {
         boolean ragGrounded = !chunks.isEmpty();
         String system = buildSystemPrompt(request.getPersona(), ragGrounded);
         String userContext = buildUserContext(userId, request.getPersona());
-        String raw = modelRouter.chat(system, request.getMessage(), contextChunks, userContext);
+        List<AiMemoryService.MemoryTurn> memoryTurns = aiMemoryService.loadRecentTurns(userId, threadId, memoryMaxTurns);
+        String memoryContext = buildMemoryContext(memoryTurns);
+        String fullUserContext = memoryContext.isBlank() ? userContext : userContext + "\n\n" + memoryContext;
+        String raw = modelRouter.chat(system, request.getMessage(), contextChunks, fullUserContext);
         ParsedAssistant parsed = parseAssistantOutput(raw);
 
         List<AiChatResponse.Citation> citations = chunks.stream().map(c -> AiChatResponse.Citation.builder()
@@ -74,15 +84,18 @@ public class AiAssistantService {
                 .build()
         ).toList();
 
+        String safeAnswer = ensureNonEmptyAnswer(parsed.answer, ragGrounded);
+
         AiChatResponse response = AiChatResponse.builder()
-                .answer(parsed.answer)
+                .answer(safeAnswer)
+                .threadId(threadId)
                 .citations(citations)
                 .suggestedActions(parsed.actions)
                 .ragGrounded(ragGrounded)
                 .build();
 
-        log.info("[AI] chat user={} ragChunks={} grounded={} ms={}",
-                userId, chunks.size(), ragGrounded, System.currentTimeMillis() - started);
+        log.info("[AI] chat user={} ragChunks={} grounded={} graphRag={} ms={}",
+                userId, chunks.size(), ragGrounded, graphRagService.isGraphRagEnabled(), System.currentTimeMillis() - started);
 
         chatLogRepository.insert(
                 userId,
@@ -91,6 +104,7 @@ public class AiAssistantService {
                 response.getAnswer(),
                 citations.stream().map(AiChatResponse.Citation::getChunkId).toList()
         );
+        aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
 
         return response;
     }
@@ -166,6 +180,38 @@ public class AiAssistantService {
         }
 
         return String.join("\n", lines);
+    }
+
+    private String buildMemoryContext(List<AiMemoryService.MemoryTurn> turns) {
+        if (turns == null || turns.isEmpty()) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        lines.add("Conversation_memory_recent_turns:");
+        int index = 1;
+        for (AiMemoryService.MemoryTurn turn : turns) {
+            lines.add(index + ". user: " + turn.userMessage());
+            lines.add(index + ". assistant: " + turn.assistantAnswer());
+            index++;
+        }
+        return String.join("\n", lines);
+    }
+
+    private String resolveThreadId(String requestThreadId) {
+        if (requestThreadId == null || requestThreadId.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        return requestThreadId.trim();
+    }
+
+    private String ensureNonEmptyAnswer(String answer, boolean ragGrounded) {
+        if (answer != null && !answer.isBlank()) {
+            return answer.trim();
+        }
+        if (ragGrounded) {
+            return "I found related RoomBay information, but I could not format a full answer this time. Please ask again in one sentence, and I will answer clearly with the same sources.";
+        }
+        return "I could not generate a complete answer right now. Please rephrase your question, and if this continues, try again shortly.";
     }
 
     @lombok.Value

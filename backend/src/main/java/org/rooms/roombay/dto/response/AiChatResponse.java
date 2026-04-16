@@ -14,6 +14,7 @@ import java.util.List;
 public class AiChatResponse {
 
     private String answer;
+    private String threadId;
     private List<Citation> citations;
     private List<SuggestedAction> suggestedActions;
     /** False when no RAG chunks matched (ingest missing, dimension mismatch, or irrelevant query). */

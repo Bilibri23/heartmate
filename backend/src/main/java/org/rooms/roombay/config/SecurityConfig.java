@@ -89,7 +89,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/disputes/**").authenticated()
                         .requestMatchers("/api/support/**").authenticated()
                         // Local RAG ingest when ROOMBAY_AI_INGEST_DEV_KEY is set (controller returns 404 if unset)
-                        .requestMatchers("/api/ai/ingest-dev").permitAll()
+                        .requestMatchers("/api/ai/ingest-dev", "/api/ai/graph-stats-dev").permitAll()
                         // Admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()

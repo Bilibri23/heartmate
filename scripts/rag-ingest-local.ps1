@@ -1,4 +1,5 @@
-# Ingest docs/*.md into pgvector (backend must be running).
+# Ingest docs/*.md into pgvector and rebuild GraphRAG entities/edges (backend must be running).
+# After ingest, GET /api/ai/admin/graph-stats (admin JWT) shows entity/edge counts.
 #
 # Option A — no admin user: set ROOMBAY_AI_INGEST_DEV_KEY in backend/.env, then:
 #   .\scripts\rag-ingest-local.ps1 -DevKey $env:ROOMBAY_AI_INGEST_DEV_KEY
@@ -16,7 +17,18 @@ if ($DevKey) {
     $r = Invoke-RestMethod -Method Post -Uri $uri -Headers @{
         "X-RoomBay-Ingest-Key" = $DevKey
     } -ContentType "application/json"
+    Write-Host "Ingest result:"
     Write-Host ($r | ConvertTo-Json -Depth 5)
+    $statsUri = "$BaseUrl/api/ai/graph-stats-dev"
+    try {
+        $gs = Invoke-RestMethod -Method Get -Uri $statsUri -Headers @{
+            "X-RoomBay-Ingest-Key" = $DevKey
+        }
+        Write-Host "Graph stats:"
+        Write-Host ($gs | ConvertTo-Json -Depth 5)
+    } catch {
+        Write-Host "Graph stats (optional): $($_.Exception.Message)"
+    }
     exit 0
 }
 if (-not $Token) {

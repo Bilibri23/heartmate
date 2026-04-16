@@ -70,8 +70,9 @@ export const listingService = {
   },
 
   // Tenant operations
-  getFavorites: async (userId: string) => {
-    const response = await api.get<Listing[]>(`/listings/favorites/${userId}`);
+  /** Uses the authenticated user from the JWT; do not pass a path user id. */
+  getFavorites: async () => {
+    const response = await api.get<Listing[]>("/listings/favorites");
     return response.data;
   },
 

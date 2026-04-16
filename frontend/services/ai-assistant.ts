@@ -11,10 +11,12 @@ export type AiCitation = {
 export type AiChatRequest = {
   message: string
   persona: AiPersona
+  threadId?: string
 }
 
 export type AiChatResponse = {
   answer: string
+  threadId?: string
   citations: AiCitation[]
   /** From API: false when no RAG chunks matched (run admin ingest or fix embeddings). */
   ragGrounded?: boolean

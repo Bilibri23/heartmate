@@ -3,6 +3,7 @@ package org.rooms.roombay.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.AiModelRouter;
+import org.rooms.roombay.ai.rag.AiGraphRagIngestLinker;
 import org.rooms.roombay.ai.rag.AiRagRepository;
 import org.rooms.roombay.dto.response.AiIngestResponse;
 import org.rooms.roombay.exception.BadRequestException;
@@ -22,6 +23,7 @@ public class AiIngestionService {
 
     private final AiModelRouter modelRouter;
     private final AiRagRepository ragRepository;
+    private final AiGraphRagIngestLinker graphRagIngestLinker;
 
     @Value("${AI_DOCS_DIR:../docs}")
     private String docsDir;
@@ -44,6 +46,8 @@ public class AiIngestionService {
 
         int docsProcessed = 0;
         int chunksInserted = 0;
+        int graphEntitiesWritten = 0;
+        int graphEdgesWritten = 0;
         boolean skippedUnchanged = false;
 
         for (Path p : files) {
@@ -66,6 +70,7 @@ public class AiIngestionService {
             String title = extractTitle(text, p.getFileName().toString());
             UUID docId = ragRepository.upsertDocument(source, title, checksum);
             ragRepository.deleteChunksForDocument(docId);
+            ragRepository.deleteEntitiesForDocument(docId);
 
             List<String> chunks = chunkMarkdown(text);
             for (int i = 0; i < chunks.size(); i++) {
@@ -76,8 +81,15 @@ public class AiIngestionService {
                         "title", title,
                         "chunkIndex", i
                 );
-                ragRepository.insertChunk(docId, i, chunkText, emb, metadata);
+                UUID chunkId = ragRepository.insertChunk(docId, i, chunkText, emb, metadata);
                 chunksInserted++;
+                try {
+                    AiGraphRagIngestLinker.Stats gs = graphRagIngestLinker.linkChunk(docId, source, chunkId, chunkText);
+                    graphEntitiesWritten += gs.entities();
+                    graphEdgesWritten += gs.edges();
+                } catch (Exception ex) {
+                    log.warn("[AI] Graph ingest failed for chunk {}: {}", chunkId, ex.getMessage());
+                }
             }
             docsProcessed++;
         }
@@ -86,6 +98,8 @@ public class AiIngestionService {
                 .documentsProcessed(docsProcessed)
                 .chunksInserted(chunksInserted)
                 .skippedUnchanged(skippedUnchanged)
+                .graphEntitiesWritten(graphEntitiesWritten)
+                .graphEdgesWritten(graphEdgesWritten)
                 .build();
     }
 

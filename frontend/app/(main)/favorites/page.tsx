@@ -38,7 +38,7 @@ export default function FavoritesPage() {
     
     setIsLoading(true)
     try {
-      const response = await api.get(`/listings/favorites/${user.id}`)
+      const response = await api.get("/listings/favorites")
       setFavorites(response.data || [])
     } catch (err) {
       console.error("Failed to fetch favorites:", err)
