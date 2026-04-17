@@ -1,11 +1,17 @@
 import axios from 'axios';
 
-// Use /api for development (proxied), direct URL for production
-const API_URL = process.env.NODE_ENV === 'production' 
-  ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082'}/api`
-  : '/api';
-// Direct backend URL for file uploads and when bypassing proxy
-const BACKEND_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082'}/api`;
+// Dev: same-origin `/api` so ngrok/mobile testers hit Next rewrites → localhost backend.
+// Prod: full backend URL.
+const API_URL =
+  process.env.NODE_ENV === 'production'
+    ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082'}/api`
+    : '/api';
+
+// Multipart and uploadApi must use the same base as `api` in dev (not localhost:8082 on the phone).
+const BACKEND_URL =
+  process.env.NODE_ENV === 'production'
+    ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082'}/api`
+    : '/api';
 
 const api = axios.create({
   baseURL: API_URL,

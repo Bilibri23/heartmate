@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -74,6 +75,22 @@ public class GlobalExceptionHandler {
                 .message("You don't have permission to access this resource")
                 .build();
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(OAuth2AuthorizationException.class)
+    public ResponseEntity<ErrorResponse> handleOAuth2AuthorizationException(OAuth2AuthorizationException ex) {
+        String detail = ex.getError() != null ? ex.getError().getDescription() : null;
+        if (detail == null || detail.isBlank()) {
+            detail = ex.getError() != null ? ex.getError().getErrorCode() : ex.getMessage();
+        }
+        log.warn("OAuth2 authorization failed: {}", detail);
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error("OAuth2 Error")
+                .message(detail != null ? detail : "OAuth2 authorization failed")
+                .build();
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(AuthenticationException.class)

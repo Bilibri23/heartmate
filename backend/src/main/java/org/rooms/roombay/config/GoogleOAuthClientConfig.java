@@ -12,12 +12,19 @@ import org.springframework.beans.factory.annotation.Value;
 
 /**
  * Google OAuth client registration. Requires {@code GOOGLE_CLIENT_ID} and {@code GOOGLE_CLIENT_SECRET}
- * when {@code app.oauth.google.enabled=true}. Redirect URI in Google Cloud Console:
- * {@code {backend}/login/oauth2/code/google} (e.g. http://localhost:8082/login/oauth2/code/google).
+ * when {@code app.oauth.google.enabled=true}.
+ * <p>
+ * Uses Spring Security's default redirect template so the redirect URI matches the actual request URL
+ * (after {@code server.forward-headers-strategy} when behind Next.js/ngrok). Register every base URL you use
+ * in Google Cloud Console, e.g. {@code http://localhost:8082/login/oauth2/code/google} and your public HTTPS
+ * backend base (ngrok) with the same path suffix.
  */
 @Configuration
 @ConditionalOnProperty(name = "app.oauth.google.enabled", havingValue = "true")
 public class GoogleOAuthClientConfig {
+
+    private static final String GOOGLE_REDIRECT_TEMPLATE =
+            "{baseUrl}/login/oauth2/code/{registrationId}";
 
     @Bean
     public ClientRegistrationRepository clientRegistrationRepository(
@@ -30,6 +37,7 @@ public class GoogleOAuthClientConfig {
         ClientRegistration google = CommonOAuth2Provider.GOOGLE.getBuilder("google")
                 .clientId(clientId)
                 .clientSecret(clientSecret)
+                .redirectUri(GOOGLE_REDIRECT_TEMPLATE)
                 .build();
         return new InMemoryClientRegistrationRepository(google);
     }

@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [
+    "tame-tables-obey.loca.lt",
+    "fruity-ghosts-watch.loca.lt",
+    "nondisruptingly-unenthusiastic-melody.ngrok-free.dev",
+  ],
   images: {
     remotePatterns: [
       {
@@ -37,13 +42,11 @@ const nextConfig: NextConfig = {
         source: '/api/:path*',
         destination: `${backend}/api/:path*`,
       },
+      // OAuth: handled by app/oauth2 and app/login/oauth2 route handlers (forward X-Forwarded-* to Spring).
+      // SockJS + STOMP (notifications) — same-origin when using ngrok → Next dev
       {
-        source: '/oauth2/:path*',
-        destination: `${backend}/oauth2/:path*`,
-      },
-      {
-        source: '/login/oauth2/:path*',
-        destination: `${backend}/login/oauth2/:path*`,
+        source: '/ws/:path*',
+        destination: `${backend}/ws/:path*`,
       },
     ];
   },

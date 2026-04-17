@@ -52,10 +52,13 @@ export function useWebSocketNotifications(options: UseWebSocketNotificationsOpti
     if (!token) return
 
     try {
-      const rawBase =
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
-        "http://localhost:8082"
-      const httpBase = rawBase.replace("/api", "").replace(/\/$/, "")
+      // Same host as the page (e.g. ngrok → Next) so /ws is proxied to Spring; avoid localhost on phones.
+      const httpBase =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8082")
+              .replace(/\/api\/?$/, "")
+              .replace(/\/$/, "")
       const wsUrl = `${httpBase}/ws`
 
       // Probe the SockJS endpoint before connecting to avoid noisy errors
