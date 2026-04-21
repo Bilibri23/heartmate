@@ -1,13 +1,108 @@
 import http from "node:http"
+import https from "node:https"
 import { NextRequest, NextResponse } from "next/server"
 
-/** Same origin as NEXT_PUBLIC_API_URL / rewrites (no /api suffix). */
+function stripTrailingSlash(s: string): string {
+  return s.replace(/\/$/, "")
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"
+}
+
+/**
+ * If NEXT_PUBLIC_API_URL points at the Next dev server itself (e.g. http://localhost:3000/api),
+ * the OAuth proxy must not open a TCP connection to that port — it would talk to Next, not Spring.
+ */
+function isLikelyNextDevServerUrl(u: URL): boolean {
+  if (!isLoopbackHost(u.hostname)) {
+    return false
+  }
+  const p = u.port
+  if (!p) {
+    return false
+  }
+  const envPort = process.env.PORT
+  if (envPort && p === envPort) {
+    return true
+  }
+  return p === "3000" || p === "3001"
+}
+
+/**
+ * TCP target for this Node proxy → Spring. Must be reachable from the Next server process.
+ *
+ * Priority: {@code BACKEND_INTERNAL_URL} / {@code BACKEND_URL} / {@code SPRING_BOOT_BACKEND_URL}
+ * (internal first so a global {@code BACKEND_URL} pointing at ngrok does not steal OAuth from local Spring).
+ * Otherwise, if {@code NEXT_PUBLIC_API_URL} resolves to a loopback URL that is **not** the Next
+ * dev port, use it (strip {@code /api}). Else default to {@code http://127.0.0.1:8082}.
+ *
+ * Uses {@code https} when the origin is https (e.g. {@code BACKEND_URL=https://…ngrok…}).
+ */
 function backendOrigin(): string {
-  const fromEnv =
-    process.env.BACKEND_URL ||
-    process.env.NEXT_PUBLIC_API_URL?.replace(/\/api\/?$/, "") ||
-    "http://localhost:8082"
-  return fromEnv.replace(/\/$/, "")
+  const internal = [
+    process.env.BACKEND_INTERNAL_URL,
+    process.env.BACKEND_URL,
+    process.env.SPRING_BOOT_BACKEND_URL,
+  ].find((v) => v && String(v).trim())
+  if (internal) {
+    return stripTrailingSlash(String(internal).trim())
+  }
+
+  const raw = (process.env.NEXT_PUBLIC_API_URL || "").trim()
+  const pub = stripTrailingSlash(raw.replace(/\/api\/?$/, ""))
+  if (!pub) {
+    return "http://127.0.0.1:8082"
+  }
+  try {
+    const u = new URL(pub.startsWith("http") ? pub : `http://${pub}`)
+    if (isLoopbackHost(u.hostname) && isLikelyNextDevServerUrl(u)) {
+      return "http://127.0.0.1:8082"
+    }
+    if (isLoopbackHost(u.hostname)) {
+      return stripTrailingSlash(`${u.protocol}//${u.host}`)
+    }
+  } catch {
+    // ignore
+  }
+
+  return "http://127.0.0.1:8082"
+}
+
+/**
+ * Port the browser used for this request (for {@code X-Forwarded-Port}).
+ * Spring Security uses forwarded headers to build {@code redirect_uri}; if we send
+ * port 80 for {@code http://localhost:3000}, Google gets {@code redirect_uri_mismatch}.
+ */
+function clientFacingPort(request: NextRequest, forwardedHost: string, proto: string): string {
+  const fromHeader = request.headers.get("x-forwarded-port")?.trim()
+  if (fromHeader && /^\d+$/.test(fromHeader)) {
+    return fromHeader
+  }
+
+  const h = forwardedHost.trim()
+  if (h.startsWith("[")) {
+    const close = h.indexOf("]")
+    if (close !== -1 && h[close + 1] === ":") {
+      const p = h.slice(close + 2)
+      if (p && /^\d+$/.test(p)) {
+        return p
+      }
+    }
+  } else if (h.includes(":")) {
+    const last = h.lastIndexOf(":")
+    const maybePort = h.slice(last + 1)
+    if (/^\d+$/.test(maybePort)) {
+      return maybePort
+    }
+  }
+
+  const nu = request.nextUrl.port
+  if (nu) {
+    return nu
+  }
+
+  return proto === "https" ? "443" : "80"
 }
 
 /**
@@ -15,7 +110,11 @@ function backendOrigin(): string {
  *
  * Node's `fetch()` (Undici) does not allow overriding `Host`, so Spring only ever
  * saw `localhost:8082` and OAuth redirect/session handling broke behind ngrok.
- * `http.request` allows setting Host to the public hostname.
+ * `http.request` / `https.request` allows setting Host to the public hostname.
+ *
+ * The {@code Host} value must match what the browser used (including non-default ports
+ * like {@code localhost:3000}), and {@code X-Forwarded-Port} must match, or Spring builds
+ * the wrong {@code redirect_uri} for Google OAuth.
  */
 export async function proxyOAuth(
   request: NextRequest,
@@ -27,6 +126,16 @@ export async function proxyOAuth(
   const pathWithQuery = `${path}${request.nextUrl.search}`
 
   const backendBase = new URL(backendOrigin())
+  const useTls = backendBase.protocol === "https:"
+  const lib = useTls ? https : http
+  let port: number
+  if (backendBase.port) {
+    port = Number(backendBase.port)
+  } else if (useTls) {
+    port = 443
+  } else {
+    port = 80
+  }
 
   const host =
     request.headers.get("x-forwarded-host") ||
@@ -35,16 +144,17 @@ export async function proxyOAuth(
   const protoHeader = request.headers.get("x-forwarded-proto")
   const proto =
     protoHeader || (request.nextUrl.protocol === "https:" ? "https" : "http")
-  const hostOnly = host.split(":")[0]
+  const forwardedPort = clientFacingPort(request, host, proto)
 
   const xff =
     request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip")
 
   const headers: http.OutgoingHttpHeaders = {
-    Host: hostOnly,
+    // Full host[:port] as the browser sent it (do not strip :3000 — breaks OAuth redirect_uri).
+    Host: host,
     "X-Forwarded-Host": host,
     "X-Forwarded-Proto": proto,
-    "X-Forwarded-Port": proto === "https" ? "443" : "80",
+    "X-Forwarded-Port": forwardedPort,
   }
   if (xff) {
     headers["X-Forwarded-For"] = xff
@@ -82,13 +192,8 @@ export async function proxyOAuth(
     }
   }
 
-  let port = backendBase.port ? Number(backendBase.port) : 80
-  if (!backendBase.port) {
-    port = backendBase.protocol === "https:" ? 443 : 80
-  }
-
-  return await new Promise<NextResponse>((resolve, reject) => {
-    const req = http.request(
+  return await new Promise<NextResponse>((resolve) => {
+    const req = lib.request(
       {
         hostname: backendBase.hostname,
         port,
@@ -96,6 +201,7 @@ export async function proxyOAuth(
         method: request.method,
         headers,
         timeout: 120_000,
+        ...(useTls ? { servername: backendBase.hostname } : {}),
       },
       (res) => {
         const chunks: Buffer[] = []
@@ -127,10 +233,13 @@ export async function proxyOAuth(
       }
     )
     req.on("error", (err) => {
-      console.error("OAuth proxy error", err)
+      console.error("OAuth proxy error", backendBase.origin, err)
       resolve(
         NextResponse.json(
-          { error: "Failed to reach auth server" },
+          {
+            error: "Failed to reach auth server",
+            detail: process.env.NODE_ENV === "development" ? String((err as NodeJS.ErrnoException).code || err.message) : undefined,
+          },
           { status: 502 }
         )
       )

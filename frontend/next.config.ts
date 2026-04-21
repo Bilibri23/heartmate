@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { springBackendOrigin } from "./lib/spring-backend-origin";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
@@ -36,7 +37,11 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    const backend = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082';
+    const backend = springBackendOrigin(process.env);
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console
+      console.info("[next.config] /api and /ws rewrite base →", backend);
+    }
     return [
       {
         source: '/api/:path*',

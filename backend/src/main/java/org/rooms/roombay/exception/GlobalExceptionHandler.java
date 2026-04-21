@@ -1,7 +1,10 @@
 package org.rooms.roombay.exception;
 
+import jakarta.persistence.PersistenceException;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.security.VerificationRequiredException;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -20,6 +23,9 @@ import java.util.Map;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @Value("${app.api.error-detail:false}")
+    private boolean apiErrorDetail;
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
@@ -157,14 +163,50 @@ public class GlobalExceptionHandler {
                 .body(error);
     }
 
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ErrorResponse> handleDataAccessException(DataAccessException ex) {
+        log.error("Database error: ", ex);
+        String message = "Could not reach the database. Ensure PostgreSQL is running and DATABASE_URL (or spring.datasource.url) is correct.";
+        if (apiErrorDetail) {
+            message = message + " [" + ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage()) + "]";
+        }
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error("Service Unavailable")
+                .message(message)
+                .build();
+        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @ExceptionHandler(PersistenceException.class)
+    public ResponseEntity<ErrorResponse> handlePersistenceException(PersistenceException ex) {
+        log.error("JPA persistence error: ", ex);
+        String message = "Database operation failed. Check PostgreSQL is running and schema is up to date (e.g. refresh_token_sessions table exists).";
+        if (apiErrorDetail) {
+            message = message + " [" + ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage()) + "]";
+        }
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.SERVICE_UNAVAILABLE.value())
+                .error("Service Unavailable")
+                .message(message)
+                .build();
+        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
         log.error("Unexpected error: ", ex);
+        String message = "An unexpected error occurred";
+        if (apiErrorDetail) {
+            message = ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage());
+        }
         ErrorResponse error = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error("Internal Server Error")
-                .message("An unexpected error occurred")
+                .message(message)
                 .build();
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }

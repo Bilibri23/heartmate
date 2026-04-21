@@ -43,6 +43,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import api, { uploadApi } from "@/lib/api"
+import { SimilarListingsRail } from "@/components/listings/similar-listings-rail"
 
 const CAMEROON_CITIES = [
   "Douala", "Yaoundé", "Bamenda", "Bafoussam", "Garoua",
@@ -376,6 +377,15 @@ export default function EditListingPage() {
               )}
             </div>
           </div>
+
+          <SimilarListingsRail
+            seedListingId={listingId}
+            purpose="comps"
+            userId={user?.id ?? null}
+            title={t.discovery.compsTitle}
+            lang={language === "fr" ? "fr" : "en"}
+            className="border border-slate-200 rounded-2xl p-4 bg-slate-50/80"
+          />
 
           {/* Virtual Tour */}
           <div className="space-y-4">

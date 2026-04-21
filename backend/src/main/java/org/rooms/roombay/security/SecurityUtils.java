@@ -1,5 +1,6 @@
 package org.rooms.roombay.security;
 
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -13,7 +14,7 @@ public class SecurityUtils {
         if (authentication != null && authentication.getPrincipal() instanceof UUID) {
             return (UUID) authentication.getPrincipal();
         }
-        throw new RuntimeException("User not authenticated");
+        throw new InsufficientAuthenticationException("User not authenticated");
     }
     
     public static String getCurrentUserRole() {

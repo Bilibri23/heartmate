@@ -55,10 +55,10 @@ function RegisterContent() {
   const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry)
   // Default to visible so local testing doesn't silently hide OAuth.
   const showGoogleOAuth = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED !== "false"
-  const backendOrigin = (
-    process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/api\/?$/, "") || "http://localhost:8082"
-  ).replace(/\/$/, "")
-  const googleOAuthUrl = `${backendOrigin}/oauth2/authorization/google`
+  // Same-origin OAuth so localhost stays on localhost and ngrok stays on ngrok (avoids .env pointing at a dead tunnel).
+  const signupRoleParam =
+    selectedRole === "LANDLORD" ? "LANDLORD" : "STUDENT"
+  const googleOAuthUrl = `/oauth2/authorization/google?signup_role=${encodeURIComponent(signupRoleParam)}`
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -359,17 +359,19 @@ function RegisterContent() {
                 </div>
               )}
               
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className={`h-11 w-full rounded-xl text-sm font-medium ${
-                  isTenant 
-                    ? 'bg-slate-900 hover:bg-slate-800' 
+                  isTenant
+                    ? 'bg-slate-900 hover:bg-slate-800'
                     : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
                 disabled={isLoading}
               >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Account
+                <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden={!isLoading}>
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                </span>
+                <span>Create Account</span>
               </Button>
             </form>
           </Form>

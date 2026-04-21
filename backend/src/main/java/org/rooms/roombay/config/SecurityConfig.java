@@ -15,6 +15,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.rooms.roombay.security.JwtAuthenticationFilter;
+import org.rooms.roombay.security.OAuthSignupRoleCaptureFilter;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,14 +27,18 @@ import java.util.List;
 public class SecurityConfig {
     
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final OAuthSignupRoleCaptureFilter oauthSignupRoleCaptureFilter;
     private final RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler;
 
     @Value("${cors.allowed-origins:}")
     private String corsAllowedOrigins;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          @Autowired(required = false) RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            OAuthSignupRoleCaptureFilter oauthSignupRoleCaptureFilter,
+            @Autowired(required = false) RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.oauthSignupRoleCaptureFilter = oauthSignupRoleCaptureFilter;
         this.oauth2SuccessHandler = oauth2SuccessHandler;
     }
     
@@ -69,6 +74,7 @@ public class SecurityConfig {
                         .requestMatchers("GET", "/api/search").permitAll()
                         .requestMatchers("GET", "/api/feed").permitAll()
                         .requestMatchers("GET", "/api/listings", "/api/listings/search", "/api/listings/featured").permitAll()
+                        .requestMatchers("GET", "/api/listings/*/similar").permitAll()
                         .requestMatchers("GET", "/api/listings/{id}").permitAll()
                         // Authenticated endpoints
                         .requestMatchers("/api/phone-verification/**").authenticated()
@@ -92,7 +98,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // Register JWT first so it has a chain order; then place OAuth role capture immediately before it.
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(oauthSignupRoleCaptureFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

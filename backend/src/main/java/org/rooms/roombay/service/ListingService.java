@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.request.ListingApprovalRequest;
 import org.rooms.roombay.dto.request.ListingRequest;
+import org.rooms.roombay.dto.response.ListingRecommendationResponse;
 import org.rooms.roombay.dto.response.ListingResponse;
 import org.rooms.roombay.dto.response.PhotoDTO;
 import org.rooms.roombay.entity.LandlordVerification;
@@ -14,7 +15,17 @@ import org.rooms.roombay.entity.PropertyListing;
 import org.rooms.roombay.entity.User;
 import org.rooms.roombay.exception.BadRequestException;
 import org.rooms.roombay.exception.ResourceNotFoundException;
-import org.rooms.roombay.repository.*;
+import org.rooms.roombay.repository.LandlordVerificationRepository;
+import org.rooms.roombay.repository.ListingFavoriteRepository;
+import org.rooms.roombay.repository.ListingPhotoRepository;
+import org.rooms.roombay.repository.ListingPreferencesRepository;
+import org.rooms.roombay.repository.ListingSearchOutboxRepository;
+import org.rooms.roombay.repository.ListingSpecifications;
+import org.rooms.roombay.repository.ListingViewRepository;
+import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.ReviewRepository;
+import org.rooms.roombay.repository.RoomApplicationRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,9 +33,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -45,6 +59,7 @@ public class ListingService {
     private final ListingSearchOutboxRepository listingSearchOutboxRepository;
     private final SecurityAuditService securityAuditService;
     private final LandlordVerificationRepository landlordVerificationRepository;
+    private final ListingViewRepository listingViewRepository;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -1024,5 +1039,178 @@ public List<ListingResponse> getAllListings(String status) {
             .map(listing -> mapToResponse(listing, null))
             .collect(Collectors.toList());
 }
+
+    /**
+     * Tenant-facing trust tier for a listing (same rules as {@link #mapToResponse}).
+     */
+    @Transactional(readOnly = true)
+    public String trustTierForListing(PropertyListing listing) {
+        LandlordVerification lv = landlordVerificationRepository
+                .findByUserId(listing.getLandlord().getId())
+                .orElse(null);
+        return computeTrustTier(listing, lv);
+    }
+
+    /**
+     * Rule-based similar listings for listing detail ("More like this") or landlord comps.
+     *
+     * @param purpose {@code discover} (default) for tenant discovery; {@code comps} excludes same landlord and weights rent/location for pricing context
+     */
+    @Transactional(readOnly = true)
+    public List<ListingRecommendationResponse> findSimilarListings(
+            UUID seedListingId, UUID viewerUserId, String purpose, int limit) {
+        PropertyListing seed = listingRepository.findById(seedListingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Listing not found with id: " + seedListingId));
+
+        boolean comps = purpose != null && "comps".equalsIgnoreCase(purpose.trim());
+        int cap = Math.min(Math.max(limit, 1), 36);
+
+        List<PropertyListing> pool = listingRepository.findActiveVerifiedListings().stream()
+                .filter(l -> !l.getId().equals(seedListingId))
+                .filter(l -> !comps || !l.getLandlord().getId().equals(seed.getLandlord().getId()))
+                .collect(Collectors.toList());
+
+        List<ScoredSimilar> scored = new ArrayList<>();
+        for (PropertyListing c : pool) {
+            Set<String> codeSet = new LinkedHashSet<>();
+            int score = 0;
+
+            if (sameNorm(seed.getCity(), c.getCity())) {
+                codeSet.add("SAME_CITY");
+                score += comps ? 22 : 16;
+            }
+            if (sameNorm(seed.getNeighborhood(), c.getNeighborhood())) {
+                codeSet.add("SAME_NEIGHBORHOOD");
+                score += comps ? 38 : 32;
+            }
+            if (seed.getPropertyType() != null && seed.getPropertyType().equals(c.getPropertyType())) {
+                codeSet.add("SAME_PROPERTY_TYPE");
+                score += 18;
+            }
+
+            if (seed.getBedrooms() != null && c.getBedrooms() != null) {
+                int diff = Math.abs(seed.getBedrooms() - c.getBedrooms());
+                if (diff == 0) {
+                    codeSet.add("SAME_BEDROOMS");
+                    score += comps ? 24 : 14;
+                } else if (diff == 1) {
+                    codeSet.add("SIMILAR_BEDROOMS");
+                    score += 8;
+                }
+            }
+
+            if (seed.getRentAmount() != null && c.getRentAmount() != null && seed.getRentAmount() > 0) {
+                double pct = Math.abs(c.getRentAmount() - seed.getRentAmount()) * 100.0 / seed.getRentAmount();
+                if (pct <= 10) {
+                    codeSet.add("SIMILAR_RENT");
+                    score += comps ? 42 : 22;
+                } else if (pct <= 20) {
+                    codeSet.add("CLOSE_RENT");
+                    score += comps ? 28 : 12;
+                }
+            }
+
+            if (comps) {
+                codeSet.add("MARKET_COMPARABLE");
+            }
+
+            if (score == 0) {
+                score = 4;
+                codeSet.add("ACTIVE_NEAR_MARKET");
+            }
+
+            List<String> codes = codeSet.stream().limit(5).collect(Collectors.toList());
+            scored.add(new ScoredSimilar(c, score, codes));
+        }
+
+        scored.sort(Comparator.comparingInt(ScoredSimilar::score).reversed());
+        return scored.stream()
+                .limit(cap)
+                .map(s -> mapToListingRecommendation(s.listing(), viewerUserId, s.score(), s.codes(), comps))
+                .collect(Collectors.toList());
+    }
+
+    private record ScoredSimilar(PropertyListing listing, int score, List<String> codes) {}
+
+    private static boolean sameNorm(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.trim().equalsIgnoreCase(b.trim());
+    }
+
+    private ListingRecommendationResponse mapToListingRecommendation(
+            PropertyListing listing,
+            UUID viewerUserId,
+            int matchScore,
+            List<String> reasonCodes,
+            boolean comps) {
+        ListingPhoto primary = photoRepository.findByListingIdOrderByDisplayOrderAsc(listing.getId()).stream()
+                .filter(ListingPhoto::getIsPrimary)
+                .findFirst()
+                .orElse(null);
+        if (primary == null) {
+            List<ListingPhoto> photos = photoRepository.findByListingIdOrderByDisplayOrderAsc(listing.getId());
+            if (!photos.isEmpty()) {
+                primary = photos.get(0);
+            }
+        }
+
+        boolean isViewed = viewerUserId != null && listingViewRepository.hasUserViewedListing(viewerUserId, listing.getId());
+        boolean isFavorited = viewerUserId != null && favoriteRepository.existsByUserIdAndListingId(viewerUserId, listing.getId());
+        Double averageRating = reviewRepository.getAverageRatingForListing(listing.getId());
+        long reviewCount = reviewRepository.countReviewsForListing(listing.getId());
+        String trust = trustTierForListing(listing);
+
+        List<String> legacyReasons = new ArrayList<>(reasonCodes.stream()
+                .map(code -> humanizeSimilarCode(code, comps))
+                .collect(Collectors.toList()));
+
+        return ListingRecommendationResponse.builder()
+                .listingId(listing.getId())
+                .title(listing.getTitle())
+                .description(listing.getDescription())
+                .rentAmount(listing.getRentAmount())
+                .city(listing.getCity())
+                .neighborhood(listing.getNeighborhood())
+                .propertyType(listing.getPropertyType() != null ? listing.getPropertyType().name() : null)
+                .primaryPhotoUrl(primary != null ? primary.getPhotoUrl() : null)
+                .bedrooms(listing.getBedrooms())
+                .bathrooms(listing.getBathrooms())
+                .amenities(listing.getAmenities())
+                .status(listing.getStatus() != null ? listing.getStatus().name() : null)
+                .availableFrom(listing.getAvailableFrom())
+                .availableTo(listing.getAvailableTo())
+                .isAvailable(listing.getStatus() != null && listing.getStatus() == PropertyListing.Status.ACTIVE)
+                .matchScore(Math.min(100, matchScore))
+                .preferenceScore(0)
+                .behaviorScore(0)
+                .reasons(legacyReasons)
+                .reasonCodes(reasonCodes)
+                .isViewed(isViewed)
+                .isFavorited(isFavorited)
+                .viewsCount(listing.getViewsCount())
+                .verified(listing.getVerified())
+                .featured(listing.getFeatured())
+                .trustTier(trust)
+                .averageRating(averageRating)
+                .reviewCount((int) reviewCount)
+                .build();
+    }
+
+    private static String humanizeSimilarCode(String code, boolean comps) {
+        return switch (code) {
+            case "SAME_NEIGHBORHOOD" -> comps ? "Same neighborhood (market)" : "Same neighborhood";
+            case "SAME_CITY" -> "Same city";
+            case "SAME_PROPERTY_TYPE" -> "Same property type";
+            case "SAME_BEDROOMS" -> "Same bedroom count";
+            case "SIMILAR_BEDROOMS" -> "Similar size";
+            case "SIMILAR_RENT" -> comps ? "Similar asking rent" : "Similar rent";
+            case "CLOSE_RENT" -> "Close rent range";
+            case "MARKET_COMPARABLE" -> "Market comparable";
+            case "ACTIVE_NEAR_MARKET" -> "Active listing near you";
+            default -> code.replace('_', ' ').toLowerCase();
+        };
+    }
 }
 

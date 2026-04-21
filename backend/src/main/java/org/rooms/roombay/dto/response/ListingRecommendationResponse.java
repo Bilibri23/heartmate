@@ -37,7 +37,9 @@ public class ListingRecommendationResponse {
     private Integer matchScore; // 0-100
     private Integer preferenceScore;
     private Integer behaviorScore;
-    private List<String> reasons; // Why recommended
+    private List<String> reasons; // Why recommended (legacy / verbose)
+    /** Stable keys for UI chips; prefer over {@code reasons} when present. */
+    private List<String> reasonCodes;
     
     // Engagement signals
     private Boolean isViewed;
@@ -47,6 +49,7 @@ public class ListingRecommendationResponse {
     // Verification
     private Boolean verified;
     private Boolean featured;
+    private String trustTier;
     
     // Ratings
     private Double averageRating;

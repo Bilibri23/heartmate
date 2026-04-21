@@ -41,8 +41,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
             
             if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
+                // Treat missing "type" claim as access (older tokens); only skip when explicitly non-access (e.g. refresh).
                 String tokenType = jwtTokenProvider.getTokenType(jwt);
-                if (!"access".equals(tokenType)) {
+                if (tokenType != null && !"access".equalsIgnoreCase(tokenType)) {
                     filterChain.doFilter(request, response);
                     return;
                 }

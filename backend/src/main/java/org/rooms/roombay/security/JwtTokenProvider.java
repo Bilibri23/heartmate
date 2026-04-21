@@ -49,12 +49,14 @@ public class JwtTokenProvider {
     public String generateAccessToken(UUID userId, String email, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpiration);
+        String emailClaim = email != null ? email : "";
+        String roleClaim = role != null && !role.isBlank() ? role : "STUDENT";
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("type", "access")
-                .claim("email", email)
-                .claim("role", role)
+                .claim("email", emailClaim)
+                .claim("role", roleClaim)
                 .claim("jti", UUID.randomUUID().toString())
                 .issuedAt(now)
                 .expiration(expiryDate)

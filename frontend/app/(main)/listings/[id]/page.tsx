@@ -62,6 +62,7 @@ import { useProfileCompletion } from "@/hooks/use-profile-completion"
 import { CompletionBanner } from "@/components/profile/completion-banner"
 import { trustTierChipClassName } from "@/lib/listing-trust-tier"
 import { cn } from "@/lib/utils"
+import { SimilarListingsRail } from "@/components/listings/similar-listings-rail"
 
 interface ListingDetail {
   id: string
@@ -883,6 +884,15 @@ export default function ListingDetailPage() {
               {listing.description}
             </p>
           </div>
+
+          <SimilarListingsRail
+            seedListingId={String(listing.id)}
+            purpose="discover"
+            userId={user?.id ?? null}
+            title={t.discovery.similarTitle}
+            lang={language === "fr" ? "fr" : "en"}
+            className="px-1"
+          />
 
           {/* Amenities */}
           {listing.amenities && listing.amenities.length > 0 && (

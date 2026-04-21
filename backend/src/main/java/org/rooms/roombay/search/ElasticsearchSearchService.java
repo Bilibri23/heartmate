@@ -180,8 +180,9 @@ public class ElasticsearchSearchService {
             long total = totalHit != null ? totalHit.value() : 0;
             return new PageImpl<>(ordered, pageable, total);
         } catch (Exception e) {
-            log.warn("Elasticsearch search failed: {}", e.getMessage());
-            throw new RuntimeException("Search failed", e);
+            // Do not propagate as 500: SearchController falls back to DB when ES returns empty (same pattern as FeedService).
+            log.warn("Elasticsearch search failed (falling back to DB via empty page): {}", e.getMessage());
+            return new PageImpl<>(List.of(), pageable, 0);
         }
     }
 

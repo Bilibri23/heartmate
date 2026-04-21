@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class ListingResponse {
@@ -59,6 +59,10 @@ public class ListingResponse {
     private Integer reviewCount;
     private Integer compatibilityScore; // Match percentage for students viewing listings
     private String compatibilityReason; // Why this listing matches
+    /**
+     * Stable keys for "why you see this" chips (feed / discovery). Localized on the client.
+     */
+    private List<String> recommendationReasonCodes;
     // Virtual Tour
     private String videoTourUrl;
     private String videoTourEmbedCode;

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.request.ListingRequest;
 import org.rooms.roombay.dto.response.ApiResponse;
+import org.rooms.roombay.dto.response.ListingRecommendationResponse;
 import org.rooms.roombay.dto.response.ListingResponse;
 import org.rooms.roombay.security.AuthorizationPolicyService;
 import org.rooms.roombay.security.RequiresCompletion;
@@ -53,6 +54,19 @@ public class ListingController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
     
+    @GetMapping("/{listingId}/similar")
+    @Operation(summary = "Similar listings", description = "Listings like this one for discovery or landlord comps (purpose=comps)")
+    public ResponseEntity<List<ListingRecommendationResponse>> getSimilarListings(
+            @PathVariable UUID listingId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false, defaultValue = "discover") String purpose,
+            @RequestParam(required = false, defaultValue = "12") int limit) {
+        log.info("Similar listings for {} purpose={} limit={}", listingId, purpose, limit);
+        List<ListingRecommendationResponse> items = listingService.findSimilarListings(
+                listingId, userId, purpose, limit);
+        return ResponseEntity.ok(items);
+    }
+
     @GetMapping("/{listingId}")
     @Operation(summary = "Get listing", description = "Get listing details by ID")
     public ResponseEntity<ListingResponse> getListing(

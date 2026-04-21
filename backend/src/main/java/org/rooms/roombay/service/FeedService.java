@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -88,7 +89,15 @@ public class FeedService {
             if (!recs.isEmpty()) {
                 List<ListingResponse> items = recs.stream()
                         .limit(size)
-                        .map(s -> listingService.toListingResponse(s.getListing(), userId))
+                        .map(s -> {
+                            ListingResponse base = listingService.toListingResponse(s.getListing(), userId);
+                            List<String> codes = s.getReasonCodes() != null && !s.getReasonCodes().isEmpty()
+                                    ? s.getReasonCodes()
+                                    : Collections.emptyList();
+                            return base.toBuilder()
+                                    .recommendationReasonCodes(codes)
+                                    .build();
+                        })
                         .collect(Collectors.toList());
                 return FeedSectionResponse.builder()
                         .items(items)

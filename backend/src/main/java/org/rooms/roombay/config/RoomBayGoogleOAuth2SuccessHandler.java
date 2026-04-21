@@ -2,9 +2,12 @@ package org.rooms.roombay.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.AuthResponse;
+import org.rooms.roombay.entity.User;
+import org.rooms.roombay.security.OAuthSignupRoleCaptureFilter;
 import org.rooms.roombay.service.AuthService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,7 +56,21 @@ public class RoomBayGoogleOAuth2SuccessHandler implements AuthenticationSuccessH
             family = "";
         }
 
-        AuthResponse tokens = authService.authenticateWithGoogle(sub, email, given, family);
+        User.UserRole signupHint = null;
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            Object raw = session.getAttribute(OAuthSignupRoleCaptureFilter.SESSION_ATTR_SIGNUP_ROLE);
+            session.removeAttribute(OAuthSignupRoleCaptureFilter.SESSION_ATTR_SIGNUP_ROLE);
+            if (raw instanceof String s && !s.isBlank()) {
+                try {
+                    signupHint = User.UserRole.valueOf(s.trim().toUpperCase());
+                } catch (IllegalArgumentException ignored) {
+                    signupHint = null;
+                }
+            }
+        }
+
+        AuthResponse tokens = authService.authenticateWithGoogle(sub, email, given, family, signupHint);
         String fragment = "access_token=" + enc(tokens.getAccessToken())
                 + "&refresh_token=" + enc(tokens.getRefreshToken())
                 + "&expires_in=" + tokens.getExpiresIn();

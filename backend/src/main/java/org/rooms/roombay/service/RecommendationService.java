@@ -128,6 +128,7 @@ public class RecommendationService {
                 .preferenceScore(preferenceScore)
                 .behaviorScore(behaviorBoost)
                 .reasons(generateReasons(prefs, listing, preferenceScore, behaviorBoost, similarUserBoost))
+                .reasonCodes(generateReasonCodes(prefs, listing, preferenceScore, behaviorBoost, similarUserBoost))
                 .build());
         }
         
@@ -581,6 +582,76 @@ public class RecommendationService {
         
         return reasons.stream().limit(4).collect(Collectors.toList());
     }
+
+    /**
+     * Stable machine keys aligned with {@link #generateReasons}; localized on clients.
+     */
+    private List<String> generateReasonCodes(ListingPreferences prefs,
+                                             PropertyListing listing,
+                                             int preferenceScore,
+                                             int behaviorScore,
+                                             int similarUserBoost) {
+        List<String> codes = new ArrayList<>();
+
+        if (prefs.getMinBudget() != null && prefs.getMaxBudget() != null) {
+            int rent = listing.getRentAmount();
+            if (rent >= prefs.getMinBudget() && rent <= prefs.getMaxBudget()) {
+                codes.add("WITHIN_BUDGET");
+            }
+        }
+
+        if (prefs.getPreferredLocations() != null && !prefs.getPreferredLocations().isEmpty()) {
+            boolean matchesLocation = prefs.getPreferredLocations().stream()
+                    .anyMatch(loc -> loc.equalsIgnoreCase(listing.getCity()) ||
+                            loc.equalsIgnoreCase(listing.getNeighborhood()));
+            if (matchesLocation) {
+                codes.add("PREFERRED_LOCATION");
+            }
+        }
+
+        if (listing.getDistanceToUniversity() != null) {
+            codes.add("NEAR_UNIVERSITY");
+        }
+
+        if (prefs.getPropertyTypes() != null && !prefs.getPropertyTypes().isEmpty() && listing.getPropertyType() != null) {
+            boolean matchesType = prefs.getPropertyTypes().stream()
+                    .anyMatch(type -> type.equalsIgnoreCase(listing.getPropertyType().name()));
+            if (matchesType) {
+                codes.add("PREFERRED_PROPERTY_TYPE");
+            }
+        }
+
+        if (behaviorScore > 60) {
+            codes.add("SIMILAR_TO_VIEWED");
+        }
+
+        if (similarUserBoost > 50) {
+            codes.add("SIMILAR_STUDENTS_LOVED");
+        } else if (similarUserBoost > 20) {
+            codes.add("SIMILAR_STUDENTS_POPULAR");
+        }
+
+        if (listing.getAmenities() != null && !listing.getAmenities().isEmpty()) {
+            boolean key = listing.getAmenities().stream()
+                    .anyMatch(a -> a.contains("WiFi") || a.contains("Water") || a.contains("Electricity"));
+            if (key) {
+                codes.add("KEY_AMENITIES");
+            }
+        }
+
+        if (Boolean.TRUE.equals(listing.getFeatured())) {
+            codes.add("FEATURED");
+        }
+        if (Boolean.TRUE.equals(listing.getVerified())) {
+            codes.add("VERIFIED_ADMIN");
+        }
+
+        if (codes.isEmpty()) {
+            codes.add("PERSONALIZED_FEED");
+        }
+
+        return codes.stream().distinct().limit(4).collect(Collectors.toList());
+    }
     
     /**
      * Fallback: Get popular listings when no preference data
@@ -595,6 +666,7 @@ public class RecommendationService {
                 .preferenceScore(0)
                 .behaviorScore(0)
                 .reasons(List.of("Popular listing", listing.getViewsCount() + " views"))
+                .reasonCodes(List.of("POPULAR_INVENTORY"))
                 .build())
             .collect(Collectors.toList());
     }
@@ -636,5 +708,6 @@ public class RecommendationService {
         private Integer preferenceScore;
         private Integer behaviorScore;
         private List<String> reasons;
+        private List<String> reasonCodes;
     }
 }

@@ -51,10 +51,13 @@ public class MatchingService {
     public List<MatchResponse> findMatches(UUID userId) {
         log.info("Finding matches for user: {}", userId);
         
-        // Get user's preferences
-        RoommatePreferences userPreferences = preferencesRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Preferences not found for user: " + userId));
-        
+        // Get user's preferences (missing prefs are common for new users — do not map to HTTP 404)
+        RoommatePreferences userPreferences = preferencesRepository.findByUserId(userId).orElse(null);
+        if (userPreferences == null) {
+            log.info("No roommate preferences for user {}, returning no matches", userId);
+            return new ArrayList<>();
+        }
+
         // Check if user is looking for roommate
         if (!userPreferences.getLookingForRoommate()) {
             log.info("User {} is not looking for roommate", userId);

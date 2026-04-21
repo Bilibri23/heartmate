@@ -67,7 +67,7 @@ export default function ProfilePage() {
   const menuItems: MenuItem[] = [
     { icon: User, label: t.profile.editProfile, href: "/profile/edit" },
     { icon: Sparkles, label: "My Preferences", href: "/preferences" },
-    { icon: Users, label: "Find Roommates", href: "/matches" },
+    { icon: Users, label: t.nav.roommates, href: "/matches" },
     { icon: Heart, label: t.nav.favorites, href: "/favorites" },
     { icon: FileText, label: t.nav.applications, href: "/applications" },
     { icon: FileText, label: t.nav.leases, href: "/leases" },

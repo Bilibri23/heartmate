@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Heart, MapPin, Bed, Bath, CheckCircle, Star, Sparkles, Camera } from "lucide-react"
 import { useLanguage } from "@/context/language-context"
+import { labelDiscoveryReasons } from "@/lib/discovery-reason-labels"
 import { cn } from "@/lib/utils"
 import { trustTierChipClassName } from "@/lib/listing-trust-tier"
 import { useState } from "react"
@@ -27,6 +28,8 @@ interface ListingCardProps {
   matchScore?: number
   status?: string | null
   isAvailable?: boolean | null
+  /** Stable codes from API for “why this listing” chips */
+  reasonCodes?: string[]
   onFavoriteToggle?: (id: string) => void
 }
 
@@ -48,9 +51,10 @@ export function ListingCard({
   matchScore,
   status,
   isAvailable,
+  reasonCodes,
   onFavoriteToggle,
 }: ListingCardProps) {
-  const { formatCurrency, t } = useLanguage()
+  const { formatCurrency, t, language } = useLanguage()
   const [favorited, setFavorited] = useState(isFavorited)
   const [imgIndex, setImgIndex] = useState(0)
 
@@ -97,11 +101,17 @@ export function ListingCard({
     setImgIndex(i => (i + dir + gallery.length) % gallery.length)
   }
 
+  const reasonLabels = labelDiscoveryReasons(reasonCodes, language === "fr" ? "fr" : "en").slice(0, 2)
+  const ariaListing =
+    reasonLabels.length > 0
+      ? `${title}. ${reasonLabels.join(". ")}. ${formatCurrency(price)} per month.`
+      : `${title}. ${formatCurrency(price)} per month.`
+
   return (
-    <Link href={`/listings/${id}`} className="group block">
+    <Link href={`/listings/${id}`} className="group block" aria-label={ariaListing}>
       <div className={cn(
         "relative overflow-hidden rounded-3xl transition-all duration-300",
-        "hover:shadow-2xl hover:-translate-y-1 active:scale-[0.98]",
+        "hover:shadow-2xl motion-safe:hover:-translate-y-1 motion-reduce:hover:translate-y-0 active:scale-[0.98] motion-reduce:active:scale-100",
         isUnavailable && "opacity-70"
       )}>
         {/* ── Cinematic photo ── */}
@@ -112,7 +122,7 @@ export function ListingCard({
               src={currentImg}
               alt={title}
               fill
-              className="object-cover transition-transform duration-700 group-hover:scale-105"
+              className="object-cover transition-transform duration-700 motion-safe:group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, 50vw"
             />
           ) : (
@@ -239,6 +249,19 @@ export function ListingCard({
             <h3 className="text-white font-semibold text-sm line-clamp-1 mb-1.5">
               {title}
             </h3>
+
+            {reasonLabels.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-1.5" aria-label={t.discovery.whyPicked}>
+                {reasonLabels.map((lbl) => (
+                  <span
+                    key={lbl}
+                    className="text-[9px] font-medium px-1.5 py-0.5 rounded-md bg-white/20 text-white/95 max-w-[9rem] truncate"
+                  >
+                    {lbl}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Location + bed/bath */}
             <div className="flex items-center justify-between">

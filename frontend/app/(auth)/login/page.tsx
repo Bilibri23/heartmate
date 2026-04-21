@@ -32,10 +32,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   // Default to visible so local testing doesn't silently hide OAuth.
   const showGoogleOAuth = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED !== "false"
-  const backendOrigin = (
-    process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/api\/?$/, "") || "http://localhost:8082"
-  ).replace(/\/$/, "")
-  const googleOAuthUrl = `${backendOrigin}/oauth2/authorization/google`
+  // Same-origin OAuth so localhost stays on localhost and ngrok stays on ngrok.
+  const googleOAuthUrl = "/oauth2/authorization/google"
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -53,8 +51,19 @@ export default function LoginPage() {
         emailOrPhone: data.emailOrPhone,
         password: data.password,
       })
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid credentials. Please try again.")
+    } catch (err: unknown) {
+      const ax = err as { response?: { status?: number; data?: { message?: string } } }
+      const status = ax.response?.status
+      const apiMessage = ax.response?.data?.message
+      if (apiMessage) {
+        setError(apiMessage)
+      } else if (status === 503 || status === 502) {
+        setError("The server could not reach the database. Start PostgreSQL and confirm DATABASE_URL matches your machine.")
+      } else if (status === 500) {
+        setError("Server error during sign-in. Check the Spring Boot console for the stack trace.")
+      } else {
+        setError("Invalid credentials. Please try again.")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -144,13 +153,16 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="h-11 w-full rounded-xl bg-slate-900 text-sm font-medium hover:bg-slate-800"
                 disabled={isLoading}
               >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
+                {/* Stable two-node layout avoids insertBefore DOM errors when toggling the spinner (Radix Button + React 19). */}
+                <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden={!isLoading}>
+                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                </span>
+                <span>Sign In</span>
               </Button>
 
               {showGoogleOAuth && (

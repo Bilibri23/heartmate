@@ -239,84 +239,123 @@ export default function LandingPage() {
       <div className={`absolute inset-0 -z-20 ${styles.bgGlow}`} />
       <div className={`absolute inset-0 -z-10 ${styles.grid} bg-[size:72px_72px] [mask-image:radial-gradient(circle_at_center,black,transparent_88%)]`} />
 
-      <header className={`sticky top-0 z-50 border-b backdrop-blur-2xl ${styles.header}`}>
-        <div className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${styles.logo}`}>
-              <Home className="h-5 w-5" />
-            </div>
-            <div>
-              <p className={`text-lg font-semibold tracking-tight ${styles.heading}`}>RoomBay</p>
-              <p className={theme === "light" ? "text-xs text-slate-500" : "text-xs text-white/50"}>Fast housing access</p>
-            </div>
-          </Link>
-
-          <nav className={`hidden items-center gap-7 text-sm lg:flex ${styles.nav}`}>
-            <a href="#features" className={`transition ${styles.navHover}`}>Features</a>
-            <a href="#how-it-works" className={`transition ${styles.navHover}`}>How it works</a>
-            <a href="#trust" className={`transition ${styles.navHover}`}>Trust</a>
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center rounded-full border p-1 ${styles.toggleWrap}`}>
-              <button
-                type="button"
-                aria-label="Use light mode"
-                onClick={() => setTheme("light")}
-                className={`rounded-full p-2 transition ${theme === "light" ? "bg-slate-950 text-white" : theme === "dark" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-950"}`}
-              >
-                <Sun className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="Use dark mode"
-                onClick={() => setTheme("dark")}
-                className={`rounded-full p-2 transition ${theme === "dark" ? "bg-white text-slate-950" : theme === "light" ? "text-slate-500 hover:text-slate-950" : "text-white/70 hover:text-white"}`}
-              >
-                <Moon className="h-4 w-4" />
-              </button>
-            </div>
-
-            <Link href="/login">
-              <Button variant="ghost" size="sm" className={`rounded-full px-4 ${styles.ghostBtn}`}>
-                Login
-              </Button>
+      <header
+        className={`sticky top-0 z-50 border-b backdrop-blur-2xl ${styles.header}`}
+        style={{ paddingTop: "max(0.5rem, env(safe-area-inset-top, 0px))" }}
+      >
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-3 py-2.5 sm:px-6 sm:py-3 lg:px-8">
+          <div className="flex items-center justify-between gap-2 lg:gap-6">
+            <Link href="/" className="flex min-w-0 flex-1 items-center gap-2.5 sm:max-w-none sm:flex-initial sm:gap-3">
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10 sm:rounded-2xl ${styles.logo}`}>
+                <Home className="h-4 w-4 sm:h-5 sm:w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className={`truncate text-base font-semibold tracking-tight sm:text-lg ${styles.heading}`}>RoomBay</p>
+                <p className={`hidden text-xs sm:block ${theme === "light" ? "text-slate-500" : "text-white/50"}`}>
+                  Fast housing access
+                </p>
+              </div>
             </Link>
-            <Link href="/listings">
-              <Button size="sm" className={`rounded-full px-5 ${styles.primaryBtn}`}>
-                Browse now
-              </Button>
-            </Link>
+
+            <nav className={`hidden items-center gap-7 text-sm lg:flex ${styles.nav}`}>
+              <a href="#features" className={`transition ${styles.navHover}`}>
+                Features
+              </a>
+              <a href="#how-it-works" className={`transition ${styles.navHover}`}>
+                How it works
+              </a>
+              <a href="#trust" className={`transition ${styles.navHover}`}>
+                Trust
+              </a>
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <div className={`flex shrink-0 items-center rounded-full border p-0.5 sm:p-1 ${styles.toggleWrap}`}>
+                <button
+                  type="button"
+                  aria-label="Use light mode"
+                  onClick={() => setTheme("light")}
+                  className={`rounded-full p-1.5 transition sm:p-2 ${theme === "light" ? "bg-slate-950 text-white" : theme === "dark" ? "text-white/70 hover:text-white" : "text-slate-500 hover:text-slate-950"}`}
+                >
+                  <Sun className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Use dark mode"
+                  onClick={() => setTheme("dark")}
+                  className={`rounded-full p-1.5 transition sm:p-2 ${theme === "dark" ? "bg-white text-slate-950" : theme === "light" ? "text-slate-500 hover:text-slate-950" : "text-white/70 hover:text-white"}`}
+                >
+                  <Moon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </button>
+              </div>
+
+              <Link href="/login" className="shrink-0">
+                <Button variant="ghost" size="sm" className={`h-9 rounded-full px-3 text-xs sm:h-10 sm:px-4 sm:text-sm ${styles.ghostBtn}`}>
+                  Login
+                </Button>
+              </Link>
+              <Link href="/listings" className="shrink-0">
+                <Button size="sm" className={`h-9 rounded-full px-3 text-xs font-semibold sm:h-10 sm:px-5 sm:text-sm ${styles.primaryBtn}`}>
+                  <span className="sm:hidden">Browse</span>
+                  <span className="hidden sm:inline">Browse now</span>
+                </Button>
+              </Link>
+            </div>
           </div>
+
+          <nav
+            className={`flex justify-center gap-1 border-t pt-2 sm:gap-2 sm:pt-2.5 lg:hidden ${theme === "light" ? "border-slate-200/80" : "border-white/10"} ${styles.nav}`}
+            aria-label="Page sections"
+          >
+            <a
+              href="#features"
+              className={`rounded-full px-3 py-1 text-[11px] font-medium transition sm:text-xs ${styles.navHover}`}
+            >
+              Features
+            </a>
+            <a
+              href="#how-it-works"
+              className={`rounded-full px-3 py-1 text-[11px] font-medium transition sm:text-xs ${styles.navHover}`}
+            >
+              How it works
+            </a>
+            <a href="#trust" className={`rounded-full px-3 py-1 text-[11px] font-medium transition sm:text-xs ${styles.navHover}`}>
+              Trust
+            </a>
+          </nav>
         </div>
       </header>
 
       <main>
-        <section className="px-4 pb-16 pt-12 sm:px-6 lg:px-8 lg:pb-24 lg:pt-16">
-          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1fr_0.95fr]">
+        <section className="px-4 pb-10 pt-6 sm:px-6 sm:pb-16 sm:pt-12 lg:px-8 lg:pb-24 lg:pt-16">
+          <div className="mx-auto grid max-w-7xl items-center gap-8 sm:gap-10 lg:grid-cols-[1fr_0.95fr] lg:gap-14">
             <div>
-              <div className={`mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium backdrop-blur-xl ${styles.badge}`}>
-                <Sparkles className="h-4 w-4" />
-                Discovery-first housing with optional roommate intelligence
+              <div
+                className={`mb-4 inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium backdrop-blur-xl text-balance sm:mb-6 sm:px-4 sm:py-2 sm:text-sm ${styles.badge}`}
+              >
+                <Sparkles className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span className="leading-snug">Discovery-first housing with optional roommate intelligence</span>
               </div>
 
-              <h1 className={`max-w-4xl text-5xl font-semibold leading-[0.95] tracking-[-0.05em] sm:text-6xl lg:text-7xl xl:text-[5.5rem] ${styles.heading}`}>
+              <h1
+                className={`max-w-4xl text-[2.1rem] font-semibold leading-[1.02] tracking-[-0.04em] min-[380px]:text-[2.35rem] sm:text-5xl sm:leading-[0.95] sm:tracking-[-0.05em] md:text-6xl lg:text-7xl xl:text-[5.5rem] ${styles.heading}`}
+              >
                 Find your next home
                 <span className={`block bg-gradient-to-r bg-clip-text text-transparent ${styles.headlineAccent}`}>
                   like you scroll content.
                 </span>
               </h1>
 
-              <p className={`mt-6 max-w-2xl text-lg leading-8 sm:text-xl ${styles.paragraph}`}>
+              <p className={`mt-4 max-w-2xl text-base leading-7 sm:mt-6 sm:text-lg sm:leading-8 md:text-xl ${styles.paragraph}`}>
                 RoomBay turns housing into a fast visual experience — discover listings, understand them instantly,
                 and take action without fighting through friction.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
                 <Link href="/listings">
                   <Button
                     size="lg"
-                    className={`h-13 w-full rounded-full px-7 text-base sm:w-auto ${styles.primaryBtn}`}
+                    className={`h-12 w-full rounded-full px-6 text-sm sm:h-14 sm:w-auto sm:px-7 sm:text-base ${styles.primaryBtn}`}
                     onClick={() => {
                       if (typeof window !== "undefined") {
                         window.dispatchEvent(new CustomEvent("analytics:anonymousBrowseStart"))
@@ -332,7 +371,7 @@ export default function LandingPage() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className={`h-13 w-full rounded-full px-7 text-base backdrop-blur-xl sm:w-auto ${theme === "light" ? "border-slate-300 bg-white text-slate-950 hover:bg-slate-100" : "border-white/15 bg-white/6 text-white hover:bg-white/10"}`}
+                    className={`h-12 w-full rounded-full px-6 text-sm backdrop-blur-xl sm:h-14 sm:w-auto sm:px-7 sm:text-base ${theme === "light" ? "border-slate-300 bg-white text-slate-950 hover:bg-slate-100" : "border-white/15 bg-white/6 text-white hover:bg-white/10"}`}
                   >
                     <Building2 className="mr-2 h-5 w-5" />
                     List a property
@@ -340,11 +379,11 @@ export default function LandingPage() {
                 </Link>
               </div>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="mt-6 grid grid-cols-3 gap-2 sm:mt-10 sm:gap-4">
                 {stats.map((item) => (
-                  <div key={item.label} className={`rounded-[28px] border p-5 backdrop-blur-xl ${styles.card}`}>
-                    <p className={`text-2xl font-semibold tracking-tight ${styles.heading}`}>{item.value}</p>
-                    <p className={`mt-1 text-sm leading-6 ${styles.cardMuted}`}>{item.label}</p>
+                  <div key={item.label} className={`rounded-2xl border p-3 backdrop-blur-xl sm:rounded-[28px] sm:p-5 ${styles.card}`}>
+                    <p className={`text-lg font-semibold tracking-tight sm:text-2xl ${styles.heading}`}>{item.value}</p>
+                    <p className={`mt-0.5 text-[11px] leading-tight sm:mt-1 sm:text-sm sm:leading-6 ${styles.cardMuted}`}>{item.label}</p>
                   </div>
                 ))}
               </div>
@@ -365,9 +404,9 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[1fr_0.34fr]">
-                  <div className={`overflow-hidden rounded-[28px] border ${styles.mediaCard}`}>
-                    <div className="relative aspect-[4/5] overflow-hidden">
+                <div className="grid gap-3 lg:grid-cols-[1fr_0.34fr] lg:gap-4">
+                  <div className={`overflow-hidden rounded-2xl border sm:rounded-[28px] ${styles.mediaCard}`}>
+                    <div className="relative aspect-[3/4] overflow-hidden sm:aspect-[4/5]">
                       {heroImages.map((src, index) => (
                         <Image
                           key={src}
@@ -425,7 +464,7 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-4">
+                  <div className="hidden gap-4 lg:grid">
                     {propertyShots.map((src, index) => (
                       <div key={src} className={`relative overflow-hidden rounded-[24px] border ${styles.glass}`}>
                         <div className="relative aspect-[3/4]">
@@ -448,17 +487,17 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="px-4 pb-8 sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className={`rounded-[30px] border p-7 ${styles.card}`}>
-              <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme === "light" ? "text-blue-700" : "text-cyan-300"}`}>Lifestyle</p>
-              <h2 className={`mt-3 text-3xl font-semibold tracking-tight ${styles.heading}`}>
+        <section className="px-4 pb-6 sm:px-6 sm:pb-8 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:gap-6">
+            <div className={`rounded-2xl border p-5 sm:rounded-[30px] sm:p-7 ${styles.card}`}>
+              <p className={`text-xs font-semibold uppercase tracking-[0.2em] sm:text-sm ${theme === "light" ? "text-blue-700" : "text-cyan-300"}`}>Lifestyle</p>
+              <h2 className={`mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl ${styles.heading}`}>
                 Not just listings. A better feeling around finding where you’ll live.
               </h2>
-              <p className={`mt-4 leading-7 ${styles.cardMuted}`}>
+              <p className={`mt-3 text-sm leading-6 sm:mt-4 sm:text-base sm:leading-7 ${styles.cardMuted}`}>
                 RoomBay should make people feel like housing is finally easier: faster to browse, easier to understand, and less stressful to act on.
               </p>
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-wrap gap-2 sm:mt-6 sm:gap-3">
                 {[
                   "Fast visual discovery",
                   "Clearer trust signals",
@@ -466,7 +505,7 @@ export default function LandingPage() {
                 ].map((item) => (
                   <span
                     key={item}
-                    className={`rounded-full border px-4 py-2 text-sm ${theme === "light" ? "border-slate-200 bg-white text-slate-700" : "border-white/10 bg-white/5 text-white/75"}`}
+                    className={`rounded-full border px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm ${theme === "light" ? "border-slate-200 bg-white text-slate-700" : "border-white/10 bg-white/5 text-white/75"}`}
                   >
                     {item}
                   </span>
@@ -474,15 +513,18 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="grid gap-5 sm:grid-cols-3">
+            <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-5 sm:overflow-visible sm:px-0 sm:pb-0">
               {lifestyleShots.map((src, index) => (
-                <div key={src} className={`relative overflow-hidden rounded-[30px] border ${styles.card}`}>
-                  <div className="relative aspect-[4/5]">
+                <div
+                  key={src}
+                  className={`relative w-[min(78vw,280px)] shrink-0 snap-center overflow-hidden rounded-2xl border sm:w-auto sm:rounded-[30px] ${styles.card}`}
+                >
+                  <div className="relative aspect-[5/4] sm:aspect-[4/5]">
                     <Image src={src} alt={`RoomBay lifestyle ${index + 1}`} fill className="object-cover transition duration-500 hover:scale-105" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
-                    <div className="absolute bottom-4 left-4 right-4 text-white">
-                      <p className="text-xs text-white/70">RoomBay experience</p>
-                      <p className="mt-1 text-sm font-semibold">
+                    <div className="absolute bottom-3 left-3 right-3 text-white sm:bottom-4 sm:left-4 sm:right-4">
+                      <p className="text-[10px] text-white/70 sm:text-xs">RoomBay experience</p>
+                      <p className="mt-0.5 text-xs font-semibold sm:mt-1 sm:text-sm">
                         {index === 0 ? "Comfortable spaces" : index === 1 ? "Modern discovery" : "Better living flow"}
                       </p>
                     </div>
@@ -493,25 +535,25 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="px-4 py-18 sm:px-6 lg:px-8">
+        <section id="features" className="px-4 py-10 sm:px-6 sm:py-14 md:py-16 lg:px-8">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-10 max-w-2xl">
+            <div className="mb-6 max-w-2xl sm:mb-10">
               <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme === "light" ? "text-blue-700" : "text-cyan-300"}`}>Why RoomBay</p>
-              <h2 className={`mt-3 text-3xl font-semibold tracking-tight sm:text-4xl ${styles.heading}`}>
+              <h2 className={`mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl ${styles.heading}`}>
                 A housing product that feels premium, fast, and easy to trust.
               </h2>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-5 lg:grid-cols-3">
               {features.map((feature) => {
                 const Icon = feature.icon
                 return (
-                  <div key={feature.title} className={`rounded-[28px] border p-7 backdrop-blur-xl ${styles.sectionCard}`}>
-                    <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl ${theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950"}`}>
-                      <Icon className="h-5 w-5" />
+                  <div key={feature.title} className={`rounded-2xl border p-5 backdrop-blur-xl sm:rounded-[28px] sm:p-7 ${styles.sectionCard}`}>
+                    <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl sm:mb-5 sm:h-12 sm:w-12 sm:rounded-2xl ${theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950"}`}>
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
-                    <h3 className={`text-xl font-semibold ${styles.heading}`}>{feature.title}</h3>
-                    <p className={`mt-3 leading-7 ${styles.cardMuted}`}>{feature.description}</p>
+                    <h3 className={`text-lg font-semibold sm:text-xl ${styles.heading}`}>{feature.title}</h3>
+                    <p className={`mt-2 text-sm leading-6 sm:mt-3 sm:text-base sm:leading-7 ${styles.cardMuted}`}>{feature.description}</p>
                   </div>
                 )
               })}
@@ -519,33 +561,33 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className={`border-y px-4 py-18 backdrop-blur-sm sm:px-6 lg:px-8 ${styles.darkSection}`}>
+        <section id="how-it-works" className={`border-y px-4 py-10 backdrop-blur-sm sm:px-6 sm:py-14 md:py-16 lg:px-8 ${styles.darkSection}`}>
           <div className="mx-auto max-w-7xl">
-            <div className="mb-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="mb-6 flex flex-col gap-3 sm:mb-10 sm:gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-2xl">
                 <p className={`text-sm font-semibold uppercase tracking-[0.2em] ${theme === "light" ? "text-violet-700" : "text-violet-300"}`}>How it works</p>
-                <h2 className={`mt-3 text-3xl font-semibold tracking-tight sm:text-4xl ${styles.heading}`}>
+                <h2 className={`mt-2 text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl ${styles.heading}`}>
                   Built to move users from first scroll to real action fast.
                 </h2>
               </div>
-              <p className={`max-w-xl ${styles.cardMuted}`}>
+              <p className={`max-w-xl text-sm leading-6 sm:text-base ${styles.cardMuted}`}>
                 Discovery comes first. Heavier steps only appear when the user is already interested.
               </p>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-3">
+            <div className="grid gap-3 sm:gap-5 md:grid-cols-3">
               {steps.map((step, index) => {
                 const Icon = step.icon
                 return (
-                  <div key={step.title} className={`rounded-[28px] border p-7 shadow-[0_20px_60px_rgba(0,0,0,0.05)] ${styles.sectionCard2}`}>
-                    <div className="mb-5 flex items-center justify-between">
-                      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${theme === "light" ? "bg-white text-slate-950 shadow-sm" : "bg-white text-slate-950 shadow-sm"}`}>
-                        <Icon className="h-5 w-5" />
+                  <div key={step.title} className={`rounded-2xl border p-5 shadow-[0_20px_60px_rgba(0,0,0,0.05)] sm:rounded-[28px] sm:p-7 ${styles.sectionCard2}`}>
+                    <div className="mb-4 flex items-center justify-between sm:mb-5">
+                      <div className={`flex h-11 w-11 items-center justify-center rounded-xl shadow-sm sm:h-12 sm:w-12 sm:rounded-2xl ${theme === "light" ? "bg-white text-slate-950" : "bg-white text-slate-950"}`}>
+                        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </div>
                       <span className={theme === "light" ? "text-sm font-semibold text-slate-300" : "text-sm font-semibold text-white/30"}>0{index + 1}</span>
                     </div>
-                    <h3 className={`text-xl font-semibold ${styles.heading}`}>{step.title}</h3>
-                    <p className={`mt-3 leading-7 ${styles.cardMuted}`}>{step.copy}</p>
+                    <h3 className={`text-lg font-semibold sm:text-xl ${styles.heading}`}>{step.title}</h3>
+                    <p className={`mt-2 text-sm leading-6 sm:mt-3 sm:text-base sm:leading-7 ${styles.cardMuted}`}>{step.copy}</p>
                   </div>
                 )
               })}
@@ -553,41 +595,41 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="trust" className="px-4 py-18 sm:px-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className={`rounded-[32px] border p-8 backdrop-blur-2xl sm:p-10 ${styles.trustHero}`}>
+        <section id="trust" className="px-4 py-10 sm:px-6 sm:py-14 md:py-16 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-4 sm:gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className={`rounded-2xl border p-5 backdrop-blur-2xl sm:rounded-[32px] sm:p-8 md:p-10 ${styles.trustHero}`}>
               <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${styles.trustPill}`}>
                 <Shield className="h-4 w-4" />
                 Built on trust
               </div>
-              <h2 className={`mt-5 text-3xl font-semibold tracking-tight sm:text-4xl ${styles.heading}`}>
+              <h2 className={`mt-3 text-2xl font-semibold tracking-tight sm:mt-5 sm:text-3xl md:text-4xl ${styles.heading}`}>
                 Better signals create faster, more confident decisions.
               </h2>
-              <p className={`mt-4 max-w-xl leading-7 ${styles.trustText}`}>
+              <p className={`mt-3 max-w-xl text-sm leading-6 sm:mt-4 sm:text-base sm:leading-7 ${styles.trustText}`}>
                 RoomBay gives users cleaner clarity before they commit time: verification-aware browsing, better listing context, and clearer action paths.
               </p>
-              <div className="mt-8 space-y-4">
-                <div className={`rounded-2xl border p-4 ${styles.glass}`}>
+              <div className="mt-5 space-y-3 sm:mt-8 sm:space-y-4">
+                <div className={`rounded-xl border p-3 sm:rounded-2xl sm:p-4 ${styles.glass}`}>
                   <p className={`text-sm font-semibold ${styles.heading}`}>Visual-first browsing</p>
                   <p className={`mt-1 text-sm ${styles.cardMuted}`}>Users understand the place before they dive deeper.</p>
                 </div>
-                <div className={`rounded-2xl border p-4 ${styles.glass}`}>
+                <div className={`rounded-xl border p-3 sm:rounded-2xl sm:p-4 ${styles.glass}`}>
                   <p className={`text-sm font-semibold ${styles.heading}`}>Guided action flow</p>
                   <p className={`mt-1 text-sm ${styles.cardMuted}`}>Messaging, saving, and applying feel more immediate and intentional.</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-3 lg:grid-cols-1">
+            <div className="grid gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-1">
               {trustItems.map((item) => {
                 const Icon = item.icon
                 return (
-                  <div key={item.title} className={`rounded-[28px] border p-7 backdrop-blur-xl ${styles.sectionCard}`}>
-                    <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ${theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950"}`}>
-                      <Icon className="h-5 w-5" />
+                  <div key={item.title} className={`rounded-2xl border p-5 backdrop-blur-xl sm:rounded-[28px] sm:p-7 ${styles.sectionCard}`}>
+                    <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-xl sm:mb-4 sm:h-12 sm:w-12 sm:rounded-2xl ${theme === "light" ? "bg-slate-950 text-white" : "bg-white text-slate-950"}`}>
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
-                    <h3 className={`text-lg font-semibold ${styles.heading}`}>{item.title}</h3>
-                    <p className={`mt-2 leading-7 ${styles.trustText}`}>{item.description}</p>
+                    <h3 className={`text-base font-semibold sm:text-lg ${styles.heading}`}>{item.title}</h3>
+                    <p className={`mt-1.5 text-sm leading-6 sm:mt-2 sm:text-base sm:leading-7 ${styles.trustText}`}>{item.description}</p>
                   </div>
                 )
               })}
@@ -595,23 +637,23 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="px-4 pb-20 pt-4 sm:px-6 lg:px-8">
-          <div className={`mx-auto max-w-6xl rounded-[36px] border px-6 py-12 text-center sm:px-10 sm:py-14 ${styles.cta}`}>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">Start now</p>
-            <h2 className="mx-auto mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-5xl">
+        <section className="px-4 pb-12 pt-2 sm:px-6 sm:pb-20 sm:pt-4 lg:px-8">
+          <div className={`mx-auto max-w-6xl rounded-2xl border px-5 py-8 text-center sm:rounded-[36px] sm:px-10 sm:py-12 md:py-14 ${styles.cta}`}>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200 sm:text-sm">Start now</p>
+            <h2 className="mx-auto mt-2 max-w-3xl text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-5xl">
               Stop digging through listings. Start discovering homes that feel right.
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-blue-100/85 sm:text-lg">
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-blue-100/85 sm:mt-4 sm:text-base sm:leading-7 md:text-lg">
               Fast housing access, quick actions, and optional roommate help — all in one modern flow.
             </p>
-            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <div className="mt-6 flex flex-col justify-center gap-2.5 sm:mt-8 sm:flex-row sm:gap-3">
               <Link href="/listings">
-                <Button size="lg" className={`h-13 rounded-full px-7 text-base ${theme === "light" ? "bg-white text-slate-950 hover:bg-slate-200" : "bg-white text-slate-950 hover:bg-slate-200"}`}>
+                <Button size="lg" className={`h-12 w-full rounded-full px-6 text-sm sm:h-14 sm:w-auto sm:px-7 sm:text-base ${theme === "light" ? "bg-white text-slate-950 hover:bg-slate-200" : "bg-white text-slate-950 hover:bg-slate-200"}`}>
                   Browse listings
                 </Button>
               </Link>
               <Link href="/register?role=LANDLORD">
-                <Button size="lg" variant="outline" className={`h-13 rounded-full px-7 text-base ${theme === "light" ? "border-white/60 bg-white/10 text-white hover:bg-white/16" : "border-white/20 bg-white/10 text-white hover:bg-white/14"}`}>
+                <Button size="lg" variant="outline" className={`h-12 w-full rounded-full px-6 text-sm sm:h-14 sm:w-auto sm:px-7 sm:text-base ${theme === "light" ? "border-white/60 bg-white/10 text-white hover:bg-white/16" : "border-white/20 bg-white/10 text-white hover:bg-white/14"}`}>
                   List your property
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -621,7 +663,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className={`border-t px-4 py-8 backdrop-blur-xl sm:px-6 lg:px-8 ${styles.footer}`}>
+      <footer className={`border-t px-4 py-6 backdrop-blur-xl sm:px-6 sm:py-8 lg:px-8 ${styles.footer}`}>
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className={`flex h-9 w-9 items-center justify-center rounded-2xl ${styles.footerLogo}`}>

@@ -117,24 +117,25 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         log.info("Login attempt for: {}", request.getEmailOrPhone());
 
-        // Determine if email or phone
+        // Determine if email or phone (use 400 for unknown user — same message as bad password; avoids leaking existence)
         User user;
         if (EMAIL_PATTERN.matcher(request.getEmailOrPhone()).matches()) {
-            user = userRepository.findByEmail(request.getEmailOrPhone())
-                    .orElseThrow(() -> new ResourceNotFoundException("Invalid email or password"));
+            String emailKey = request.getEmailOrPhone().trim().toLowerCase();
+            user = userRepository.findByEmail(emailKey)
+                    .orElseThrow(() -> new BadRequestException("Invalid email or password"));
         } else {
             user = userRepository.findByPhone(request.getEmailOrPhone())
-                    .orElseThrow(() -> new ResourceNotFoundException("Invalid email or password"));
+                    .orElseThrow(() -> new BadRequestException("Invalid email or password"));
         }
 
         boolean isOAuthAccount = user.getOauthProvider() != null && user.getOauthSubject() != null;
         if (user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
             throw new BadRequestException("This account uses Google sign-in.");
         }
-        if (isOAuthAccount && !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        if (isOAuthAccount && !passwordMatches(request.getPassword(), user.getPasswordHash())) {
             throw new BadRequestException("This account uses Google sign-in.");
         }
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        if (!passwordMatches(request.getPassword(), user.getPasswordHash())) {
             throw new BadRequestException("Invalid email or password");
         }
 
@@ -157,10 +158,12 @@ public class AuthService {
         userRepository.save(user);
 
         // Generate tokens
+        String roleName = user.getRole() != null ? user.getRole().name() : User.UserRole.STUDENT.name();
+        String emailForJwt = user.getEmail() != null ? user.getEmail() : "";
         String accessToken = jwtTokenProvider.generateAccessToken(
                 user.getId(),
-                user.getEmail(),
-                user.getRole().name()
+                emailForJwt,
+                roleName
         );
         String refreshToken = issueRefreshToken(user);
 
@@ -358,7 +361,7 @@ public class AuthService {
         UUID tokenId = UUID.randomUUID();
         // Do not set id on new sessions: a non-null id makes JpaRepository.save() use merge(),
         // which caused StaleObjectStateException for inserts. Let @GeneratedValue assign id.
-        RefreshTokenSession session = refreshTokenSessionRepository.save(
+        RefreshTokenSession session = refreshTokenSessionRepository.saveAndFlush(
                 RefreshTokenSession.builder()
                         .user(user)
                         .tokenId(tokenId)
@@ -366,13 +369,24 @@ public class AuthService {
                         .revoked(false)
                         .build()
         );
+        if (session.getId() == null) {
+            throw new IllegalStateException("Refresh session was not assigned an id after save; check JPA mapping for RefreshTokenSession.");
+        }
         return jwtTokenProvider.generateRefreshToken(user.getId(), session.getId(), tokenId);
     }
 
     /**
      * Google OAuth: find or create user, issue JWTs. Email from Google is treated as verified.
+     *
+     * @param signupRoleHint optional role chosen on the register page ({@code LANDLORD} vs tenant/student);
+     *                       applied only when creating a brand-new OAuth user (never upgrades existing accounts).
      */
-    public AuthResponse authenticateWithGoogle(String subject, String email, String firstName, String lastName) {
+    public AuthResponse authenticateWithGoogle(
+            String subject,
+            String email,
+            String firstName,
+            String lastName,
+            User.UserRole signupRoleHint) {
         if (subject == null || subject.isBlank()) {
             throw new BadRequestException("Invalid OAuth subject");
         }
@@ -401,6 +415,10 @@ public class AuthService {
                 String phonePlaceholder = "og" + UUID.randomUUID().toString().replace("-", "").substring(0, 18);
                 String fn = (firstName != null && !firstName.isBlank()) ? firstName.trim() : "User";
                 String ln = (lastName != null && !lastName.isBlank()) ? lastName.trim() : "";
+                User.UserRole newAccountRole = User.UserRole.STUDENT;
+                if (signupRoleHint == User.UserRole.LANDLORD) {
+                    newAccountRole = User.UserRole.LANDLORD;
+                }
                 user = User.builder()
                         .email(normalizedEmail)
                         .phone(phonePlaceholder)
@@ -408,7 +426,7 @@ public class AuthService {
                         .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
                         .firstName(fn)
                         .lastName(ln)
-                        .role(User.UserRole.STUDENT)
+                        .role(newAccountRole)
                         .accountStatus(User.AccountStatus.PENDING)
                         .emailVerified(true)
                         .phoneVerified(false)
@@ -431,17 +449,31 @@ public class AuthService {
     }
 
     private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken) {
+        User.UserRole role = user.getRole() != null ? user.getRole() : User.UserRole.STUDENT;
         return AuthResponse.builder()
                 .userId(user.getId())
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .expiresIn(3600L)
-                .role(user.getRole().name())
+                .role(role.name())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .emailVerified(user.getEmailVerified())
                 .phoneVerified(user.getPhoneVerified())
                 .build();
+    }
+
+    /** BCrypt throws {@link IllegalArgumentException} on malformed hashes — treat as failed login, not HTTP 500. */
+    private boolean passwordMatches(String rawPassword, String encodedPassword) {
+        if (encodedPassword == null || encodedPassword.isBlank()) {
+            return false;
+        }
+        try {
+            return passwordEncoder.matches(rawPassword, encodedPassword);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Invalid stored password hash for user lookup: {}", ex.getMessage());
+            return false;
+        }
     }
 
     private void sendEmailVerification(User user) {

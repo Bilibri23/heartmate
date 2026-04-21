@@ -10,6 +10,7 @@ import org.rooms.roombay.repository.ListingFavoriteRepository;
 import org.rooms.roombay.repository.ListingPhotoRepository;
 import org.rooms.roombay.repository.ListingViewRepository;
 import org.rooms.roombay.repository.ReviewRepository;
+import org.rooms.roombay.service.ListingService;
 import org.rooms.roombay.service.MatchingService;
 import org.rooms.roombay.service.RecommendationService;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 public class RecommendationController {
     
     private final RecommendationService recommendationService;
+    private final ListingService listingService;
     private final MatchingService matchingService;
     private final ListingPhotoRepository photoRepository;
     private final ListingViewRepository viewRepository;
@@ -155,6 +157,7 @@ public class RecommendationController {
             .preferenceScore(scored.getPreferenceScore())
             .behaviorScore(scored.getBehaviorScore())
             .reasons(scored.getReasons())
+            .reasonCodes(scored.getReasonCodes() != null ? scored.getReasonCodes() : java.util.List.of())
             // Engagement signals
             .isViewed(isViewed)
             .isFavorited(isFavorited)
@@ -162,6 +165,7 @@ public class RecommendationController {
             // Verification
             .verified(listing.getVerified())
             .featured(listing.getFeatured())
+            .trustTier(listingService.trustTierForListing(listing))
             // Ratings
             .averageRating(averageRating)
             .reviewCount((int) reviewCount)

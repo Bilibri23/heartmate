@@ -4,7 +4,11 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, Search, MessageCircle, User, Sparkles, Building2, FileText, Plus, Shield, Settings, Flag, Mail } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
+import { useLanguage } from "@/context/language-context"
+import { translations } from "@/lib/i18n/translations"
 import { cn } from "@/lib/utils"
+
+type AppMessages = typeof translations.en
 
 interface NavItem {
   href: string
@@ -29,38 +33,42 @@ function isNavItemActive(pathname: string | null | undefined, href: string): boo
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-// Tenant (STUDENT role) navigation items
-const studentNavItems: NavItem[] = [
-  { href: "/for-you", icon: Sparkles, label: "For You" },
-  { href: "/search", icon: Search, label: "Search" },
-  { href: "/applications", icon: FileText, label: "My Apps" },
-  { href: "/messages", icon: MessageCircle, label: "Messages" },
-  { href: "/profile", icon: User, label: "Profile" },
-]
+function studentNavItems(t: AppMessages): NavItem[] {
+  return [
+    { href: "/for-you", icon: Sparkles, label: t.nav.discoverHome },
+    { href: "/search", icon: Search, label: t.nav.search },
+    { href: "/applications", icon: FileText, label: t.nav.applications },
+    { href: "/messages", icon: MessageCircle, label: t.nav.messages },
+    { href: "/profile", icon: User, label: t.nav.profile },
+  ]
+}
 
-// Landlord navigation items
-const landlordNavItems: NavItem[] = [
-  { href: "/landlord", icon: Home, label: "Dashboard" },
-  { href: "/landlord/listings/new", icon: Plus, label: "Add" },
-  { href: "/landlord/applications", icon: FileText, label: "Apps" },
-  { href: "/messages", icon: MessageCircle, label: "Messages" },
-  { href: "/landlord/profile", icon: User, label: "Profile" },
-]
+function landlordNavItems(t: { nav: { home: string; applications: string; messages: string; profile: string } }): NavItem[] {
+  return [
+    { href: "/landlord", icon: Home, label: t.nav.home },
+    { href: "/landlord/listings/new", icon: Plus, label: "Add" },
+    { href: "/landlord/applications", icon: FileText, label: t.nav.applications },
+    { href: "/messages", icon: MessageCircle, label: t.nav.messages },
+    { href: "/landlord/profile", icon: User, label: t.nav.profile },
+  ]
+}
 
-// Admin navigation items
-const adminNavItems: NavItem[] = [
-  { href: "/admin", icon: Home, label: "Dashboard" },
-  { href: "/admin/verifications", icon: Shield, label: "Verify" },
-  { href: "/admin/listings", icon: Building2, label: "Listings" },
-  { href: "/admin/support-inquiries", icon: Mail, label: "Support" },
-  { href: "/admin/reports", icon: Flag, label: "Reports" },
-  { href: "/admin/payments", icon: FileText, label: "Payments" },
-  { href: "/admin/settings", icon: Settings, label: "Settings" },
-]
+function adminNavItems(t: AppMessages): NavItem[] {
+  return [
+    { href: "/admin", icon: Home, label: t.nav.home },
+    { href: "/admin/verifications", icon: Shield, label: "Verify" },
+    { href: "/admin/listings", icon: Building2, label: "Listings" },
+    { href: "/admin/support-inquiries", icon: Mail, label: "Support" },
+    { href: "/admin/reports", icon: Flag, label: "Reports" },
+    { href: "/admin/payments", icon: FileText, label: "Payments" },
+    { href: "/admin/settings", icon: Settings, label: "Settings" },
+  ]
+}
 
 export function BottomNav() {
   const pathname = usePathname()
   const { user } = useAuth()
+  const { t } = useLanguage()
 
   // Don't show on auth pages or landing
   if (pathname?.startsWith("/login") || pathname?.startsWith("/register") || pathname === "/") {
@@ -68,10 +76,10 @@ export function BottomNav() {
   }
 
   // Select nav items based on user role
-  const getNavItems = () => {
-    if (user?.role === "ADMIN") return adminNavItems
-    if (user?.role === "LANDLORD") return landlordNavItems
-    return studentNavItems
+  const getNavItems = (): NavItem[] => {
+    if (user?.role === "ADMIN") return adminNavItems(t)
+    if (user?.role === "LANDLORD") return landlordNavItems(t)
+    return studentNavItems(t)
   }
   const navItems = getNavItems()
 

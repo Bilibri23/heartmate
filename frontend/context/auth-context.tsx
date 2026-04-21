@@ -57,7 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      const ax = error as { response?: { status?: number; data?: unknown } };
+      if (ax.response) {
+        console.error('Login failed:', ax.response.status, ax.response.data);
+      } else {
+        console.error('Login failed:', error);
+      }
       throw error;
     }
   };

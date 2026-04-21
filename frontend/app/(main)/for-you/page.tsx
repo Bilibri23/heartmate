@@ -28,6 +28,7 @@ interface RecommendedListing {
   preferenceScore: number
   behaviorScore: number
   reasons: string[]
+  recommendationReasonCodes: string[]
   isViewed: boolean
   isFavorited: boolean
   viewsCount: number
@@ -49,32 +50,51 @@ export default function ForYouPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const normalizeListing = (l: any): RecommendedListing => ({
-    listingId: l.id || l.listingId,
-    title: l.title,
-    description: l.description || "",
-    rentAmount: l.rentAmount,
-    city: l.city,
-    neighborhood: l.neighborhood,
-    propertyType: l.propertyType || "",
-    primaryPhotoUrl: l.photos?.[0]?.photoUrl || l.primaryPhotoUrl || null,
-    bedrooms: l.bedrooms,
-    bathrooms: l.bathrooms,
-    matchScore: l.matchScore ?? l.totalScore ?? l.compatibilityScore ?? 0,
-    preferenceScore: l.preferenceScore ?? 0,
-    behaviorScore: l.behaviorScore ?? 0,
-    reasons: l.reasons || [],
-    isViewed: l.isViewed ?? false,
-    isFavorited: l.isFavorited ?? false,
-    viewsCount: l.viewsCount ?? 0,
-    verified: l.verified,
-    trustTier: l.trustTier ?? null,
-    featured: l.featured,
-    averageRating: l.averageRating ?? null,
-    reviewCount: l.reviewCount ?? 0,
-    status: l.status ?? null,
-    isAvailable: l.isAvailable ?? (l.status ? l.status === "ACTIVE" : null),
-  })
+  const normalizeListing = (l: Record<string, unknown>, defaultReasonCodes?: string[]): RecommendedListing => {
+    const fromApi = l.recommendationReasonCodes as string[] | undefined
+    const codes =
+      fromApi && fromApi.length > 0
+        ? fromApi
+        : defaultReasonCodes && defaultReasonCodes.length > 0
+          ? defaultReasonCodes
+          : []
+    const photos = l.photos as { photoUrl?: string }[] | undefined
+    const firstPhoto = photos?.[0]?.photoUrl
+    const statusStr = l.status != null ? String(l.status) : null
+
+    return {
+      listingId: String(l.id ?? l.listingId ?? ""),
+      title: String(l.title ?? ""),
+      description: String(l.description ?? ""),
+      rentAmount: Number(l.rentAmount ?? 0),
+      city: String(l.city ?? ""),
+      neighborhood: String(l.neighborhood ?? ""),
+      propertyType: String(l.propertyType ?? ""),
+      primaryPhotoUrl: firstPhoto || (l.primaryPhotoUrl as string) || null,
+      bedrooms: Number(l.bedrooms ?? 0),
+      bathrooms: Number(l.bathrooms ?? 0),
+      matchScore: Number(l.matchScore ?? l.totalScore ?? l.compatibilityScore ?? 0),
+      preferenceScore: Number(l.preferenceScore ?? 0),
+      behaviorScore: Number(l.behaviorScore ?? 0),
+      reasons: (l.reasons as string[]) || [],
+      recommendationReasonCodes: codes,
+      isViewed: Boolean(l.isViewed),
+      isFavorited: Boolean(l.isFavorited),
+      viewsCount: Number(l.viewsCount ?? 0),
+      verified: Boolean(l.verified),
+      trustTier: (l.trustTier as string) ?? null,
+      featured: Boolean(l.featured),
+      averageRating: l.averageRating != null ? Number(l.averageRating) : null,
+      reviewCount: Number(l.reviewCount ?? 0),
+      status: statusStr,
+      isAvailable:
+        l.isAvailable != null
+          ? Boolean(l.isAvailable)
+          : statusStr
+            ? statusStr === "ACTIVE"
+            : null,
+    }
+  }
 
   // Single compound feed (GET /api/feed) — replaces multiple /search + /recommendations round-trips
   const fetchAllSections = useCallback(async () => {
@@ -93,20 +113,20 @@ export default function ForYouPage() {
       const forYouItems = data.forYou?.items ?? []
       const trendingItems = data.trending?.items ?? []
       const recentItems = data.recent?.items ?? []
-      setListings(forYouItems.map(normalizeListing))
-      setTrendingListings(trendingItems.map(normalizeListing))
-      setRecentListings(recentItems.map(normalizeListing))
-    } catch (err: any) {
+      setListings(forYouItems.map((l) => normalizeListing(l as Record<string, unknown>)))
+      setTrendingListings(trendingItems.map((l) => normalizeListing(l as Record<string, unknown>, ["TRENDING_VIEWS"])))
+      setRecentListings(recentItems.map((l) => normalizeListing(l as Record<string, unknown>, ["NEW_LISTING"])))
+    } catch (err: unknown) {
       console.error("Failed to fetch listings:", err)
-      setError(err.message || "Failed to load listings")
+      setError(err instanceof Error ? err.message : "Failed to load listings")
       try {
         const res = await api.get("/listings/active", { params: user?.id ? { userId: user.id } : {} })
         const all = res.data || []
-        const trending = [...all].sort((a, b) => (b.viewsCount || 0) - (a.viewsCount || 0)).slice(0, 12).map(normalizeListing)
-        const recent = [...all].sort((a, b) => (new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())).slice(0, 12).map(normalizeListing)
-        setListings(all.slice(0, 12).map(normalizeListing))
-        setTrendingListings(trending)
-        setRecentListings(recent)
+        const trending = [...all].sort((a, b) => (b.viewsCount || 0) - (a.viewsCount || 0)).slice(0, 12)
+        const recent = [...all].sort((a, b) => (new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())).slice(0, 12)
+        setListings(all.slice(0, 12).map((l) => normalizeListing(l as Record<string, unknown>, ["BROWSE_POPULAR"])))
+        setTrendingListings(trending.map((l) => normalizeListing(l as Record<string, unknown>, ["TRENDING_VIEWS"])))
+        setRecentListings(recent.map((l) => normalizeListing(l as Record<string, unknown>, ["NEW_LISTING"])))
       } catch { /* ignore */ }
     } finally {
       setIsLoading(false)
@@ -132,24 +152,29 @@ export default function ForYouPage() {
     }
   }
 
-  const ListingRow = ({ title, subtitle, icon: Icon, iconBg, listings, emptyMsg, showRank }: {
+  const ListingRow = ({ title, subtitle, icon: Icon, iconBg, listings, emptyMsg, showRank, sectionId }: {
     title: string; subtitle?: string; icon: React.ElementType; iconBg: string
     listings: RecommendedListing[]; emptyMsg: string; showRank?: boolean
+    sectionId: string
   }) => (
-    <section className="mb-8">
+    <section className="mb-8" role="region" aria-labelledby={sectionId}>
       <div className="flex items-center justify-between px-4 mb-3">
         <div className="flex items-center gap-2">
           <div className={`p-1.5 ${iconBg} rounded-lg`}>
             <Icon className="h-5 w-5 text-current" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+            <h2 id={sectionId} className="text-lg font-bold text-slate-900">{title}</h2>
             {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
           </div>
         </div>
       </div>
       {listings.length > 0 ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x snap-mandatory">
+        <div
+          className="flex gap-4 overflow-x-auto pb-4 px-4 scrollbar-hide snap-x snap-mandatory motion-reduce:scroll-auto"
+          tabIndex={0}
+          aria-label={title}
+        >
           {listings.map((listing, index) => (
             <div key={listing.listingId} className="flex-shrink-0 w-72 snap-start relative">
               {showRank && index < 3 && (
@@ -174,6 +199,7 @@ export default function ForYouPage() {
                 rating={listing.averageRating}
                 status={listing.status}
                 isAvailable={listing.isAvailable}
+                reasonCodes={listing.recommendationReasonCodes}
                 onFavoriteToggle={handleFavoriteToggle}
               />
             </div>
@@ -190,7 +216,7 @@ export default function ForYouPage() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       <div data-tour="tenant-welcome">
-        <MobileHeader title={t.nav.forYou} />
+        <MobileHeader title={t.nav.discoverHome} />
       </div>
 
       {/* Filter bar */}
@@ -198,10 +224,16 @@ export default function ForYouPage() {
         data-tour="tenant-filter-bar"
         className="sticky top-14 z-30 bg-white/95 backdrop-blur border-b border-slate-200"
       >
-        <div className="flex px-4 py-2">
+        <div className="flex px-4 py-2 gap-2 items-center flex-wrap">
           <Link href="/search" className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm font-medium transition-colors">
             <Filter className="h-4 w-4" />
             {t.common.filter}
+          </Link>
+          <Link
+            href="/matches"
+            className="flex items-center gap-2 px-4 py-2 rounded-full bg-violet-50 text-violet-700 hover:bg-violet-100 text-sm font-medium transition-colors border border-violet-100"
+          >
+            {t.nav.roommates}
           </Link>
         </div>
       </div>
@@ -242,41 +274,44 @@ export default function ForYouPage() {
               {/* Row 1: For You */}
               <div data-tour="tenant-feed">
                 <ListingRow
-                  title={t.nav.forYou}
-                  subtitle={user ? "Personalized for you" : "Featured & verified picks"}
+                  title={t.nav.discoverHome}
+                  subtitle={user ? t.discovery.forYouPersonalized : t.discovery.forYouGuest}
                   icon={Star}
                   iconBg="bg-amber-100 text-amber-600"
                   listings={listings}
-                  emptyMsg={user ? "Complete your preferences for personalized picks" : "No listings yet"}
+                  emptyMsg={user ? t.discovery.forYouEmptyPrefs : t.discovery.forYouEmptyList}
+                  sectionId="feed-for-you-heading"
                 />
               </div>
 
               {/* Row 2: Trending */}
               <ListingRow
-                title="Hot Right Now"
-                subtitle="Most viewed by students"
+                title={t.discovery.hotRightNow}
+                subtitle={t.discovery.trendingSubtitle}
                 icon={Flame}
                 iconBg="bg-orange-100 text-orange-500"
                 listings={trendingListings}
-                emptyMsg="No trending listings yet"
+                emptyMsg={t.discovery.noTrending}
                 showRank
+                sectionId="feed-trending-heading"
               />
 
               {/* Row 3: Recent */}
               <ListingRow
-                title="Just Listed"
-                subtitle="Fresh listings added recently"
+                title={t.discovery.justListed}
+                subtitle={t.discovery.recentSubtitle}
                 icon={Clock}
                 iconBg="bg-green-100 text-green-600"
                 listings={recentListings}
-                emptyMsg="No recent listings"
+                emptyMsg={t.discovery.noRecent}
+                sectionId="feed-recent-heading"
               />
 
               {/* View all CTA */}
               <div className="px-4 pt-4 pb-8">
                 <Link href="/search">
                   <Button variant="outline" className="w-full rounded-xl">
-                    Browse All Listings
+                    {t.discovery.browseAllListings}
                   </Button>
                 </Link>
               </div>

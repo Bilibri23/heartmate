@@ -531,7 +531,12 @@ export default function MatchesPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <MobileHeader title="Roommate Matching" />
+      <MobileHeader title={t.nav.roommates} />
+      <div className="px-4 py-2 bg-white border-b border-slate-100">
+        <Link href="/for-you" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+          ← {t.discovery.browseHomes}
+        </Link>
+      </div>
 
       {/* Mutual Matches Tip Banner */}
       {mutualMatches.length > 0 && (
