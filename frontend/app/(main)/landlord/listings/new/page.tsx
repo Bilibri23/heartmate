@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Camera, X, MapPin, Bed, Bath, Maximize, CheckCircle, ImageIcon, FileText, DollarSign, Sparkles, Check, ArrowLeft, ArrowRight, Video, Image as ImageIcon2, Upload, Trash2 } from "lucide-react"
+import { Camera, X, MapPin, Bed, Bath, Maximize, CheckCircle, ImageIcon, FileText, DollarSign, Sparkles, Check, ArrowLeft, ArrowRight, Video, Image as ImageIcon2, Upload, Trash2, Glasses } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -117,34 +117,50 @@ export default function NewListingPage() {
         const tourFormData = new FormData()
         tourFormData.append("file", virtualTour.file)
         try {
-          // Use video-tour endpoint for videos; photos endpoint only accepts images
-          const tourRes = await uploadApi.post(
-            `/listings/${listingId}/video-tour`,
-            tourFormData,
-            {
-              params: { landlordId: user.id },
+          if (virtualTour.type === "video") {
+            // Video files go through listing video endpoint (Cloudinary video resource)
+            await uploadApi.post(
+              `/listings/${listingId}/video-tour`,
+              tourFormData,
+              {
+                params: { landlordId: user.id },
+                onUploadProgress: (e) => {
+                  if (e.total) setTourUploadProgress(Math.round((e.loaded * 100) / e.total))
+                }
+              }
+            )
+            // Persist provider so clients can render proper player UI.
+            await api.put(`/listings/${listingId}`, {
+              virtualTourProvider: "video",
+            }, { params: { landlordId: user.id } })
+          } else {
+            // 360 images are standard images; upload first, then attach URL to listing.
+            const imageRes = await uploadApi.post("/upload/profile-photo", tourFormData, {
               onUploadProgress: (e) => {
                 if (e.total) setTourUploadProgress(Math.round((e.loaded * 100) / e.total))
               }
+            })
+            const imageUrl = imageRes.data?.data ?? imageRes.data?.url
+            if (typeof imageUrl !== "string" || !imageUrl.startsWith("http")) {
+              throw new Error("360 upload did not return a valid URL")
             }
-          )
-          // Backend sets videoTourUrl and returns full ListingResponse
-          if (tourRes.data?.videoTourUrl) {
-            // Update virtualTourProvider via PUT (video-tour endpoint doesn't set it)
             await api.put(`/listings/${listingId}`, {
-              title: formData.title,
-              rentAmount: parseInt(formData.rentAmount),
-              virtualTourProvider: virtualTour.type,
+              videoTourUrl: imageUrl,
+              virtualTourProvider: "360",
             }, { params: { landlordId: user.id } })
           }
         } catch (tourErr: any) {
           // Non-fatal: listing still created, tour just won't show
-          const msg = tourErr?.response?.data?.message || tourErr?.message || "Video upload failed"
+          const msg =
+            tourErr?.response?.data?.message ||
+            tourErr?.response?.data?.error ||
+            tourErr?.message ||
+            "Virtual tour upload failed"
           console.error("❌ Tour upload failed:", msg)
         }
       }
 
-      router.push("/landlord")
+      router.push(`/landlord?published=${listingId}`)
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Failed to create listing. Please try again."
       setSubmitError(msg)
@@ -199,7 +215,13 @@ export default function NewListingPage() {
               )}
               {currentStep === 1 && (
                 <div className="space-y-4">
-                  <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.addPhotos}</h2><p className="text-sm text-slate-500">{t.landlordForm.uploadPhotos}</p></div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.addPhotos}</h2>
+                    <p className="text-sm text-slate-500">{t.landlordForm.uploadPhotos}</p>
+                    <p className="mt-2 text-xs leading-relaxed text-violet-800/90 bg-violet-50 border border-violet-100 rounded-xl px-3 py-2">
+                      {t.landlordForm.photosTrustFuture}
+                    </p>
+                  </div>
                   <div className="grid grid-cols-3 gap-2">
                     {photos.map((photo, index) => (
                       <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-slate-100">
@@ -319,9 +341,33 @@ export default function NewListingPage() {
               )}
               {currentStep === 5 && (
                 <div className="space-y-4">
+                  <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/90 via-white to-slate-50 p-4 shadow-sm">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white">
+                        <Glasses className="h-4 w-4" aria-hidden />
+                      </div>
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-900">
+                        {t.landlordJourney.immersiveBadge}
+                      </span>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+                          {t.landlordForm.virtualTourTimelineToday}
+                        </p>
+                        <p className="text-xs leading-relaxed text-slate-700">{t.landlordForm.virtualTourTimelineTodayBody}</p>
+                      </div>
+                      <div className="rounded-xl border border-violet-100 bg-white/90 p-3">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-violet-800">
+                          {t.landlordForm.virtualTourTimelineNext}
+                        </p>
+                        <p className="text-xs leading-relaxed text-slate-700">{t.landlordForm.virtualTourTimelineNextBody}</p>
+                      </div>
+                    </div>
+                  </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Virtual Tour</h2>
-                    <p className="text-sm text-slate-500">Upload a video walkthrough or a 360° panoramic photo (optional)</p>
+                    <h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.virtualTour}</h2>
+                    <p className="text-sm text-slate-600">{t.landlordForm.virtualTourDesc}</p>
                   </div>
                   <div className="space-y-4">
                     {virtualTour ? (
@@ -331,7 +377,9 @@ export default function NewListingPage() {
                             <div className="flex items-center gap-2 text-blue-800">
                               {virtualTour.type === 'video' ? <Video className="h-5 w-5" /> : <ImageIcon2 className="h-5 w-5" />}
                               <span className="font-medium">
-                                {virtualTour.type === 'video' ? 'Video Walkthrough' : '360° Virtual Tour'} Ready
+                                {virtualTour.type === 'video'
+                                  ? `${t.landlordForm.videoWalkthrough} · ${t.landlordForm.ready}`
+                                  : `${t.landlordForm.tour360} · ${t.landlordForm.ready}`}
                               </span>
                             </div>
                             <Button
@@ -340,7 +388,7 @@ export default function NewListingPage() {
                               onClick={handleVirtualTourRemove}
                               className="text-red-600 hover:text-red-700 border-red-200"
                             >
-                              <Trash2 className="h-4 w-4 mr-1" /> Remove
+                              <Trash2 className="h-4 w-4 mr-1" /> {t.common.remove}
                             </Button>
                           </div>
 
@@ -362,18 +410,21 @@ export default function NewListingPage() {
 
                           <div className="mt-3 grid grid-cols-2 gap-2">
                             <div className="bg-white rounded-lg p-2 text-center">
-                              <div className="text-xs text-slate-500">Type</div>
+                              <div className="text-xs text-slate-500">{t.landlordForm.tourType}</div>
                               <div className="text-sm font-medium text-slate-900">
-                                {virtualTour.type === 'video' ? '📹 Video' : '🔮 360° Photo'}
+                                {virtualTour.type === 'video' ? `📹 ${t.landlordForm.video}` : `🔮 ${t.landlordForm.photo360}`}
                               </div>
                             </div>
                             <div className="bg-white rounded-lg p-2 text-center">
-                              <div className="text-xs text-slate-500">File size</div>
+                              <div className="text-xs text-slate-500">{t.landlordForm.fileSize}</div>
                               <div className="text-sm font-medium text-slate-900">
                                 {(virtualTour.file.size / (1024 * 1024)).toFixed(1)} MB
                               </div>
                             </div>
                           </div>
+                          <p className="mt-3 text-xs leading-relaxed text-violet-900/90 border-t border-violet-100 pt-3">
+                            {t.landlordForm.virtualTourUploadedFooter}
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -382,14 +433,15 @@ export default function NewListingPage() {
                         <label className="block cursor-pointer">
                           <div className="border-2 border-dashed border-blue-300 rounded-xl p-6 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-colors text-center">
                             <Video className="h-10 w-10 text-blue-500 mx-auto mb-3" />
-                            <p className="font-semibold text-slate-900 mb-1">📹 Video Walkthrough</p>
-                            <p className="text-sm text-slate-500 mb-3">
-                              Upload an MP4 video walking through each room
+                            <p className="font-semibold text-slate-900 mb-1">📹 {t.landlordForm.videoWalkthrough}</p>
+                            <p className="text-sm text-slate-500 mb-2">{t.landlordForm.uploadVideo}</p>
+                            <p className="mx-auto mb-3 max-w-md text-left text-xs leading-relaxed text-violet-900/85">
+                              {t.landlordForm.videoCardArCaption}
                             </p>
                             <div className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium">
-                              <Upload className="h-4 w-4" /> Choose Video File
+                              <Upload className="h-4 w-4" /> {t.landlordForm.chooseVideoFile}
                             </div>
-                            <p className="text-xs text-slate-400 mt-2">MP4, MOV, AVI · Max 200MB</p>
+                            <p className="text-xs text-slate-400 mt-2">{t.landlordForm.videoFormats}</p>
                           </div>
                           <input
                             type="file"
@@ -405,7 +457,7 @@ export default function NewListingPage() {
                         {/* Divider */}
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-px bg-slate-200" />
-                          <span className="text-xs text-slate-400 font-medium">OR</span>
+                          <span className="text-xs text-slate-400 font-medium">{t.common.or}</span>
                           <div className="flex-1 h-px bg-slate-200" />
                         </div>
 
@@ -413,14 +465,15 @@ export default function NewListingPage() {
                         <label className="block cursor-pointer">
                           <div className="border-2 border-dashed border-purple-300 rounded-xl p-6 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 transition-colors text-center">
                             <ImageIcon2 className="h-10 w-10 text-purple-500 mx-auto mb-3" />
-                            <p className="font-semibold text-slate-900 mb-1">🔮 360° Virtual Tour</p>
-                            <p className="text-sm text-slate-500 mb-3">
-                              Upload a 360° panoramic photo for an interactive tour
+                            <p className="font-semibold text-slate-900 mb-1">🔮 {t.landlordForm.tour360}</p>
+                            <p className="text-sm text-slate-500 mb-2">{t.landlordForm.upload360Desc}</p>
+                            <p className="mx-auto mb-3 max-w-md text-left text-xs leading-relaxed text-violet-900/85">
+                              {t.landlordForm.photo360CardArCaption}
                             </p>
                             <div className="inline-flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-xl text-sm font-medium">
-                              <Upload className="h-4 w-4" /> Choose 360° Photo
+                              <Upload className="h-4 w-4" /> {t.landlordForm.choose360Photo}
                             </div>
-                            <p className="text-xs text-slate-400 mt-2">JPG, PNG equirectangular · Max 50MB</p>
+                            <p className="text-xs text-slate-400 mt-2">{t.landlordForm.photo360Formats}</p>
                           </div>
                           <input
                             type="file"
@@ -435,12 +488,12 @@ export default function NewListingPage() {
 
                         {/* Help tip */}
                         <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-600">
-                          <p className="font-medium text-slate-900 mb-2">💡 How to capture a 360° photo</p>
+                          <p className="font-medium text-slate-900 mb-2">💡 {t.landlordForm.howToCapture}</p>
                           <ul className="space-y-1 text-xs">
-                            <li>• Use <strong>Google Street View</strong> app (free) to capture 360° photos</li>
-                            <li>• Stand in the center of the room and follow the app's guide</li>
-                            <li>• Export the panorama as a JPG equirectangular image</li>
-                            <li>• Good lighting makes a huge difference!</li>
+                            <li>• {t.landlordForm.captureStep1}</li>
+                            <li>• {t.landlordForm.captureStep2}</li>
+                            <li>• {t.landlordForm.captureStep3}</li>
+                            <li>• {t.landlordForm.captureStep4}</li>
                           </ul>
                         </div>
                       </div>

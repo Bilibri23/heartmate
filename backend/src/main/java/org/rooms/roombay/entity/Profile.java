@@ -33,6 +33,9 @@ public class Profile {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
+    @Column(length = 120)
+    private String city;
+
     @Column(name = "profile_photo_url")
     private String profilePhotoUrl;
 

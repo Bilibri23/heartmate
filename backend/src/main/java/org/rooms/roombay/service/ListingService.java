@@ -2,12 +2,15 @@ package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.rooms.roombay.dto.request.ArMarkersUpdateRequest;
 import org.rooms.roombay.dto.request.ListingApprovalRequest;
 import org.rooms.roombay.dto.request.ListingRequest;
+import org.rooms.roombay.dto.response.ArMarkerResponse;
 import org.rooms.roombay.dto.response.ListingRecommendationResponse;
 import org.rooms.roombay.dto.response.ListingResponse;
 import org.rooms.roombay.dto.response.PhotoDTO;
 import org.rooms.roombay.entity.LandlordVerification;
+import org.rooms.roombay.entity.ListingArMarker;
 import org.rooms.roombay.entity.ListingFavorite;
 import org.rooms.roombay.entity.ListingPhoto;
 import org.rooms.roombay.entity.ListingSearchOutbox;
@@ -16,6 +19,7 @@ import org.rooms.roombay.entity.User;
 import org.rooms.roombay.exception.BadRequestException;
 import org.rooms.roombay.exception.ResourceNotFoundException;
 import org.rooms.roombay.repository.LandlordVerificationRepository;
+import org.rooms.roombay.repository.ListingArMarkerRepository;
 import org.rooms.roombay.repository.ListingFavoriteRepository;
 import org.rooms.roombay.repository.ListingPhotoRepository;
 import org.rooms.roombay.repository.ListingPreferencesRepository;
@@ -60,6 +64,7 @@ public class ListingService {
     private final SecurityAuditService securityAuditService;
     private final LandlordVerificationRepository landlordVerificationRepository;
     private final ListingViewRepository listingViewRepository;
+    private final ListingArMarkerRepository listingArMarkerRepository;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -902,6 +907,49 @@ public class ListingService {
         listing.setVideoTourUrl(videoUrl);
         listing = listingRepository.save(listing);
         return mapToResponse(listing, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ArMarkerResponse> getArMarkers(UUID listingId) {
+        return listingArMarkerRepository.findByListingIdOrderByCreatedAtAsc(listingId).stream()
+                .map(this::mapArMarker)
+                .collect(Collectors.toList());
+    }
+
+    public List<ArMarkerResponse> replaceArMarkers(UUID listingId, UUID landlordId, ArMarkersUpdateRequest request) {
+        PropertyListing listing = listingRepository.findById(listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Listing not found"));
+
+        if (!listing.getLandlord().getId().equals(landlordId)) {
+            throw new BadRequestException("Only the listing owner can update AR markers");
+        }
+
+        listingArMarkerRepository.deleteByListingId(listingId);
+        List<ListingArMarker> markers = request.getMarkers().stream()
+                .map(item -> ListingArMarker.builder()
+                        .listing(listing)
+                        .x(item.getX())
+                        .y(item.getY())
+                        .z(item.getZ())
+                        .label(item.getLabel() != null ? item.getLabel().trim() : null)
+                        .color(item.getColor() != null ? item.getColor().trim() : null)
+                        .build())
+                .collect(Collectors.toList());
+        return listingArMarkerRepository.saveAll(markers).stream()
+                .map(this::mapArMarker)
+                .collect(Collectors.toList());
+    }
+
+    private ArMarkerResponse mapArMarker(ListingArMarker marker) {
+        return ArMarkerResponse.builder()
+                .id(marker.getId())
+                .x(marker.getX())
+                .y(marker.getY())
+                .z(marker.getZ())
+                .label(marker.getLabel())
+                .color(marker.getColor())
+                .createdAt(marker.getCreatedAt())
+                .build();
     }
     
     // Track view

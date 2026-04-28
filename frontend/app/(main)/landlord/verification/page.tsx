@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { MobileHeader } from "@/components/layout/mobile-header"
-import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { 
+import { useProfileCompletion } from "@/hooks/use-profile-completion"
+import { CompletionBanner } from "@/components/profile/completion-banner"
+import {
   Shield,
   CheckCircle,
   Clock,
@@ -12,12 +14,14 @@ import {
   Upload,
   FileText,
   Camera,
-  User,
   Building2,
-  BadgeCheck
+  BadgeCheck,
+  Mail,
+  Smartphone,
+  ArrowRight,
+  Wallet,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import api, { uploadApi } from "@/lib/api"
@@ -35,14 +39,16 @@ interface VerificationStatus {
 }
 
 export default function LandlordVerificationPage() {
-  const { t } = useLanguage()
   const { user } = useAuth()
+  const { status: completionStatus, refresh: refreshCompletion } = useProfileCompletion()
   const [status, setStatus] = useState<VerificationStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPropertySubmitting, setIsPropertySubmitting] = useState(false)
   const [idDocument, setIdDocument] = useState<File | null>(null)
   const [selfie, setSelfie] = useState<File | null>(null)
   const [propertyDoc, setPropertyDoc] = useState<File | null>(null)
+  const [propertyOnlyDoc, setPropertyOnlyDoc] = useState<File | null>(null)
 
   const fetchStatus = useCallback(async () => {
     if (!user?.id) return
@@ -61,8 +67,10 @@ export default function LandlordVerificationPage() {
         identityRejectionReason: response.data?.identityRejectionReason
       })
     } catch (err: any) {
-      // 404 means no verification record exists yet - this is normal for new landlords
-      if (err?.response?.status === 404) {
+      // Legacy: 404 when no KYC row. Backend now returns 200 + NOT_SUBMITTED, but keep this for older servers.
+      const statusCode = err?.response?.status
+      const msg = String(err?.response?.data?.message || "")
+      if (statusCode === 404 || (statusCode === 400 && msg.toLowerCase().includes("verification not found"))) {
         setStatus({
           identityStatus: "NOT_SUBMITTED",
           businessStatus: "NOT_SUBMITTED",
@@ -92,9 +100,31 @@ export default function LandlordVerificationPage() {
   const uploadFile = async (file: File): Promise<string> => {
     const formData = new FormData()
     formData.append("file", file)
-    
-    const response = await uploadApi.post("/upload/profile-photo", formData)
-    return response.data?.data || response.data?.url || response.data
+
+    try {
+      const response = await uploadApi.post("/upload/profile-photo", formData)
+      const url = response.data?.data ?? response.data?.url
+      if (typeof url === "string" && url.startsWith("http")) {
+        return url
+      }
+      throw new Error("Upload did not return a valid image URL.")
+    } catch (err: unknown) {
+      const ax = err as {
+        response?: { status?: number; data?: { message?: string } }
+        message?: string
+      }
+      const serverMsg = ax.response?.data?.message
+      if (typeof serverMsg === "string" && serverMsg.length > 0) {
+        throw new Error(serverMsg)
+      }
+      const code = ax.response?.status
+      if (code === 400 || code === 503) {
+        throw new Error(
+          "Upload failed (often Cloudinary/network). Check connection, Cloudinary env on the server, or use mock uploads in dev when credentials are unset."
+        )
+      }
+      throw new Error(ax.message || "Upload failed. Please try again.")
+    }
   }
 
   const handleSubmit = async () => {
@@ -131,10 +161,15 @@ export default function LandlordVerificationPage() {
         })
       }
       
-      fetchStatus()
+      await fetchStatus()
+      void refreshCompletion()
     } catch (err: any) {
       console.error("Failed to submit verification:", err)
-      const errorMessage = err?.response?.data?.message || "Failed to submit verification"
+      const errorMessage =
+        err?.message ||
+        err?.response?.data?.message ||
+        (typeof err?.response?.data === "string" ? err.response.data : null) ||
+        "Failed to submit verification"
       if (errorMessage.includes("already verified") || errorMessage.includes("already submitted")) {
         toast.error("Verification already submitted", {
           description: "Please wait for admin review or contact support."
@@ -145,6 +180,33 @@ export default function LandlordVerificationPage() {
       }
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const submitPropertyOnly = async () => {
+    if (!propertyOnlyDoc) {
+      toast.error("Choose a file first")
+      return
+    }
+    setIsPropertySubmitting(true)
+    try {
+      const propertyDocUrl = await uploadFile(propertyOnlyDoc)
+      await api.post("/landlord-verifications/property", {
+        propertyOwnershipDocUrl: propertyDocUrl,
+      })
+      toast.success("Property documents submitted for review")
+      setPropertyOnlyDoc(null)
+      await fetchStatus()
+      void refreshCompletion()
+    } catch (err: unknown) {
+      const ax = err as { message?: string; response?: { data?: { message?: string } } }
+      const msg =
+        ax?.response?.data?.message ||
+        ax?.message ||
+        "Could not submit property documents"
+      toast.error(msg)
+    } finally {
+      setIsPropertySubmitting(false)
     }
   }
 
@@ -193,10 +255,18 @@ export default function LandlordVerificationPage() {
     }
   }
 
+  const showIdentityForm =
+    status &&
+    (status.identityStatus === "NOT_SUBMITTED" || status.identityStatus === "REJECTED")
+
+  const identityVerified = status?.identityStatus === "VERIFIED"
+  const identityPending = status?.identityStatus === "PENDING"
+  const needsContact = Boolean(user && !user.emailVerified && !user.phoneVerified)
+
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-slate-50">
-        <MobileHeader title="Verification" />
+        <MobileHeader title="Verification" showNotifications={false} showLanguage={false} />
         <div className="p-4 space-y-4">
           <Skeleton className="h-32 rounded-2xl" />
           <Skeleton className="h-48 rounded-2xl" />
@@ -207,7 +277,7 @@ export default function LandlordVerificationPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <MobileHeader title="Verification" />
+      <MobileHeader title="Verification" showNotifications={false} showLanguage={false} />
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-6">
@@ -222,6 +292,12 @@ export default function LandlordVerificationPage() {
             </p>
             {getStatusBadge()}
           </div>
+
+          {completionStatus && completionStatus.missingSteps.length > 0 && (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-1">
+              <CompletionBanner status={completionStatus} />
+            </div>
+          )}
 
           {/* Verification Checklist */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -269,15 +345,100 @@ export default function LandlordVerificationPage() {
                 ) : (
                   <div className="h-5 w-5 rounded-full border-2 border-slate-300" />
                 )}
-                <span className={status?.isTrustedLandlord ? "text-slate-900" : "text-slate-500"}>
-                  Trusted Landlord Badge
-                </span>
+                <div>
+                  <span className={status?.isTrustedLandlord ? "text-slate-900" : "text-slate-500"}>
+                    Trusted Landlord Badge
+                  </span>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Awarded when trust score reaches 70+ after verification/history checks.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Upload Section - Only show if not verified */}
-          {getOverallStatus() !== "VERIFIED" && getOverallStatus() !== "PENDING" && (
+          {identityVerified && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="flex items-start gap-3">
+                <BadgeCheck className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+                <div>
+                  <h4 className="font-medium text-emerald-900">Identity verified</h4>
+                  <p className="text-sm text-emerald-800 mt-1 leading-relaxed">
+                    Your ID check is complete. Use the checklist below to finish payout and optional proofs when you are
+                    ready to publish.
+                  </p>
+                  {status?.updatedAt && (
+                    <p className="text-xs text-emerald-700 mt-2">
+                      Approved: {new Date(status.updatedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(identityVerified || identityPending) && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+              <h3 className="font-semibold text-slate-900">What&apos;s next</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                {identityPending
+                  ? "Your ID is with the team for review (usually 1–2 business days). You can still prepare the rest — nothing here is urgent until you want to publish."
+                  : "KYC is only part of onboarding. Finish contact verification, profile, payout, and optional property proof when it suits you — any order is fine."}
+              </p>
+              <ul className="space-y-2 text-sm">
+                {needsContact && (
+                  <li className="flex gap-2 text-slate-700">
+                    <Mail className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
+                    <span>
+                      <span className="font-medium">Verify email or phone</span> — only one is required. Open the{" "}
+                      <Link href="/account/verify" className="text-blue-600 underline font-medium">
+                        account verification hub
+                      </Link>{" "}
+                      to resend your email link or get a WhatsApp code. You can still{" "}
+                      <Link href="/landlord/profile/edit" className="text-blue-600 underline font-medium">
+                        edit profile
+                      </Link>{" "}
+                      if the number on file needs fixing.
+                    </span>
+                  </li>
+                )}
+                <li className="flex gap-2 text-slate-700">
+                  <Smartphone className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
+                  <span>
+                    <span className="font-medium">Profile basics</span> means your RoomBay profile row exists (photo &
+                    short bio). Editors use{" "}
+                    <Link href="/landlord/profile/edit" className="text-blue-600 underline font-medium">
+                      Profile edit
+                    </Link>
+                    .
+                  </span>
+                </li>
+                <li className="flex gap-2 text-slate-700">
+                  <Wallet className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
+                  <span>
+                    <span className="font-medium">Payout details</span> are optional for now. RoomBay runs on
+                    commissions, and settlement details can be collected later during payout operations.
+                  </span>
+                </li>
+                <li className="flex gap-2 text-slate-700">
+                  <Building2 className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
+                  <span>
+                    <span className="font-medium">Property proof</span> is optional for trust;{" "}
+                    {identityVerified ? "upload it in the section below." : "you can add it once identity is approved."}
+                  </span>
+                </li>
+              </ul>
+              <Button variant="outline" className="w-full rounded-xl border-slate-200" asChild>
+                <Link href="/landlord/profile" className="flex items-center justify-center gap-2">
+                  Open landlord profile hub
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          )}
+
+          {/* Upload Section - identity only when not yet submitted / rejected */}
+          {showIdentityForm && (
             <div className="bg-white rounded-2xl p-4 shadow-sm">
               <h3 className="font-semibold text-slate-900 mb-4">Submit Documents</h3>
               
@@ -381,25 +542,50 @@ export default function LandlordVerificationPage() {
             </div>
           )}
 
-          {/* Verified Message */}
-          {getOverallStatus() === "VERIFIED" && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+          {/* Identity approved — optional property upload */}
+          {identityVerified &&
+            status?.propertyStatus !== "VERIFIED" &&
+            status?.propertyStatus !== "PENDING" && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+                <h3 className="font-semibold text-slate-900 mb-1">Optional: property ownership</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Upload a title deed, lease, or utility bill to strengthen trust. Admin will review when convenient.
+                </p>
+                <Label className="text-slate-700 mb-2 block">Document</Label>
+                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                  <Upload className="h-5 w-5 text-slate-400" />
+                  <span className="text-sm text-slate-500">
+                    {propertyOnlyDoc ? propertyOnlyDoc.name : "Choose file (image or PDF)"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setPropertyOnlyDoc(e.target.files?.[0] || null)}
+                    className="hidden"
+                  />
+                </label>
+                <Button
+                  className="w-full h-12 rounded-xl mt-4"
+                  onClick={() => void submitPropertyOnly()}
+                  disabled={isPropertySubmitting || !propertyOnlyDoc}
+                >
+                  {isPropertySubmitting ? "Submitting…" : "Submit property proof"}
+                </Button>
+              </div>
+            )}
+
+          {identityVerified && status?.propertyStatus === "PENDING" && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
               <div className="flex items-start gap-3">
-                <BadgeCheck className="h-5 w-5 text-emerald-600 mt-0.5" />
+                <Clock className="h-5 w-5 text-amber-600 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-emerald-800">Verified Landlord</h4>
-                  <p className="text-sm text-emerald-700 mt-1">
-                    Your account is verified. Your listings will display a verified badge.
-                  </p>
-                  {status?.updatedAt && (
-                    <p className="text-xs text-emerald-600 mt-2">
-                      Verified: {new Date(status.updatedAt).toLocaleDateString()}
-                    </p>
-                  )}
+                  <h4 className="font-medium text-amber-800">Property documents under review</h4>
+                  <p className="text-sm text-amber-700 mt-1">We will update this checklist when an admin has reviewed them.</p>
                 </div>
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>

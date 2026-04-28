@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import api from "@/lib/api"
-import { Search, Shield, CheckCircle, XCircle, IdCard, Calendar, ExternalLink, Building2, User } from "lucide-react"
+import { Search, Shield, CheckCircle, XCircle, IdCard, Calendar, ExternalLink, Building2 } from "lucide-react"
 
 interface TenantVerification {
   id: string
@@ -33,12 +33,18 @@ interface LandlordVerification {
   userId: string
   userName: string
   userEmail: string
-  idType: string
-  idNumber: string
-  idFrontPhotoUrl: string
-  selfieWithIdUrl: string
+  idType?: string
+  idNumber?: string
+  idFrontPhotoUrl?: string
+  selfieWithIdUrl?: string
+  propertyOwnershipDocUrl?: string
+  utilityBillUrl?: string
   identityStatus: string
+  businessStatus?: string
+  propertyStatus?: string
   identityRejectionReason?: string
+  businessRejectionReason?: string
+  propertyRejectionReason?: string
   createdAt: string
 }
 
@@ -95,10 +101,32 @@ export default function AdminVerificationsPage() {
     } catch (err) { console.error(err) }
   }
 
+  const getLandlordPendingType = (v: LandlordVerification): "IDENTITY" | "BUSINESS" | "PROPERTY" | null => {
+    if (v.identityStatus === "PENDING") return "IDENTITY"
+    if (v.businessStatus === "PENDING") return "BUSINESS"
+    if (v.propertyStatus === "PENDING") return "PROPERTY"
+    return null
+  }
+
+  const getLandlordDisplayStatus = (v: LandlordVerification): string => {
+    const pendingType = getLandlordPendingType(v)
+    if (pendingType) return `PENDING_${pendingType}`
+    if (v.identityStatus === "REJECTED" || v.businessStatus === "REJECTED" || v.propertyStatus === "REJECTED") {
+      return "REJECTED"
+    }
+    if (v.identityStatus === "VERIFIED" || v.businessStatus === "VERIFIED" || v.propertyStatus === "VERIFIED") {
+      return "VERIFIED"
+    }
+    return v.identityStatus || "NOT_SUBMITTED"
+  }
+
   const handleLandlordAction = async (id: string, approved: boolean) => {
+    if (!selectedLandlord) return
+    const pendingType = getLandlordPendingType(selectedLandlord)
+    if (!pendingType) return
     try {
       await api.post(`/admin/landlord-verifications/${id}/approve`, {
-        verificationType: "IDENTITY",
+        verificationType: pendingType,
         status: approved ? "VERIFIED" : "REJECTED",
         rejectionReason: approved ? null : (rejectionReason || "Rejected by admin")
       })
@@ -122,9 +150,13 @@ export default function AdminVerificationsPage() {
     const styles: Record<string, string> = {
       VERIFIED: "bg-green-100 text-green-700",
       PENDING: "bg-amber-100 text-amber-700",
+      PENDING_IDENTITY: "bg-amber-100 text-amber-700",
+      PENDING_BUSINESS: "bg-amber-100 text-amber-700",
+      PENDING_PROPERTY: "bg-amber-100 text-amber-700",
       REJECTED: "bg-red-100 text-red-700"
     }
-    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || "bg-slate-100"}`}>{status}</span>
+    const label = status.startsWith("PENDING_") ? status.replace("_", " ").replace("_", " ") : status
+    return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || "bg-slate-100"}`}>{label}</span>
   }
 
   if (user?.role !== "ADMIN") return null
@@ -132,13 +164,13 @@ export default function AdminVerificationsPage() {
   const currentList = activeTab === "tenants" ? filteredTenants : filteredLandlords
   const pendingCount = activeTab === "tenants" 
     ? tenantVerifications.filter(v => v.status === "PENDING").length
-    : landlordVerifications.filter(v => v.identityStatus === "PENDING").length
+    : landlordVerifications.filter(v => getLandlordPendingType(v) !== null).length
   const verifiedCount = activeTab === "tenants"
     ? tenantVerifications.filter(v => v.status === "VERIFIED").length
-    : landlordVerifications.filter(v => v.identityStatus === "VERIFIED").length
+    : landlordVerifications.filter(v => getLandlordDisplayStatus(v) === "VERIFIED").length
   const rejectedCount = activeTab === "tenants"
     ? tenantVerifications.filter(v => v.status === "REJECTED").length
-    : landlordVerifications.filter(v => v.identityStatus === "REJECTED").length
+    : landlordVerifications.filter(v => getLandlordDisplayStatus(v) === "REJECTED").length
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -218,10 +250,10 @@ export default function AdminVerificationsPage() {
                     <p className="font-semibold text-slate-900">{v.userName}</p>
                     <p className="text-sm text-slate-500">{v.userEmail}</p>
                   </div>
-                  {getStatusBadge(v.identityStatus)}
+                  {getStatusBadge(getLandlordDisplayStatus(v))}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-slate-500">
-                  <span className="flex items-center gap-1"><Building2 className="h-4 w-4" />{v.idType}</span>
+                  <span className="flex items-center gap-1"><Building2 className="h-4 w-4" />{v.idType || "KYC packet"}</span>
                   <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(v.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
@@ -232,8 +264,15 @@ export default function AdminVerificationsPage() {
 
       {/* Tenant Verification Detail Sheet */}
       <Sheet open={isDetailOpen && selectedTenant !== null} onOpenChange={(open) => { if (!open) { setIsDetailOpen(false); setSelectedTenant(null) } }}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
-          <SheetHeader><SheetTitle>Tenant Verification Details</SheetTitle></SheetHeader>
+        <SheetContent
+          side="bottom"
+          className="flex h-[90dvh] max-h-[90dvh] flex-col overflow-hidden rounded-t-3xl p-0"
+        >
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 pt-4 [-webkit-overflow-scrolling:touch]"
+            style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 0px))" }}
+          >
+          <SheetHeader className="pr-10 text-left"><SheetTitle>Tenant Verification Details</SheetTitle></SheetHeader>
           {selectedTenant && (
             <div className="mt-4 space-y-4">
               <div className="flex justify-between items-start">
@@ -321,13 +360,21 @@ export default function AdminVerificationsPage() {
               )}
             </div>
           )}
+          </div>
         </SheetContent>
       </Sheet>
 
       {/* Landlord Verification Detail Sheet */}
       <Sheet open={isDetailOpen && selectedLandlord !== null} onOpenChange={(open) => { if (!open) { setIsDetailOpen(false); setSelectedLandlord(null) } }}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
-          <SheetHeader><SheetTitle>Landlord Verification Details</SheetTitle></SheetHeader>
+        <SheetContent
+          side="bottom"
+          className="flex h-[90dvh] max-h-[90dvh] flex-col overflow-hidden rounded-t-3xl p-0"
+        >
+          <div
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-6 pt-4 [-webkit-overflow-scrolling:touch]"
+            style={{ paddingBottom: "max(2.5rem, env(safe-area-inset-bottom, 0px))" }}
+          >
+          <SheetHeader className="pr-10 text-left"><SheetTitle>Landlord Verification Details</SheetTitle></SheetHeader>
           {selectedLandlord && (
             <div className="mt-4 space-y-4">
               <div className="flex justify-between items-start">
@@ -335,11 +382,14 @@ export default function AdminVerificationsPage() {
                   <h2 className="text-xl font-bold">{selectedLandlord.userName}</h2>
                   <p className="text-slate-500">{selectedLandlord.userEmail}</p>
                 </div>
-                {getStatusBadge(selectedLandlord.identityStatus)}
+                {getStatusBadge(getLandlordDisplayStatus(selectedLandlord))}
               </div>
               <div className="bg-slate-50 rounded-xl p-4 space-y-2">
-                <p><span className="text-slate-500">ID Type:</span> {selectedLandlord.idType}</p>
-                <p><span className="text-slate-500">ID Number:</span> {selectedLandlord.idNumber}</p>
+                <p><span className="text-slate-500">Identity:</span> {selectedLandlord.identityStatus}</p>
+                <p><span className="text-slate-500">Business:</span> {selectedLandlord.businessStatus || "NOT_SUBMITTED"}</p>
+                <p><span className="text-slate-500">Property:</span> {selectedLandlord.propertyStatus || "NOT_SUBMITTED"}</p>
+                <p><span className="text-slate-500">ID Type:</span> {selectedLandlord.idType || "—"}</p>
+                <p><span className="text-slate-500">ID Number:</span> {selectedLandlord.idNumber || "—"}</p>
                 <p><span className="text-slate-500">Submitted:</span> {new Date(selectedLandlord.createdAt).toLocaleString()}</p>
               </div>
               {selectedLandlord.idFrontPhotoUrl && (
@@ -386,13 +436,36 @@ export default function AdminVerificationsPage() {
                   </div>
                 </div>
               )}
+              {(selectedLandlord.propertyOwnershipDocUrl || selectedLandlord.utilityBillUrl) && (
+                <div className="space-y-3">
+                  {selectedLandlord.propertyOwnershipDocUrl && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-sm font-medium text-slate-700 mb-2">Property ownership document</p>
+                      <a href={selectedLandlord.propertyOwnershipDocUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">
+                        {selectedLandlord.propertyOwnershipDocUrl}
+                      </a>
+                    </div>
+                  )}
+                  {selectedLandlord.utilityBillUrl && (
+                    <div className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-sm font-medium text-slate-700 mb-2">Utility bill</p>
+                      <a href={selectedLandlord.utilityBillUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline break-all">
+                        {selectedLandlord.utilityBillUrl}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
               {selectedLandlord.identityRejectionReason && (
                 <div className="bg-red-50 rounded-xl p-4">
                   <p className="text-sm text-red-600"><strong>Rejection Reason:</strong> {selectedLandlord.identityRejectionReason}</p>
                 </div>
               )}
-              {selectedLandlord.identityStatus === "PENDING" && (
+              {getLandlordPendingType(selectedLandlord) !== null && (
                 <div className="space-y-3 pt-4 border-t">
+                  <p className="text-sm text-slate-600">
+                    Reviewing: <strong>{getLandlordPendingType(selectedLandlord)}</strong>
+                  </p>
                   <Input placeholder="Rejection reason (if rejecting)" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="rounded-xl" />
                   <div className="flex gap-2">
                     <Button variant="outline" className="flex-1 rounded-xl border-red-200 text-red-600" onClick={() => handleLandlordAction(selectedLandlord.id, false)}>
@@ -406,6 +479,7 @@ export default function AdminVerificationsPage() {
               )}
             </div>
           )}
+          </div>
         </SheetContent>
       </Sheet>
     </div>

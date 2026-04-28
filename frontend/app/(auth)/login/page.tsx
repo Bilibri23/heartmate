@@ -16,7 +16,8 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { clearOAuthSignupRoleCookie } from "@/lib/oauth-signup-role-cookie"
 
 const loginSchema = z.object({
   emailOrPhone: z.string().min(1, { message: "Email or phone is required" }),
@@ -42,6 +43,10 @@ export default function LoginPage() {
       password: "",
     },
   })
+
+  useEffect(() => {
+    clearOAuthSignupRoleCookie()
+  }, [])
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true)

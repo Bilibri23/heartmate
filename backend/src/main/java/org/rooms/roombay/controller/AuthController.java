@@ -10,6 +10,7 @@ import org.rooms.roombay.dto.request.PasswordResetRequest;
 import org.rooms.roombay.dto.request.RegisterRequest;
 import org.rooms.roombay.dto.request.ResetPasswordRequest;
 import org.rooms.roombay.dto.request.ChangePasswordRequest;
+import org.rooms.roombay.dto.request.UpdateMeRequest;
 import org.rooms.roombay.dto.response.AuthMeResponse;
 import org.rooms.roombay.dto.response.AuthResponse;
 import org.rooms.roombay.dto.response.ApiResponse;
@@ -17,10 +18,16 @@ import org.rooms.roombay.dto.response.ProfileCompletionResponse;
 import org.rooms.roombay.service.AuthService;
 import org.rooms.roombay.service.ProfileCompletionService;
 import org.rooms.roombay.security.SecurityUtils;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,6 +38,8 @@ public class AuthController {
 
     private final AuthService authService;
     private final ProfileCompletionService profileCompletionService;
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user", description = "Register a new student user")
@@ -45,6 +54,13 @@ public class AuthController {
     public ResponseEntity<AuthMeResponse> getMe() {
         var userId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(authService.getAuthenticatedUser(userId));
+    }
+
+    @PatchMapping("/me")
+    @Operation(summary = "Update my account", description = "Update name, email, or phone. Changing email sends a new verification link and clears email verification until confirmed.")
+    public ResponseEntity<AuthMeResponse> updateMe(@Valid @RequestBody UpdateMeRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(authService.updateMyAccount(userId, request));
     }
 
     @PostMapping("/login")
@@ -76,12 +92,39 @@ public class AuthController {
 
     @GetMapping("/verify-email")
     @Operation(summary = "Verify email", description = "Verify email address using token")
-    public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token) {
-        authService.verifyEmailToken(token);
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .success(true)
-                .message("Email verified successfully")
-                .build());
+    public ResponseEntity<Object> verifyEmail(
+            @RequestParam String token,
+            @RequestHeader(value = "Accept", required = false) String acceptHeader) {
+        boolean browserRequest = acceptHeader != null && acceptHeader.contains("text/html");
+        try {
+            authService.verifyEmailToken(token);
+            if (browserRequest) {
+                URI redirect = UriComponentsBuilder.fromUriString(frontendUrl)
+                        .path("/account/verify")
+                        .queryParam("emailStatus", "success")
+                        .build(true)
+                        .toUri();
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header(HttpHeaders.LOCATION, redirect.toString())
+                        .build();
+            }
+            return ResponseEntity.ok(ApiResponse.<Void>builder()
+                    .success(true)
+                    .message("Email verified successfully")
+                    .build());
+        } catch (RuntimeException ex) {
+            if (browserRequest) {
+                URI redirect = UriComponentsBuilder.fromUriString(frontendUrl)
+                        .path("/account/verify")
+                        .queryParam("emailStatus", "error")
+                        .build(true)
+                        .toUri();
+                return ResponseEntity.status(HttpStatus.FOUND)
+                        .header(HttpHeaders.LOCATION, redirect.toString())
+                        .build();
+            }
+            throw ex;
+        }
     }
 
     @PostMapping("/resend-verification-email")

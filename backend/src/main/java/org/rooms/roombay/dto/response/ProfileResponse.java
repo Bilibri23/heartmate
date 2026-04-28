@@ -17,6 +17,7 @@ public class ProfileResponse {
     private UUID id;
     private UUID userId;
     private String bio;
+    private String city;
     private String profilePhotoUrl;
     private List<String> languages;
     private String whatsappNumber;

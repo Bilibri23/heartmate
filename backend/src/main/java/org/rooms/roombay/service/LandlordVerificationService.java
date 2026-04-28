@@ -156,9 +156,10 @@ public class LandlordVerificationService {
         LandlordVerification verification = verificationRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Please submit identity verification first"));
         
-        // Require identity verification first
-        if (verification.getIdentityStatus() != VerificationStatus.VERIFIED) {
-            throw new BadRequestException("Identity must be verified before property verification");
+        // Allow property docs alongside a pending identity packet (admin reviews together)
+        VerificationStatus idStatus = verification.getIdentityStatus();
+        if (idStatus != VerificationStatus.VERIFIED && idStatus != VerificationStatus.PENDING) {
+            throw new BadRequestException("Submit identity verification before uploading property documents");
         }
         
         if (verification.getPropertyStatus() == VerificationStatus.VERIFIED) {
@@ -277,9 +278,41 @@ public class LandlordVerificationService {
     
     @Transactional(readOnly = true)
     public LandlordVerificationResponse getVerification(UUID userId) {
-        LandlordVerification verification = verificationRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Verification not found for user: " + userId));
-        return mapToResponse(verification);
+        return verificationRepository.findByUserId(userId)
+                .map(this::mapToResponse)
+                .orElseGet(() -> buildNotStartedVerificationResponse(userId));
+    }
+
+    /**
+     * When a landlord has never started KYC, there is no row yet — return a stable "not started" payload instead of 404.
+     */
+    private LandlordVerificationResponse buildNotStartedVerificationResponse(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        String displayName = formatUserDisplayName(user);
+        return LandlordVerificationResponse.builder()
+                .id(null)
+                .userId(user.getId())
+                .userName(displayName)
+                .userEmail(user.getEmail())
+                .userPhone(user.getPhone())
+                .identityStatus(VerificationStatus.NOT_SUBMITTED.name())
+                .businessStatus(VerificationStatus.NOT_SUBMITTED.name())
+                .propertyStatus(VerificationStatus.NOT_SUBMITTED.name())
+                .verificationLevel(LandlordVerification.VerificationLevel.NONE.name())
+                .trustScore(0)
+                .isTrustedLandlord(false)
+                .totalListings(0)
+                .successfulRentals(0)
+                .reportedCount(0)
+                .build();
+    }
+
+    private static String formatUserDisplayName(User user) {
+        String first = user.getFirstName() != null ? user.getFirstName() : "";
+        String last = user.getLastName() != null ? user.getLastName() : "";
+        String combined = (first + " " + last).trim();
+        return combined.isEmpty() ? "Landlord" : combined;
     }
     
     @Transactional(readOnly = true)

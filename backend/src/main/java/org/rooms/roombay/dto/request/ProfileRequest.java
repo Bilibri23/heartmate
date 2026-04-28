@@ -16,6 +16,9 @@ public class ProfileRequest {
     @Size(max = 1000, message = "Bio must not exceed 1000 characters")
     private String bio;
 
+    @Size(max = 120, message = "City must not exceed 120 characters")
+    private String city;
+
     private String profilePhotoUrl;  // Updated field name to match the actual field
 
     private String[] languages; // English, French, Pidgin

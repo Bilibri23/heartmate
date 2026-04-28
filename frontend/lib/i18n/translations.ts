@@ -254,8 +254,22 @@ export const translations = {
       noTitle: "No title",
       noPrice: "No price",
       amenitiesCount: "amenities",
-      virtualTour: "Virtual Tour",
-      virtualTourDesc: "Upload a video walkthrough or a 360° panoramic photo (optional)",
+      virtualTour: "Virtual tour",
+      virtualTourOptionalTitle: "Virtual tour (optional)",
+      virtualTourDesc:
+        "Upload your own walkthrough video and/or a 360° photo. That media is what tenants experience as the tour today—and it is the capture we will extend for AR and VR later.",
+      virtualTourTimelineToday: "Live on your listing",
+      virtualTourTimelineNext: "AR / VR roadmap",
+      virtualTourTimelineTodayBody:
+        "Your MP4 (or 360° file) is stored and shown on the public listing as the virtual tour—no extra tooling required.",
+      virtualTourTimelineNextBody:
+        "We are designing in-browser AR (e.g. layout rehearsal) and optional VR viewings on top of these same files, so a steady walkthrough or spatial 360° now still pays off in phase 2+.",
+      videoCardArCaption:
+        "Best for storytelling: walk room-to-room slowly. That same master clip is what we will target for future AR hotspots and VR sequences—one upload, multiple depths over time.",
+      photo360CardArCaption:
+        "Equirectangular 360° is the spatial layer future VR viewers expect; it pairs well with a video when bandwidth or devices differ.",
+      virtualTourUploadedFooter:
+        "You are set for today’s tenant experience. When AR/VR ships, we will prefer reusing this asset before asking you to re-capture.",
       videoWalkthrough: "Video Walkthrough",
       tour360: "360° Virtual Tour",
       ready: "Ready",
@@ -294,6 +308,25 @@ export const translations = {
       stepPricing: "Pricing",
       stepAmenities: "Amenities",
       stepVirtualTour: "Virtual Tour",
+      photosTrustFuture:
+        "Sharp photos drive trust today; future AR previews will reuse this media—no second upload marathon.",
+    },
+    landlordJourney: {
+      immersiveTitle: "Immersive tours",
+      immersiveBadge: "AR / VR · next phase",
+      immersiveBody:
+        "Video and 360° ship now. Guided AR (\"preview my layout here\") and VR open-house slots are on the roadmap on top of the same assets—your listing flow stays one path.",
+      publishedBanner:
+        "Listing published. Open the public page to see verification, photos, and layout exactly as seekers do.",
+      publishedCta: "Preview as tenant",
+      publishedDismiss: "Dismiss",
+      compsCaption:
+        "Same discovery engine, landlord-tuned weights: use comparables to anchor rent and positioning—not to mirror someone else's photos.",
+      analyticsRoadmapTitle: "Performance today, depth tomorrow",
+      analyticsRoadmapBody:
+        "Views, saves, and applies will cluster here as demand signals mature. Deeper walkthroughs—AR staging and VR tours—layer on later without resetting your dashboard story.",
+      virtualTourArVrCallout:
+        "Phase 2+: browser AR overlays and headset-ready VR sequences will build on the video or 360° you upload here—think rehearsal before a physical visit, not a separate listing.",
     },
     applications: {
       title: "My Applications",
@@ -656,7 +689,21 @@ export const translations = {
       noPrice: "Pas de prix",
       amenitiesCount: "équipements",
       virtualTour: "Visite virtuelle",
-      virtualTourDesc: "Téléchargez une vidéo ou une photo panoramique 360° (optionnel)",
+      virtualTourOptionalTitle: "Visite virtuelle (optionnel)",
+      virtualTourDesc:
+        "Téléchargez votre propre vidéo de visite et/ou une photo 360°. Ce média est la visite que les locataires voient aujourd'hui sur l'annonce—et la base que nous étendrons ensuite en AR et VR.",
+      virtualTourTimelineToday: "En ligne sur l'annonce",
+      virtualTourTimelineNext: "Feuille de route AR / VR",
+      virtualTourTimelineTodayBody:
+        "Votre MP4 (ou fichier 360°) est conservé et affiché comme visite virtuelle sur la page publique—sans outil supplémentaire.",
+      virtualTourTimelineNextBody:
+        "Nous prévoyons de l'AR dans le navigateur (ex. répétition d'agencement) et des sessions VR optionnelles à partir des mêmes fichiers : une prise de vue soignée aujourd'hui reste utile en phase 2+.",
+      videoCardArCaption:
+        "Idéal pour raconter l'espace : avancez lentement pièce par pièce. Ce fichier servira aussi de base aux futurs points chauds AR et séquences VR—un seul upload, plusieurs niveaux d'expérience.",
+      photo360CardArCaption:
+        "Le 360° équirectangulaire est la couche spatiale attendue pour la VR ; il complète bien une vidéo selon le débit ou l'appareil.",
+      virtualTourUploadedFooter:
+        "Les locataires ont une visite complète dès maintenant. Quand l'AR/VR arrivera, nous réutiliserons d'abord ce média avant de vous demander une nouvelle capture.",
       videoWalkthrough: "Vidéo de visite",
       tour360: "Visite virtuelle 360°",
       ready: "Prêt",
@@ -695,6 +742,25 @@ export const translations = {
       stepPricing: "Tarifs",
       stepAmenities: "Équipements",
       stepVirtualTour: "Visite virtuelle",
+      photosTrustFuture:
+        "De belles photos rassurent aujourd'hui ; les prévisualisations AR réutiliseront ces médias—pas de double saisie.",
+    },
+    landlordJourney: {
+      immersiveTitle: "Visites immersives",
+      immersiveBadge: "AR / VR · phase suivante",
+      immersiveBody:
+        "Vidéo et 360° sont disponibles dès maintenant. AR guidée (« visualiser mon agencement ») et visites VR sont prévues sur la même base média—un seul parcours annonce.",
+      publishedBanner:
+        "Annonce publiée. Ouvrez la page publique pour voir vérifications, photos et mise en page comme les locataires.",
+      publishedCta: "Aperçu locataire",
+      publishedDismiss: "Fermer",
+      compsCaption:
+        "Même moteur de découverte, pondération propriétaire : servez-vous des comparables pour le prix et le positionnement, pas pour copier des photos.",
+      analyticsRoadmapTitle: "Performance aujourd'hui, profondeur demain",
+      analyticsRoadmapBody:
+        "Vues, favoris et candidatures s'afficheront ici comme signaux de demande. Des parcours plus riches—AR et VR—viendront ensuite sans casser votre tableau de bord.",
+      virtualTourArVrCallout:
+        "Phase 2+ : overlays AR dans le navigateur et séquences VR compatibles casque s'appuieront sur la vidéo ou le 360° que vous déposez ici—répétition avant visite, pas une seconde annonce.",
     },
     applications: {
       title: "Mes Candidatures",

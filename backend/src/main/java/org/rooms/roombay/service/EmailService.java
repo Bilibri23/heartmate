@@ -22,7 +22,7 @@ public class EmailService {
     @Value("${spring.mail.username:}")
     private String fromEmail;
     
-    @Value("${app.base-url:http://localhost:8080}")
+    @Value("${app.base-url:http://localhost:3000}")
     private String baseUrl;
 
     private void applyFrom(SimpleMailMessage message) {

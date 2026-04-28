@@ -5,7 +5,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.rooms.roombay.dto.request.ArMarkersUpdateRequest;
 import org.rooms.roombay.dto.request.ListingRequest;
+import org.rooms.roombay.dto.response.ArMarkerResponse;
 import org.rooms.roombay.dto.response.ApiResponse;
 import org.rooms.roombay.dto.response.ListingRecommendationResponse;
 import org.rooms.roombay.dto.response.ListingResponse;
@@ -214,6 +216,21 @@ public class ListingController {
         String videoUrl = fileUploadService.uploadVideoTour(file);
         ListingResponse response = listingService.setVideoTour(listingId, landlordId, videoUrl);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{listingId}/ar-markers")
+    @Operation(summary = "Get AR markers", description = "Get saved AR rehearsal markers for a listing")
+    public ResponseEntity<List<ArMarkerResponse>> getArMarkers(@PathVariable UUID listingId) {
+        return ResponseEntity.ok(listingService.getArMarkers(listingId));
+    }
+
+    @PutMapping("/{listingId}/ar-markers")
+    @Operation(summary = "Replace AR markers", description = "Replace all AR rehearsal markers for a listing (Landlord owner only)")
+    public ResponseEntity<List<ArMarkerResponse>> replaceArMarkers(
+            @PathVariable UUID listingId,
+            @Valid @RequestBody ArMarkersUpdateRequest request) {
+        UUID landlordId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(listingService.replaceArMarkers(listingId, landlordId, request));
     }
     
     @DeleteMapping("/photos/{photoId}")

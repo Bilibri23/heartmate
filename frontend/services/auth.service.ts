@@ -1,5 +1,5 @@
 import api from '../lib/api';
-import { LoginRequest, RegisterRequest, AuthResponse, AuthMeResponse } from '@/types/auth';
+import { LoginRequest, RegisterRequest, AuthResponse, AuthMeResponse, UpdateMeRequest } from '@/types/auth';
 
 export const authService = {
   login: async (data: LoginRequest): Promise<AuthResponse> => {
@@ -15,6 +15,27 @@ export const authService = {
   getMe: async (): Promise<AuthMeResponse> => {
     const response = await api.get<AuthMeResponse>('/auth/me');
     return response.data;
+  },
+
+  updateMe: async (data: UpdateMeRequest): Promise<AuthMeResponse> => {
+    const response = await api.patch<AuthMeResponse>('/auth/me', data);
+    return response.data;
+  },
+
+  resendVerificationEmail: async (): Promise<void> => {
+    await api.post('/auth/resend-verification-email');
+  },
+
+  sendPhoneVerificationOtp: async (phoneNumber: string): Promise<void> => {
+    await api.post('/phone-verification/send', { phoneNumber });
+  },
+
+  verifyPhoneOtp: async (otpCode: string): Promise<void> => {
+    await api.post('/phone-verification/verify', { otpCode });
+  },
+
+  resendPhoneVerificationOtp: async (): Promise<void> => {
+    await api.post('/phone-verification/resend');
   },
 
   logout: () => {

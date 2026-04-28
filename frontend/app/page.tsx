@@ -19,6 +19,7 @@ import {
   Play,
   Search,
   Shield,
+  SlidersHorizontal,
   Sparkles,
   Star,
   Sun,
@@ -56,7 +57,13 @@ const features = [
     icon: Search,
     title: "Scroll into your next home",
     description:
-      "Move through homes like content, not like a heavy real-estate search form.",
+      "The familiar feed rhythm—without treating rent like a game. Move through homes visually, then drill in when something actually fits.",
+  },
+  {
+    icon: SlidersHorizontal,
+    title: "Recommendations from your preferences",
+    description:
+      "Tenants set listing preferences—budget, area, lifestyle, roommates, timing—and For You surfaces homes that align, so you spend less time filtering and more time on serious options.",
   },
   {
     icon: Shield,
@@ -76,7 +83,7 @@ const steps = [
   {
     icon: Sparkles,
     title: "Discover",
-    copy: "Open RoomBay and instantly browse homes that match your area, timing, and budget.",
+    copy: "Create an account, add your listing preferences, and review a For You feed ranked against what you said matters—budget, location, household style, and move-in timing.",
   },
   {
     icon: MessageSquare,
@@ -258,6 +265,9 @@ export default function LandingPage() {
             </Link>
 
             <nav className={`hidden items-center gap-7 text-sm lg:flex ${styles.nav}`}>
+              <a href="#match" className={`transition ${styles.navHover}`}>
+                Your feed
+              </a>
               <a href="#features" className={`transition ${styles.navHover}`}>
                 Features
               </a>
@@ -307,6 +317,9 @@ export default function LandingPage() {
             className={`flex justify-center gap-1 border-t pt-2 sm:gap-2 sm:pt-2.5 lg:hidden ${theme === "light" ? "border-slate-200/80" : "border-white/10"} ${styles.nav}`}
             aria-label="Page sections"
           >
+            <a href="#match" className={`rounded-full px-3 py-1 text-[11px] font-medium transition sm:text-xs ${styles.navHover}`}>
+              Feed
+            </a>
             <a
               href="#features"
               className={`rounded-full px-3 py-1 text-[11px] font-medium transition sm:text-xs ${styles.navHover}`}
@@ -334,36 +347,54 @@ export default function LandingPage() {
                 className={`mb-4 inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium backdrop-blur-xl text-balance sm:mb-6 sm:px-4 sm:py-2 sm:text-sm ${styles.badge}`}
               >
                 <Sparkles className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-                <span className="leading-snug">Discovery-first housing with optional roommate intelligence</span>
+                <span className="leading-snug">
+                  Visual discovery with tenant preferences—think{" "}
+                  <span className="whitespace-nowrap font-semibold">&ldquo;Tinder for housing&rdquo;</span> with leases at
+                  the finish line.
+                </span>
               </div>
 
               <h1
-                className={`max-w-4xl text-[2.1rem] font-semibold leading-[1.02] tracking-[-0.04em] min-[380px]:text-[2.35rem] sm:text-5xl sm:leading-[0.95] sm:tracking-[-0.05em] md:text-6xl lg:text-7xl xl:text-[5.5rem] ${styles.heading}`}
+                className={`max-w-4xl text-[1.35rem] font-semibold leading-[1.2] tracking-[-0.015em] min-[380px]:text-[1.45rem] sm:text-[1.6rem] sm:leading-[1.16] md:text-[1.85rem] md:leading-[1.12] lg:text-[2rem] lg:leading-[1.1] ${styles.heading}`}
               >
-                Find your next home
-                <span className={`block bg-gradient-to-r bg-clip-text text-transparent ${styles.headlineAccent}`}>
-                  like you scroll content.
+                <span className="block">Find your next home with clarity.</span>
+                <span
+                  className={`mt-1 block max-w-3xl bg-gradient-to-r bg-clip-text text-[1.12rem] text-transparent min-[380px]:text-[1.2rem] sm:mt-1.5 sm:text-[1.32rem] md:text-[1.5rem] lg:text-[1.65rem] ${styles.headlineAccent}`}
+                >
+                  Same feed-and-shortlist instinct you already know—except your &ldquo;match&rdquo; is a listing worth
+                  touring.
                 </span>
               </h1>
 
-              <p className={`mt-4 max-w-2xl text-base leading-7 sm:mt-6 sm:text-lg sm:leading-8 md:text-xl ${styles.paragraph}`}>
-                RoomBay turns housing into a fast visual experience — discover listings, understand them instantly,
-                and take action without fighting through friction.
+              <p className={`mt-4 max-w-2xl text-[0.95rem] leading-6 sm:mt-5 sm:text-base sm:leading-7 md:text-[1.05rem] ${styles.paragraph}`}>
+                RoomBay pairs that scroll-friendly rhythm with structured preferences—budget, city, household style,
+                roommates, and timing—so the comparison to dating apps is fun, but the outcome is concrete: fewer
+                mismatches, faster decisions, real homes and landlords on the other side.
               </p>
 
-              <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
+              <div className="mt-6 flex flex-col flex-wrap gap-3 sm:mt-8 sm:flex-row">
                 <Link href="/listings">
                   <Button
                     size="lg"
                     className={`h-12 w-full rounded-full px-6 text-sm sm:h-14 sm:w-auto sm:px-7 sm:text-base ${styles.primaryBtn}`}
                     onClick={() => {
-                      if (typeof window !== "undefined") {
-                        window.dispatchEvent(new CustomEvent("analytics:anonymousBrowseStart"))
+                      if (typeof globalThis.window !== "undefined") {
+                        globalThis.window.dispatchEvent(new CustomEvent("analytics:anonymousBrowseStart"))
                       }
                     }}
                   >
-                    Start browsing
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <Search className="mr-2 h-5 w-5" />
+                    Browse listings
+                  </Button>
+                </Link>
+
+                <Link href="/register">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className={`h-12 w-full rounded-full px-6 text-sm backdrop-blur-xl sm:h-14 sm:w-auto sm:px-7 sm:text-base ${theme === "light" ? "border-slate-300 bg-white text-slate-950 hover:bg-slate-100" : "border-white/15 bg-white/6 text-white hover:bg-white/10"}`}
+                  >
+                    Create account
                   </Button>
                 </Link>
 
@@ -397,10 +428,12 @@ export default function LandingPage() {
                 <div className={`mb-4 flex items-center justify-between rounded-2xl border px-4 py-3 ${styles.visualTop}`}>
                   <div>
                     <p className={`text-sm font-medium ${styles.feedLabel}`}>For You</p>
-                    <p className={`text-base font-semibold ${styles.feedTitle}`}>Homes that match your budget and vibe</p>
+                    <p className={`text-base font-semibold ${styles.feedTitle}`}>
+                      Homes ranked from your listing preferences
+                    </p>
                   </div>
                   <div className={`rounded-full border px-3 py-1 text-xs font-semibold ${styles.feedChip}`}>
-                    Scroll feed
+                    For You
                   </div>
                 </div>
 
@@ -435,8 +468,8 @@ export default function LandingPage() {
 
                       <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
                         <div className="mb-4 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xl">
-                          <p className="text-xs uppercase tracking-[0.18em] text-cyan-100/80">Why it fits</p>
-                          <p className="mt-1 text-sm text-white/90">Within your budget • Near campus • Move-in ready</p>
+                          <p className="text-xs uppercase tracking-[0.18em] text-cyan-100/80">From your prefs</p>
+                          <p className="mt-1 text-sm text-white/90">Budget • Vibe • Roommates • Move-in window</p>
                         </div>
 
                         <div className="mb-2 flex items-center gap-2 text-sm text-white/80">
@@ -481,6 +514,94 @@ export default function LandingPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="match" className="px-4 pb-8 sm:px-6 sm:pb-10 lg:px-8">
+          <div className={`mx-auto max-w-7xl rounded-[28px] border p-6 sm:rounded-[36px] sm:p-10 ${styles.sectionCard}`}>
+            <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-12">
+              <div>
+                <div
+                  className={`mb-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+                    theme === "light"
+                      ? "border-blue-200/80 bg-blue-50 text-blue-900"
+                      : "border-cyan-400/25 bg-cyan-500/10 text-cyan-100"
+                  }`}
+                >
+                  <SlidersHorizontal className={`h-3.5 w-3.5 ${theme === "light" ? "text-blue-600" : "text-cyan-200"}`} />
+                  Tenant preferences
+                </div>
+                <h2 className={`text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl ${styles.heading}`}>
+                  A structured profile for what you need in a home.
+                </h2>
+                <p className={`mt-3 text-sm leading-7 sm:mt-4 sm:text-base sm:leading-8 ${styles.paragraph}`}>
+                  Renters capture budget, locations, living style, roommate preferences, and move-in timing in one place.
+                  RoomBay uses that to prioritize listings in For You, shorten back-and-forth, and keep applications aligned
+                  with what both sides already agreed matters.
+                </p>
+                <ul className={`mt-4 space-y-2 text-sm sm:mt-5 sm:text-base ${styles.cardMuted}`}>
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-emerald-500">✓</span>
+                    <span>For You reflects your saved preferences—not a generic catalog sort.</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-emerald-500">✓</span>
+                    <span>Landlords see motivated leads; renters understand the listing before the first message.</span>
+                  </li>
+                </ul>
+                <div className="mt-5 flex flex-col gap-2.5 sm:mt-6 sm:flex-row sm:flex-wrap">
+                  <Link href="/register">
+                    <Button size="lg" className={`h-11 w-full rounded-full px-6 sm:h-12 sm:w-auto ${styles.primaryBtn}`}>
+                      Create account
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className={`h-11 w-full rounded-full px-6 sm:h-12 sm:w-auto ${theme === "light" ? "border-slate-300 bg-white text-slate-950 hover:bg-slate-100" : "border-white/15 bg-white/6 text-white hover:bg-white/10"}`}
+                    >
+                      I already have an account
+                    </Button>
+                  </Link>
+                </div>
+                <p className={`mt-5 text-[11px] leading-relaxed sm:text-xs ${theme === "light" ? "text-slate-500" : "text-white/45"}`}>
+                  <span className={`font-semibold ${theme === "light" ? "text-slate-700" : "text-white/70"}`}>About AR:</span>{" "}
+                  augmented-reality previews (for example, visualizing layout in the room) are on our roadmap and will build
+                  on the photos and video tours landlords already upload. They are not available as a live product control
+                  yet. Today, clear media plus preferences drive better matches.
+                </p>
+              </div>
+              <div className={`relative overflow-hidden rounded-2xl border p-5 sm:rounded-3xl sm:p-6 ${styles.visualShell}`}>
+                <div className={`mb-4 rounded-xl border p-4 ${styles.visualTop}`}>
+                  <p className={`text-xs font-semibold uppercase tracking-widest ${styles.feedLabel}`}>Preference stack</p>
+                  <div className="mt-3 space-y-2">
+                    {[
+                      { k: "Rent cap", v: "≤ 280k XAF" },
+                      { k: "Vibe", v: "Quiet • furnished" },
+                      { k: "Roommates", v: "Open to 1 roommate" },
+                      { k: "Move-in", v: "Next 45 days" },
+                    ].map((row) => (
+                      <div
+                        key={row.k}
+                        className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${theme === "light" ? "border-slate-200 bg-white" : "border-white/10 bg-white/5"}`}
+                      >
+                        <span className={styles.cardMuted}>{row.k}</span>
+                        <span className={`font-medium ${styles.heading}`}>{row.v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className={`rounded-xl border p-4 ${theme === "light" ? "bg-gradient-to-br from-violet-50 to-cyan-50" : "bg-gradient-to-br from-violet-950/40 to-cyan-950/30"}`}>
+                  <p className={`text-xs font-semibold uppercase tracking-widest ${theme === "light" ? "text-violet-700" : "text-violet-200"}`}>Feed outcome</p>
+                  <p className={`mt-2 text-lg font-semibold ${styles.heading}`}>Better-aligned shortlists</p>
+                  <p className={`mt-1 text-sm ${styles.cardMuted}`}>
+                    A clearer path from browse to application—with fewer surprises at the viewing stage.
+                  </p>
                 </div>
               </div>
             </div>
@@ -544,7 +665,7 @@ export default function LandingPage() {
               </h2>
             </div>
 
-            <div className="grid gap-3 sm:gap-5 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {features.map((feature) => {
                 const Icon = feature.icon
                 return (
@@ -640,11 +761,12 @@ export default function LandingPage() {
         <section className="px-4 pb-12 pt-2 sm:px-6 sm:pb-20 sm:pt-4 lg:px-8">
           <div className={`mx-auto max-w-6xl rounded-2xl border px-5 py-8 text-center sm:rounded-[36px] sm:px-10 sm:py-12 md:py-14 ${styles.cta}`}>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200 sm:text-sm">Start now</p>
-            <h2 className="mx-auto mt-2 max-w-3xl text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-5xl">
-              Stop digging through listings. Start discovering homes that feel right.
+            <h2 className="mx-auto mt-2 max-w-3xl text-2xl font-semibold tracking-tight sm:mt-3 sm:text-3xl md:text-4xl">
+              Browse with confidence. Apply when the fit is real.
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-blue-100/85 sm:mt-4 sm:text-base sm:leading-7 md:text-lg">
-              Fast housing access, quick actions, and optional roommate help — all in one modern flow.
+              Save preferences, review listings in a visual feed, and move to messaging or an application when the match
+              makes sense—optional roommate tools stay in the background until you need them.
             </p>
             <div className="mt-6 flex flex-col justify-center gap-2.5 sm:mt-8 sm:flex-row sm:gap-3">
               <Link href="/listings">

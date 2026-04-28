@@ -6,6 +6,7 @@ import org.rooms.roombay.dto.request.LoginRequest;
 import org.rooms.roombay.dto.request.RegisterRequest;
 import org.rooms.roombay.dto.request.ResetPasswordRequest;
 import org.rooms.roombay.dto.request.ChangePasswordRequest;
+import org.rooms.roombay.dto.request.UpdateMeRequest;
 import org.rooms.roombay.dto.response.AuthMeResponse;
 import org.rooms.roombay.dto.response.AuthResponse;
 import org.rooms.roombay.entity.PasswordResetToken;
@@ -175,6 +176,67 @@ public class AuthService {
     public AuthMeResponse getAuthenticatedUser(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return AuthMeResponse.from(user);
+    }
+
+    /**
+     * Update the authenticated user's basic account fields (name, email, phone).
+     * Changing email or phone clears the corresponding verification flag; a new email sends a verification link.
+     */
+    public AuthMeResponse updateMyAccount(UUID userId, UpdateMeRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boolean emailChanged = false;
+
+        if (request.getFirstName() != null) {
+            String v = request.getFirstName().trim();
+            if (!v.isEmpty()) {
+                user.setFirstName(v);
+            }
+        }
+        if (request.getLastName() != null) {
+            String v = request.getLastName().trim();
+            if (!v.isEmpty()) {
+                user.setLastName(v);
+            }
+        }
+        if (request.getEmail() != null) {
+            String ne = request.getEmail().trim();
+            if (!ne.isEmpty()) {
+                if (!ne.equalsIgnoreCase(user.getEmail() != null ? user.getEmail() : "")) {
+                    if (!EMAIL_PATTERN.matcher(ne).matches()) {
+                        throw new BadRequestException("Invalid email format");
+                    }
+                    Optional<User> otherEmail = userRepository.findByEmail(ne);
+                    if (otherEmail.isPresent() && !otherEmail.get().getId().equals(userId)) {
+                        throw new BadRequestException("Email already in use");
+                    }
+                    user.setEmail(ne);
+                    user.setEmailVerified(false);
+                    emailChanged = true;
+                }
+            }
+        }
+        if (request.getPhone() != null) {
+            String np = request.getPhone().trim();
+            if (!np.isEmpty()) {
+                String current = user.getPhone() != null ? user.getPhone() : "";
+                if (!np.equals(current)) {
+                    Optional<User> otherPhone = userRepository.findByPhone(np);
+                    if (otherPhone.isPresent() && !otherPhone.get().getId().equals(userId)) {
+                        throw new BadRequestException("Phone number already in use");
+                    }
+                    user.setPhone(np);
+                    user.setPhoneVerified(false);
+                }
+            }
+        }
+
+        userRepository.save(user);
+        if (emailChanged) {
+            sendEmailVerification(user);
+        }
         return AuthMeResponse.from(user);
     }
 
@@ -437,6 +499,13 @@ public class AuthService {
                 user = userRepository.save(user);
                 log.info("Registered new user via Google OAuth: {}", user.getId());
             }
+        }
+
+        // Register UI chose Landlord but user row was STUDENT (existing email link, or hint arrived late).
+        if (signupRoleHint == User.UserRole.LANDLORD && user.getRole() == User.UserRole.STUDENT) {
+            user.setRole(User.UserRole.LANDLORD);
+            user = userRepository.save(user);
+            log.info("Google OAuth: applied LANDLORD signup hint for user {}", user.getId());
         }
 
         String accessToken = jwtTokenProvider.generateAccessToken(

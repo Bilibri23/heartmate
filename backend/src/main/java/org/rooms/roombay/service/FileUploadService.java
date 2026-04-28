@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -79,19 +80,15 @@ public class FileUploadService {
             
         } catch (IOException e) {
             log.error("Error uploading image to Cloudinary: {}", e.getMessage(), e);
-            String errorMessage = "Failed to upload image";
-            if (e.getMessage() != null) {
-                if (e.getMessage().contains("api.cloudinary.com") || e.getMessage().contains("Connection")) {
-                    errorMessage = "Failed to connect to Cloudinary. Please check your internet connection and Cloudinary configuration.";
-                } else if (e.getMessage().contains("cloud_name is disabled")) {
-                    errorMessage = "Cloudinary cloud_name is disabled. Please check your Cloudinary configuration or get free credentials at https://cloudinary.com/users/register/free";
-                } else {
-                    errorMessage = "Failed to upload image: " + e.getMessage();
-                }
+            if (isLikelyCloudinaryConnectivityFailure(e)) {
+                throw new BadRequestException(cloudinaryConnectivityMessage());
             }
-            throw new BadRequestException(errorMessage);
+            throw new BadRequestException("Failed to upload image: " + (e.getMessage() != null ? e.getMessage() : "I/O error"));
         } catch (Exception e) {
             log.error("Unexpected error uploading image to Cloudinary: {}", e.getMessage(), e);
+            if (isLikelyCloudinaryConnectivityFailure(e)) {
+                throw new BadRequestException(cloudinaryConnectivityMessage());
+            }
             throw new BadRequestException("Failed to upload image: " + (e.getMessage() != null ? e.getMessage() : "Unknown error"));
         }
     }
@@ -264,6 +261,36 @@ public class FileUploadService {
         
         // Use a placeholder image service or local mock URL
         return String.format("https://picsum.photos/400/300?random=%s", UUID.randomUUID().toString());
+    }
+
+    private static boolean isLikelyCloudinaryConnectivityFailure(Throwable e) {
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof UnknownHostException) {
+                return true;
+            }
+            String m = t.getMessage();
+            if (m != null) {
+                String lower = m.toLowerCase();
+                if (lower.contains("unknown host")
+                        || lower.contains("no such host")
+                        || lower.contains("api.cloudinary.com")
+                        || lower.contains("nodename nor servname")
+                        || lower.contains("failed to connect")
+                        || lower.contains("connection refused")
+                        || lower.contains("connection timed out")
+                        || lower.contains("connect timed out")) {
+                    return true;
+                }
+            }
+            t = t.getCause();
+        }
+        return false;
+    }
+
+    private static String cloudinaryConnectivityMessage() {
+        return "Could not reach Cloudinary (image host). Check internet/DNS or firewall. "
+                + "For local dev without outbound access, leave cloudinary credentials unset to use mock image URLs.";
     }
 }
 

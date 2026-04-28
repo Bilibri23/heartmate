@@ -18,7 +18,8 @@ import {
   CheckCircle,
   Loader2,
   Trash2,
-  Video
+  Video,
+  Glasses,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -378,6 +379,10 @@ export default function EditListingPage() {
             </div>
           </div>
 
+          <p className="text-xs leading-relaxed text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2.5">
+            {t.landlordJourney.compsCaption}
+          </p>
+
           <SimilarListingsRail
             seedListingId={listingId}
             purpose="comps"
@@ -389,8 +394,22 @@ export default function EditListingPage() {
 
           {/* Virtual Tour */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-slate-900">Virtual Tour (Optional)</h3>
-            
+            <div>
+              <h3 className="font-semibold text-slate-900">{t.landlordForm.virtualTourOptionalTitle}</h3>
+              <p className="mt-1 text-sm text-slate-600">{t.landlordForm.virtualTourDesc}</p>
+            </div>
+            <div className="flex gap-3 rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/90 to-slate-50 p-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white">
+                <Glasses className="h-5 w-5" aria-hidden />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-violet-900">
+                  {t.landlordJourney.immersiveBadge}
+                </p>
+                <p className="text-xs leading-relaxed text-slate-700">{t.landlordForm.videoCardArCaption}</p>
+              </div>
+            </div>
+
             {/* Existing Video Tour */}
             {existingVideoTour && (
               <div className="space-y-3">
@@ -466,10 +485,8 @@ export default function EditListingPage() {
             {!existingVideoTour && !newVideoTour && (
               <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
                 <Video className="h-8 w-8 text-slate-400 mx-auto mb-3" />
-                <h4 className="text-sm font-medium text-slate-900 mb-2">Add Virtual Tour</h4>
-                <p className="text-xs text-slate-500 mb-4">
-                  Upload a video walkthrough or 360° virtual tour
-                </p>
+                <h4 className="text-sm font-medium text-slate-900 mb-2">{t.landlordForm.videoWalkthrough}</h4>
+                <p className="text-xs text-slate-500 mb-4">{t.landlordForm.uploadVideo}</p>
                 
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <div className="bg-slate-50 rounded-lg p-2">

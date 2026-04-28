@@ -15,6 +15,8 @@ import java.util.UUID;
 public class AuthMeResponse {
     private UUID userId;
     private String email;
+    /** Phone on file (used for WhatsApp OTP; must match +237XXXXXXXXX when verifying). */
+    private String phone;
     private String firstName;
     private String lastName;
     private String role;
@@ -25,6 +27,7 @@ public class AuthMeResponse {
         return AuthMeResponse.builder()
                 .userId(u.getId())
                 .email(u.getEmail())
+                .phone(u.getPhone())
                 .firstName(u.getFirstName())
                 .lastName(u.getLastName())
                 .role(u.getRole() != null ? u.getRole().name() : null)

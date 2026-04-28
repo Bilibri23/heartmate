@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
-import { 
+import {
   TrendingUp,
   TrendingDown,
   Eye,
@@ -16,7 +16,8 @@ import {
   Calendar,
   BarChart3,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Glasses,
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import api from "@/lib/api"
@@ -42,7 +43,7 @@ interface AnalyticsData {
 }
 
 export default function LandlordAnalyticsPage() {
-  const { formatCurrency } = useLanguage()
+  const { formatCurrency, t } = useLanguage()
   const { user } = useAuth()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -290,6 +291,18 @@ export default function LandlordAnalyticsPage() {
               </p>
             </div>
           )}
+
+          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-violet-50/60 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+                <Glasses className="h-5 w-5" aria-hidden />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">{t.landlordJourney.analyticsRoadmapTitle}</h3>
+                <p className="text-xs leading-relaxed text-slate-600">{t.landlordJourney.analyticsRoadmapBody}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -48,6 +48,7 @@ public class ProfileService {
         Profile profile = Profile.builder()
                 .user(user)
                 .bio(request.getBio())
+                .city(request.getCity())
                 .profilePhotoUrl(request.getProfilePhotoUrl())
                 .languages(languages)
                 .whatsappNumber(request.getWhatsappNumber())
@@ -100,6 +101,9 @@ public class ProfileService {
             // Save empty string as-is (don't convert to null) - empty string is a valid value
             profile.setBio(request.getBio());
             log.info("Setting bio to: '{}'", request.getBio());
+        }
+        if (request.getCity() != null) {
+            profile.setCity(request.getCity().isEmpty() ? null : request.getCity().trim());
         }
         // Profile photo URL: allow empty string to clear, null means don't update
         if (request.getProfilePhotoUrl() != null) {
@@ -161,6 +165,7 @@ public class ProfileService {
                 .id(profile.getId())
                 .userId(profile.getUser().getId())
                 .bio(profile.getBio())
+                .city(profile.getCity())
                 .profilePhotoUrl(profile.getProfilePhotoUrl())
                 .languages(profile.getLanguages())
                 .whatsappNumber(profile.getWhatsappNumber())

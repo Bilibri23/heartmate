@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import { useState, Suspense } from "react"
 import { countries, getDefaultCountry, type Country } from "@/lib/countries"
+import { startGoogleOAuthWithSignupRole } from "@/lib/oauth-signup-role-cookie"
 
 const registerSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters" }),
@@ -149,8 +150,18 @@ function RegisterContent() {
 
           {showGoogleOAuth && (
             <div className="mb-6">
-              <Button type="button" variant="outline" className="h-11 w-full rounded-xl border-slate-200" asChild>
-                <a href={googleOAuthUrl}>Sign up with Google</a>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-xl border-slate-200"
+                onClick={() =>
+                  startGoogleOAuthWithSignupRole(
+                    googleOAuthUrl,
+                    signupRoleParam === "LANDLORD" ? "LANDLORD" : "STUDENT"
+                  )
+                }
+              >
+                Sign up with Google
               </Button>
               <div className="relative my-5 text-center text-xs text-slate-400">
                 <span className="bg-white px-2">or register with email</span>

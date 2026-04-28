@@ -560,18 +560,31 @@ export default function ListingDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      {/* Photo gallery — taller hero, one readable story layer (price + title + location) */}
-      <div className="relative min-h-[min(52vh,26rem)] sm:min-h-0 sm:h-[22rem] bg-slate-200 overflow-hidden">
+      {/* Photo gallery — cinematic, non-distorted hero media */}
+      <div className="relative h-[48vh] min-h-[18rem] max-h-[32rem] md:h-[58vh] md:min-h-[24rem] bg-slate-900 overflow-hidden">
         {listing.photos && listing.photos.length > 0 ? (
           <>
+            {/* Soft backdrop to avoid harsh letterboxing when preserving full frame */}
             <Image
               src={listing.photos[currentPhotoIndex].photoUrl}
               alt={listing.title}
               fill
-              className="object-cover transition-opacity duration-300"
-              priority
+              className="object-cover scale-110 blur-2xl opacity-45"
+              aria-hidden
+              sizes="100vw"
+              quality={80}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/10 pointer-events-none" />
+            {/* Main image keeps natural proportions (no squashing/cropping artifacts) */}
+            <Image
+              src={listing.photos[currentPhotoIndex].photoUrl}
+              alt={listing.title}
+              fill
+              className="object-contain transition-opacity duration-300"
+              priority
+              sizes="100vw"
+              quality={95}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10 pointer-events-none" />
 
             {listing.photos.length > 1 && (
               <>
@@ -591,7 +604,7 @@ export default function ListingDetailPage() {
                 >
                   <ChevronRight className="h-5 w-5 text-slate-800" />
                 </button>
-                <div className="absolute bottom-[6.5rem] sm:bottom-24 left-1/2 -translate-x-1/2 z-10">
+                <div className="absolute bottom-[6.8rem] sm:bottom-24 left-1/2 -translate-x-1/2 z-10">
                   <span className="px-3 py-1 rounded-full bg-black/45 backdrop-blur-md text-white text-xs font-semibold tabular-nums shadow-sm">
                     {currentPhotoIndex + 1} / {listing.photos.length}
                   </span>

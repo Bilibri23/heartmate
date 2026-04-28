@@ -28,11 +28,12 @@ public class ProfileController {
     private final ProfileService profileService;
     private final FileUploadService fileUploadService;
 
-    @PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
-    @Operation(summary = "Create a new profile", description = "Create a profile for a user")
-    public ResponseEntity<ProfileResponse> createProfile(
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Create a new profile", description = "Create a profile for a user (multipart)")
+    public ResponseEntity<ProfileResponse> createProfileMultipart(
             @RequestParam(required = false) MultipartFile file,
             @RequestParam(required = false) String bio,
+            @RequestParam(required = false) String city,
             @RequestParam(required = false) String[] languages,
             @RequestParam(required = false) String whatsappNumber,
             @RequestParam(required = false) String emergencyContactName,
@@ -41,16 +42,15 @@ public class ProfileController {
             @RequestParam(required = false) String visibility,
             @RequestParam UUID userId) {
         log.info("Creating profile for user: {}", userId);
-        
-        // Upload profile photo if provided
+
         String profilePhotoUrl = null;
         if (file != null && !file.isEmpty()) {
             profilePhotoUrl = fileUploadService.uploadProfilePhoto(file);
         }
-        
-        // Build request
+
         ProfileRequest request = ProfileRequest.builder()
                 .bio(bio)
+                .city(city)
                 .profilePhotoUrl(profilePhotoUrl)
                 .languages(languages)
                 .whatsappNumber(whatsappNumber)
@@ -59,7 +59,17 @@ public class ProfileController {
                 .emergencyContactRelationship(emergencyContactRelationship)
                 .visibility(visibility)
                 .build();
-        
+
+        ProfileResponse response = profileService.createProfile(userId, request);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Create a new profile (JSON)", description = "Create a profile using a JSON body and userId query parameter")
+    public ResponseEntity<ProfileResponse> createProfileJson(
+            @RequestParam UUID userId,
+            @RequestBody @Valid ProfileRequest request) {
+        log.info("Creating profile for user: {} (JSON)", userId);
         ProfileResponse response = profileService.createProfile(userId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -89,6 +99,7 @@ public class ProfileController {
             @PathVariable UUID userId,
             @RequestParam(required = false) MultipartFile file,
             @RequestParam(required = false) String bio,
+            @RequestParam(required = false) String city,
             @RequestParam(required = false) String[] languages,
             @RequestParam(required = false) String whatsappNumber,
             @RequestParam(required = false) String emergencyContactName,
@@ -106,6 +117,7 @@ public class ProfileController {
         // Build request from form parameters
         ProfileRequest request = ProfileRequest.builder()
                 .bio(bio)
+                .city(city)
                 .profilePhotoUrl(profilePhotoUrl)
                 .languages(languages)
                 .whatsappNumber(whatsappNumber)

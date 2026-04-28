@@ -11,6 +11,8 @@ interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
+  /** Reload user flags (e.g. emailVerified) from GET /auth/me and sync localStorage. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -105,6 +107,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const refreshUser = async () => {
+    if (typeof globalThis.window === "undefined") return;
+    const token = globalThis.window.localStorage.getItem("token");
+    if (!token) return;
+    try {
+      const me = await authService.getMe();
+      const prev = authService.getCurrentUser();
+      if (!prev) return;
+      const merged: User = {
+        ...prev,
+        firstName: me.firstName ?? prev.firstName,
+        lastName: me.lastName ?? prev.lastName,
+        emailVerified: me.emailVerified,
+        phoneVerified: me.phoneVerified,
+        email: me.email ?? prev.email,
+        phone: me.phone ?? prev.phone,
+      };
+      globalThis.window.localStorage.setItem("user", JSON.stringify(merged));
+      setUser(merged);
+    } catch {
+      /* ignore */
+    }
+  };
+
   // Protect routes — allow browsing listings/search without an account (housing-first)
   useEffect(() => {
     const isPublicRoute = (path: string) => {
@@ -120,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, router]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

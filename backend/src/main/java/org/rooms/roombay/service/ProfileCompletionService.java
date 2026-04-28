@@ -40,8 +40,10 @@ public class ProfileCompletionService {
         List<String> completed = new ArrayList<>();
         List<String> missing = new ArrayList<>();
 
-        addStep(Boolean.TRUE.equals(user.getEmailVerified()), "EMAIL_VERIFIED", completed, missing);
-        addStep(Boolean.TRUE.equals(user.getPhoneVerified()), "PHONE_VERIFIED", completed, missing);
+        // One contact channel is enough: email OR phone verified satisfies this step.
+        boolean contactVerified =
+                Boolean.TRUE.equals(user.getEmailVerified()) || Boolean.TRUE.equals(user.getPhoneVerified());
+        addStep(contactVerified, "CONTACT_VERIFIED", completed, missing);
         addStep(profileRepository.existsByUserId(userId), "PROFILE_BASICS", completed, missing);
 
         if (user.getRole() == User.UserRole.STUDENT) {
@@ -54,17 +56,13 @@ public class ProfileCompletionService {
         } else if (user.getRole() == User.UserRole.LANDLORD) {
             var landlord = landlordVerificationRepository.findByUserId(userId);
             boolean identityVerified = landlord.map(v -> v.getIdentityStatus() == LandlordVerification.VerificationStatus.VERIFIED).orElse(false);
-            boolean businessVerified = landlord.map(v -> v.getBusinessStatus() == LandlordVerification.VerificationStatus.VERIFIED).orElse(false);
             boolean propertyDocs = landlord.map(v ->
                     (v.getPropertyOwnershipDocUrl() != null && !v.getPropertyOwnershipDocUrl().isBlank()) ||
                     (v.getUtilityBillUrl() != null && !v.getUtilityBillUrl().isBlank())
             ).orElse(false);
-            boolean payoutDetails = hasPayoutDetails(user);
-
             addStep(identityVerified, "IDENTITY_VERIFICATION", completed, missing);
-            addStep(businessVerified, "BUSINESS_VERIFICATION", completed, missing);
+            // Business KYC is optional for landlords — not part of completion % or publish gate.
             addStep(propertyDocs, "PROPERTY_DOCS", completed, missing);
-            addStep(payoutDetails, "PAYOUT_DETAILS", completed, missing);
         }
 
         int total = completed.size() + missing.size();
@@ -96,28 +94,17 @@ public class ProfileCompletionService {
         }
         return switch (operation) {
             case OP_APPLY, OP_MESSAGE, OP_PAYMENT -> user.getRole() == User.UserRole.STUDENT &&
-                    !missing.contains("EMAIL_VERIFIED") &&
-                    !missing.contains("PHONE_VERIFIED") &&
+                    !missing.contains("CONTACT_VERIFIED") &&
                     !missing.contains("PROFILE_BASICS") &&
                     !missing.contains("PREFERENCES") &&
                     !missing.contains("IDENTITY_VERIFICATION");
             case OP_LISTING_PUBLISH -> user.getRole() == User.UserRole.LANDLORD &&
-                    !missing.contains("EMAIL_VERIFIED") &&
-                    !missing.contains("PHONE_VERIFIED") &&
+                    !missing.contains("CONTACT_VERIFIED") &&
                     !missing.contains("PROFILE_BASICS") &&
                     !missing.contains("IDENTITY_VERIFICATION") &&
-                    !missing.contains("BUSINESS_VERIFICATION") &&
-                    !missing.contains("PROPERTY_DOCS") &&
-                    !missing.contains("PAYOUT_DETAILS");
+                    !missing.contains("PROPERTY_DOCS");
             default -> false;
         };
-    }
-
-    private boolean hasPayoutDetails(User user) {
-        boolean hasName = user.getMomoName() != null && !user.getMomoName().isBlank();
-        boolean hasNumber = (user.getMtnMomoNumber() != null && !user.getMtnMomoNumber().isBlank()) ||
-                (user.getOrangeMoneyNumber() != null && !user.getOrangeMoneyNumber().isBlank());
-        return hasName && hasNumber;
     }
 
     private void addStep(boolean done, String step, List<String> completed, List<String> missing) {

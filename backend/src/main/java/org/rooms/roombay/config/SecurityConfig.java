@@ -2,6 +2,7 @@ package org.rooms.roombay.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -9,6 +10,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -29,6 +31,8 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final OAuthSignupRoleCaptureFilter oauthSignupRoleCaptureFilter;
     private final RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler;
+    private final SignupRoleStashingAuthorizationRequestRepository signupRoleAuthorizationRequestRepository;
+    private final OAuth2AuthorizationRequestResolver signupRoleAwareOAuth2AuthorizationRequestResolver;
 
     @Value("${cors.allowed-origins:}")
     private String corsAllowedOrigins;
@@ -36,16 +40,29 @@ public class SecurityConfig {
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             OAuthSignupRoleCaptureFilter oauthSignupRoleCaptureFilter,
-            @Autowired(required = false) RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler) {
+            @Autowired(required = false) RoomBayGoogleOAuth2SuccessHandler oauth2SuccessHandler,
+            @Autowired(required = false)
+                    SignupRoleStashingAuthorizationRequestRepository signupRoleAuthorizationRequestRepository,
+            @Autowired(required = false) OAuth2AuthorizationRequestResolver signupRoleAwareOAuth2AuthorizationRequestResolver) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.oauthSignupRoleCaptureFilter = oauthSignupRoleCaptureFilter;
         this.oauth2SuccessHandler = oauth2SuccessHandler;
+        this.signupRoleAuthorizationRequestRepository = signupRoleAuthorizationRequestRepository;
+        this.signupRoleAwareOAuth2AuthorizationRequestResolver = signupRoleAwareOAuth2AuthorizationRequestResolver;
     }
     
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         if (oauth2SuccessHandler != null) {
-            http.oauth2Login(o -> o.successHandler(oauth2SuccessHandler));
+            http.oauth2Login(o -> {
+                o.successHandler(oauth2SuccessHandler);
+                if (signupRoleAuthorizationRequestRepository != null
+                        && signupRoleAwareOAuth2AuthorizationRequestResolver != null) {
+                    o.authorizationEndpoint(a -> a
+                            .authorizationRequestRepository(signupRoleAuthorizationRequestRepository)
+                            .authorizationRequestResolver(signupRoleAwareOAuth2AuthorizationRequestResolver));
+                }
+            });
         }
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -75,6 +92,7 @@ public class SecurityConfig {
                         .requestMatchers("GET", "/api/feed").permitAll()
                         .requestMatchers("GET", "/api/listings", "/api/listings/search", "/api/listings/featured").permitAll()
                         .requestMatchers("GET", "/api/listings/*/similar").permitAll()
+                        .requestMatchers("GET", "/api/listings/*/ar-markers").permitAll()
                         .requestMatchers("GET", "/api/listings/{id}").permitAll()
                         // Authenticated endpoints
                         .requestMatchers("/api/phone-verification/**").authenticated()
@@ -98,9 +116,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
-                // Register JWT first so it has a chain order; then place OAuth role capture immediately before it.
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(oauthSignupRoleCaptureFilter, JwtAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        // Must run before Spring redirects to Google, otherwise signup_role never reaches the session.
+        if (oauth2SuccessHandler != null) {
+            http.addFilterBefore(oauthSignupRoleCaptureFilter, OAuth2AuthorizationRequestRedirectFilter.class);
+        } else {
+            http.addFilterBefore(oauthSignupRoleCaptureFilter, JwtAuthenticationFilter.class);
+        }
 
         return http.build();
     }

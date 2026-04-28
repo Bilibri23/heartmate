@@ -2,8 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import { BottomNav } from "@/components/layout/bottom-nav";
-import { Toaster } from "sonner";
-import { AssistantWidget } from "@/components/ai/assistant-widget";
+import { GlobalOverlays } from "./global-overlays";
 
 export const metadata: Metadata = {
   title: "RoomBay — Rentals in Cameroon",
@@ -35,7 +34,6 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -46,18 +44,7 @@ export default function RootLayout({
             {children}
           </main>
           <BottomNav />
-          <AssistantWidget />
-          <Toaster 
-            position="top-center" 
-            richColors 
-            closeButton
-            toastOptions={{
-              duration: 5000,
-              style: {
-                marginTop: '60px', // Below the header
-              },
-            }}
-          />
+          <GlobalOverlays />
         </Providers>
       </body>
     </html>

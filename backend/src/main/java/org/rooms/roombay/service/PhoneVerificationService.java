@@ -40,18 +40,14 @@ public class PhoneVerificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         
-        // Validate phone number format
-        if (!isValidCameroonPhoneNumber(phoneNumber)) {
-            throw new BadRequestException("Invalid phone number format. Must be +237XXXXXXXXX");
-        }
-        
         // Check if phone is already verified
         if (user.getPhoneVerified() != null && user.getPhoneVerified()) {
             throw new BadRequestException("Phone number is already verified");
         }
-        
-        // Check if phone number matches user's registered phone
-        if (!user.getPhone().equals(phoneNumber)) {
+
+        String requestedE164 = requireCameroonE164(phoneNumber, "Phone number");
+        String onFileE164 = requireCameroonE164(user.getPhone(), "Account phone");
+        if (!requestedE164.equals(onFileE164)) {
             throw new BadRequestException("Phone number does not match registered phone number");
         }
         
@@ -62,7 +58,7 @@ public class PhoneVerificationService {
             if (!otp.isExpired() && otp.getAttempts() < otp.getMaxAttempts()) {
                 // Resend the same OTP if it's still valid
                 log.info("Resending existing OTP to user {}", userId);
-                whatsAppService.sendOtp(phoneNumber, otp.getOtpCode(), user.getFirstName());
+                whatsAppService.sendOtp(requestedE164, otp.getOtpCode(), user.getFirstName());
                 return;
             }
         }
@@ -73,7 +69,7 @@ public class PhoneVerificationService {
         // Create OTP record
         PhoneVerificationOtp otp = PhoneVerificationOtp.builder()
                 .user(user)
-                .phoneNumber(phoneNumber)
+                .phoneNumber(requestedE164)
                 .otpCode(otpCode)
                 .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRATION_MINUTES))
                 .verified(false)
@@ -84,14 +80,14 @@ public class PhoneVerificationService {
         otpRepository.save(otp);
         
         // Send OTP via WhatsApp
-        boolean sent = whatsAppService.sendOtp(phoneNumber, otpCode, user.getFirstName());
+        boolean sent = whatsAppService.sendOtp(requestedE164, otpCode, user.getFirstName());
         
         if (!sent) {
             log.error("Failed to send OTP via WhatsApp to user {}", userId);
             throw new BadRequestException("Failed to send OTP. Please try again later.");
         }
         
-        log.info("OTP sent successfully to user {} for phone: {}", userId, phoneNumber);
+        log.info("OTP sent successfully to user {} for phone: {}", userId, requestedE164);
     }
     
     /**
@@ -167,14 +163,24 @@ public class PhoneVerificationService {
     }
     
     /**
-     * Validate Cameroon phone number format
+     * Normalize to +237XXXXXXXXX (9 national digits) or throw.
      */
-    private boolean isValidCameroonPhoneNumber(String phoneNumber) {
-        if (phoneNumber == null || phoneNumber.isEmpty()) {
-            return false;
+    private static String requireCameroonE164(String raw, String label) {
+        if (raw == null || raw.isBlank()) {
+            throw new BadRequestException(label + " is missing");
         }
-        // Format: +237XXXXXXXXX (9 digits after +237)
-        return phoneNumber.matches("^\\+237[0-9]{9}$");
+        String t = raw.trim().replaceAll("\\s+", "");
+        if (t.matches("^\\+237[0-9]{9}$")) {
+            return t;
+        }
+        String digits = t.replaceAll("\\D", "");
+        if (digits.length() == 12 && digits.startsWith("237")) {
+            return "+" + digits;
+        }
+        if (digits.length() == 9) {
+            return "+237" + digits;
+        }
+        throw new BadRequestException(label + " must be a Cameroon number (+237 and 9 digits)");
     }
 }
 

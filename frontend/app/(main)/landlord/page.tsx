@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
@@ -11,11 +12,11 @@ import {
   Home,
   Users,
   FileText,
-  TrendingUp,
   Eye,
   Heart,
-  ChevronRight,
-  MoreVertical
+  MoreVertical,
+  Glasses,
+  BarChart3,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -51,9 +52,12 @@ interface Listing {
   createdAt: string
 }
 
-export default function LandlordDashboard() {
+function LandlordDashboardInner() {
   const { t, formatCurrency } = useLanguage()
   const { user } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const publishedId = searchParams.get("published")
   const [stats, setStats] = useState<LandlordStats | null>(null)
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -130,6 +134,27 @@ export default function LandlordDashboard() {
         />
 
         <div className="p-4 space-y-6">
+          {publishedId && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4 shadow-sm">
+              <p className="text-sm font-medium text-emerald-900 mb-3">{t.landlordJourney.publishedBanner}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="rounded-xl bg-emerald-700 hover:bg-emerald-800"
+                  asChild
+                >
+                  <Link href={`/listings/${publishedId}`}>{t.landlordJourney.publishedCta}</Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="rounded-xl border-emerald-300 text-emerald-900"
+                  onClick={() => router.replace("/landlord")}
+                >
+                  {t.landlordJourney.publishedDismiss}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Stats Grid */}
           <div data-tour="landlord-stats" className="grid grid-cols-2 gap-3">
             {isLoading ? (
@@ -155,19 +180,42 @@ export default function LandlordDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div data-tour="landlord-quick-actions" className="flex gap-3">
-            <Link href="/landlord/listings/new" className="flex-1">
+          <div data-tour="landlord-quick-actions" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Link href="/landlord/listings/new" className="min-w-0">
               <Button className="w-full h-12 rounded-xl">
-                <Plus className="h-5 w-5 mr-2" />
+                <Plus className="h-5 w-5 mr-2 shrink-0" />
                 Add Listing
               </Button>
             </Link>
-            <Link href="/landlord/applications" className="flex-1">
+            <Link href="/landlord/applications" className="min-w-0">
               <Button variant="outline" className="w-full h-12 rounded-xl">
-                <FileText className="h-5 w-5 mr-2" />
+                <FileText className="h-5 w-5 mr-2 shrink-0" />
                 Applications
               </Button>
             </Link>
+            <Link href="/landlord/analytics" className="min-w-0">
+              <Button variant="outline" className="w-full h-12 rounded-xl">
+                <BarChart3 className="h-5 w-5 mr-2 shrink-0" />
+                Analytics
+              </Button>
+            </Link>
+          </div>
+
+          <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-slate-50 p-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white">
+                <Glasses className="h-5 w-5" aria-hidden />
+              </div>
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-semibold text-slate-900">{t.landlordJourney.immersiveTitle}</h2>
+                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-800">
+                    {t.landlordJourney.immersiveBadge}
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed text-slate-600">{t.landlordJourney.immersiveBody}</p>
+              </div>
+            </div>
           </div>
 
           {/* My Listings */}
@@ -292,5 +340,20 @@ export default function LandlordDashboard() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LandlordDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col bg-slate-50">
+          <MobileHeader title="Dashboard" />
+          <div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">Loading…</div>
+        </div>
+      }
+    >
+      <LandlordDashboardInner />
+    </Suspense>
   )
 }

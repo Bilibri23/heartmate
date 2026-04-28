@@ -41,9 +41,19 @@ export interface AuthResponse {
 export interface AuthMeResponse {
   userId: string;
   email: string;
+  /** Phone on file for OTP (E.164 +237… when valid). */
+  phone?: string | null;
   firstName: string;
   lastName: string;
   role: string;
   emailVerified?: boolean;
   phoneVerified?: boolean;
+}
+
+/** PATCH /auth/me — omit fields you do not want to change. */
+export interface UpdateMeRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
 }

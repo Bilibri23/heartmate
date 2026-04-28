@@ -154,6 +154,13 @@ export default function SettingsPage() {
               </h3>
             </div>
             <div className="divide-y divide-slate-100">
+              <Link href="/account/verify" className="flex items-center justify-between p-4">
+                <div>
+                  <p className="font-medium text-slate-900">Email &amp; phone verification</p>
+                  <p className="text-sm text-slate-500">Resend email link or WhatsApp OTP — one verified channel is enough.</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-slate-400 shrink-0" />
+              </Link>
               <Link href="/settings/password" className="flex items-center justify-between p-4">
                 <p className="font-medium text-slate-900">Change Password</p>
                 <ChevronRight className="h-5 w-5 text-slate-400" />

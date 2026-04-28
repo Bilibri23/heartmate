@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from 'react'
+import Link from "next/link"
 import { Maximize2, ExternalLink, Flag, Loader2, AlertCircle, RefreshCw, Move3d } from 'lucide-react'
 import { Button } from './button'
 
@@ -27,6 +28,7 @@ export function VirtualTourEmbed({
   title = "360° Virtual Tour",
   className = "",
   onFlag,
+  listingId,
   height = "h-96",
 }: VirtualTourEmbedProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -229,6 +231,34 @@ export function VirtualTourEmbed({
             >
               <ExternalLink className="h-4 w-4" />
             </Button>
+            {listingId && (
+              <>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="ghost"
+                  className="text-white bg-blue-600/80 backdrop-blur-sm hover:bg-blue-600"
+                  title="Enter AR rehearsal mode"
+                >
+                  <Link href={`/listings/${listingId}/ar`}>
+                    <Maximize2 className="h-4 w-4 mr-1" />
+                    AR
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="ghost"
+                  className="text-white bg-violet-600/80 backdrop-blur-sm hover:bg-violet-600"
+                  title="Enter immersive VR mode"
+                >
+                  <Link href={`/listings/${listingId}/vr`}>
+                    <Maximize2 className="h-4 w-4 mr-1" />
+                    VR
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
           <div className="bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full">
             🖱️ Drag to look around · Scroll to zoom
