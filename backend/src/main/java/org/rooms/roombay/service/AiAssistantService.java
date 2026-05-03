@@ -5,6 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.AiModelRouter;
 import org.rooms.roombay.ai.rag.AiGraphRagService;
 import org.rooms.roombay.ai.rag.AiRagRepository;
+import org.rooms.roombay.ai.safety.AiContextSanitizer;
+import org.rooms.roombay.ai.safety.AiOutputGuard;
+import org.rooms.roombay.ai.safety.AiRetrievalPolicy;
+import org.rooms.roombay.ai.safety.AiSafetyClassifier;
 import org.rooms.roombay.config.AiChatRateLimiter;
 import org.rooms.roombay.dto.request.AiChatRequest;
 import org.rooms.roombay.dto.response.AiChatResponse;
@@ -39,6 +43,10 @@ public class AiAssistantService {
     private final AiChatLogRepository chatLogRepository;
     private final AiChatRateLimiter aiChatRateLimiter;
     private final AiMemoryService aiMemoryService;
+    private final AiContextSanitizer contextSanitizer;
+    private final AiSafetyClassifier safetyClassifier;
+    private final AiOutputGuard outputGuard;
+    private final AiRetrievalPolicy retrievalPolicy;
 
     @Value("${roombay.ai.memory.max-turns:6}")
     private int memoryMaxTurns;
@@ -48,6 +56,25 @@ public class AiAssistantService {
         UUID userId = SecurityUtils.getCurrentUserId(); // ensure authenticated
         aiChatRateLimiter.checkAllowed(userId);
         String threadId = resolveThreadId(request.getThreadId());
+
+        // Layer 4 (input side): deterministic refusal short-circuit. Model is also finetuned
+        // to reproduce the same refusal copy, so the user-visible behaviour is consistent.
+        AiSafetyClassifier.Decision safety = safetyClassifier.classify(request.getMessage());
+        if (safety != AiSafetyClassifier.Decision.ALLOW) {
+            String refusalText = safetyClassifier.refusalText(safety);
+            log.info("[AI] safety short-circuit user={} decision={}", userId, safety);
+            chatLogRepository.insert(userId, request.getPersona().name(),
+                    request.getMessage(), refusalText, List.of());
+            aiMemoryService.appendTurn(userId, threadId, request.getMessage(), refusalText);
+            return AiChatResponse.builder()
+                    .answer(refusalText)
+                    .threadId(threadId)
+                    .citations(List.of())
+                    .suggestedActions(List.of())
+                    .ragGrounded(false)
+                    .build();
+        }
+
         // persona is provided by client; we still keep system prompt strict and role-agnostic.
         List<Double> qEmb = modelRouter.embed(request.getMessage());
         List<AiRagRepository.ChunkRow> chunks;
@@ -59,20 +86,24 @@ public class AiAssistantService {
             chunks = List.of();
         }
 
+        // Layer 1: drop chunks the caller's role isn't authorized to see.
+        chunks = retrievalPolicy.filter(chunks, SecurityUtils.getCurrentUserRole());
+
+        // Layer 2: sanitize chunk text + user_context before they reach the model.
         List<Map<String, Object>> contextChunks = chunks.stream().map(c -> {
             Map<String, Object> m = new java.util.HashMap<>();
             m.put("chunkId", c.getId().toString());
             m.put("source", c.getSource());
             m.put("title", c.getTitle());
-            m.put("text", c.getChunkText());
+            m.put("text", contextSanitizer.sanitize(c.getChunkText()));
             return m;
         }).toList();
 
         boolean ragGrounded = !chunks.isEmpty();
         String system = buildSystemPrompt(request.getPersona(), ragGrounded);
-        String userContext = buildUserContext(userId, request.getPersona());
+        String userContext = contextSanitizer.sanitize(buildUserContext(userId, request.getPersona()));
         List<AiMemoryService.MemoryTurn> memoryTurns = aiMemoryService.loadRecentTurns(userId, threadId, memoryMaxTurns);
-        String memoryContext = buildMemoryContext(memoryTurns);
+        String memoryContext = contextSanitizer.sanitize(buildMemoryContext(memoryTurns));
         String fullUserContext = memoryContext.isBlank() ? userContext : userContext + "\n\n" + memoryContext;
         String raw = modelRouter.chat(system, request.getMessage(), contextChunks, fullUserContext);
         ParsedAssistant parsed = parseAssistantOutput(raw);
@@ -84,13 +115,19 @@ public class AiAssistantService {
                 .build()
         ).toList();
 
-        String safeAnswer = ensureNonEmptyAnswer(parsed.answer, ragGrounded);
+        // Layer 3: post-generation guard. Replaces leaked PII or unsupported internal claims
+        // with the canonical RoomBay fallback before the answer ever reaches the user.
+        AiOutputGuard.GuardResult guard = outputGuard.guard(ensureNonEmptyAnswer(parsed.answer, ragGrounded));
+        if (guard.redacted()) {
+            log.warn("[AI] output guard redacted answer reason={}", guard.reason());
+        }
+        String safeAnswer = guard.safeText();
 
         AiChatResponse response = AiChatResponse.builder()
                 .answer(safeAnswer)
                 .threadId(threadId)
                 .citations(citations)
-                .suggestedActions(parsed.actions)
+                .suggestedActions(guard.redacted() ? List.of() : parsed.actions)
                 .ragGrounded(ragGrounded)
                 .build();
 

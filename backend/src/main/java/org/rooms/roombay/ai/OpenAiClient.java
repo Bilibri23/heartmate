@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -94,6 +95,50 @@ public class OpenAiClient {
                         Map.of("role", "user", "content", userPrompt)
                 )
         );
+
+        var client = restClientBuilder
+                .baseUrl(baseUrl)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+
+        Map<?, ?> res = client.post()
+                .uri("/chat/completions")
+                .body(payload)
+                .retrieve()
+                .body(Map.class);
+
+        if (res == null) throw new BadRequestException("Chat request failed");
+        List<?> choices = (List<?>) res.get("choices");
+        if (choices == null || choices.isEmpty()) throw new BadRequestException("Chat response was empty");
+        Map<?, ?> choice0 = (Map<?, ?>) choices.get(0);
+        Map<?, ?> message = (Map<?, ?>) choice0.get("message");
+        String content = message != null ? (String) message.get("content") : null;
+        if (content == null) throw new BadRequestException("Chat response missing content");
+        return content.trim();
+    }
+
+    /**
+     * Chat with strict JSON-object response format. Used by structured tasks (similar-listing
+     * rationale, finetune evaluator).
+     *
+     * @param modelOverride when non-blank, replaces {@link #chatModel} — e.g. an OpenAI {@code ft:...}
+     *                      fine-tuned model id. Pass {@code null} to keep using the default.
+     */
+    public String chatStructuredJson(String system, String userContent, String modelOverride) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new BadRequestException("OPENAI_API_KEY is not configured");
+        }
+        String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("model", m);
+        payload.put("temperature", 0.15);
+        payload.put("response_format", Map.of("type", "json_object"));
+        payload.put("messages", List.of(
+                Map.of("role", "system", "content", system),
+                Map.of("role", "user", "content", userContent)
+        ));
 
         var client = restClientBuilder
                 .baseUrl(baseUrl)

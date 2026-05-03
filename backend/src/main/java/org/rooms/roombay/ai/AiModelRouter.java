@@ -23,6 +23,13 @@ public class AiModelRouter {
     @Value("${AI_PROVIDER:auto}")
     private String provider; // auto | openai | ollama
 
+    /** Fine-tuned head for structured-JSON tasks only. Empty = reuse {@code OPENAI_MODEL}. */
+    @Value("${OPENAI_STRUCTURED_MODEL:}")
+    private String openAiStructuredModel;
+
+    @Value("${OLLAMA_STRUCTURED_MODEL:}")
+    private String ollamaStructuredModel;
+
     public List<Double> embed(String input) {
         if (useOpenAi()) return openAiClient.embed(input);
         return ollamaClient.embed(input);
@@ -31,6 +38,22 @@ public class AiModelRouter {
     public String chat(String system, String user, List<Map<String, Object>> contextChunks, String userContext) {
         if (useOpenAi()) return openAiClient.chat(system, user, contextChunks, userContext);
         return ollamaClient.chat(system, user, userContext, contextChunks);
+    }
+
+    /**
+     * Structured JSON generation (no RAG). Routes to {@link #openAiStructuredModel} or
+     * {@link #ollamaStructuredModel} when set, so a fine-tuned head can serve structured tasks
+     * while the main assistant keeps the base chat model.
+     */
+    public String chatStructuredJson(String system, String userJson) {
+        if (useOpenAi()) {
+            String override = openAiStructuredModel != null && !openAiStructuredModel.isBlank()
+                    ? openAiStructuredModel : null;
+            return openAiClient.chatStructuredJson(system, userJson, override);
+        }
+        String override = ollamaStructuredModel != null && !ollamaStructuredModel.isBlank()
+                ? ollamaStructuredModel : null;
+        return ollamaClient.chatStructured(system, userJson, override);
     }
 
     private boolean useOpenAi() {

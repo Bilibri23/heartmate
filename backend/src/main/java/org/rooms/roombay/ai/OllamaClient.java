@@ -119,6 +119,48 @@ public class OllamaClient {
         return response.trim();
     }
 
+    /**
+     * Structured JSON task without RAG. Honours a per-call model override so a local
+     * fine-tuned tag (e.g. {@code roombay-rationale:latest}) can be used for structured tasks
+     * while the main assistant keeps using {@link #chatModel}.
+     */
+    public String chatStructured(String system, String userJson, String modelOverride) {
+        String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
+        String prompt = system + "\n\nInput_JSON:\n" + userJson + "\n\nReply with a single JSON object only, no markdown.";
+
+        Map<String, Object> payload = Map.of("model", m, "prompt", prompt, "stream", false);
+
+        var client = restClientBuilder
+                .baseUrl(baseUrl)
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+
+        Map<?, ?> res;
+        try {
+            res = client.post()
+                    .uri("/api/generate")
+                    .body(payload)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (HttpClientErrorException.NotFound e) {
+            String fallbackModel = chooseFallbackChatModel(client, m);
+            if (fallbackModel == null) {
+                throw new BadRequestException("Ollama model not found: '" + m + "'. Pull a model or set OLLAMA_STRUCTURED_MODEL / OLLAMA_CHAT_MODEL.");
+            }
+            log.warn("[AI] Ollama structured model '{}' missing. Falling back to '{}'.", m, fallbackModel);
+            res = client.post()
+                    .uri("/api/generate")
+                    .body(Map.of("model", fallbackModel, "prompt", prompt, "stream", false))
+                    .retrieve()
+                    .body(Map.class);
+        }
+
+        if (res == null) throw new BadRequestException("Ollama chat request failed");
+        String response = (String) res.get("response");
+        if (response == null) throw new BadRequestException("Ollama chat response missing 'response'");
+        return response.trim();
+    }
+
     private String chooseFallbackChatModel(RestClient client, String preferredModel) {
         try {
             Map<?, ?> res = client.get().uri("/api/tags").retrieve().body(Map.class);
