@@ -240,8 +240,11 @@ public class AiFinetuneDatasetService {
 
             boolean isJson = "json_object".equalsIgnoreCase(e.getResponseFormat());
             boolean okJson = !isJson || isValidJsonObject(output);
-            boolean leakage = sanitizer.containsSensitiveData(output)
-                    || outputGuard.guard(output).redacted();
+            AiOutputGuard.GuardResult guard = outputGuard.guard(output);
+            boolean guardLeakage = guard.redacted()
+                    && ("sensitive_content".equals(guard.reason())
+                    || "ungrounded_claim".equals(guard.reason()));
+            boolean leakage = sanitizer.containsSensitiveData(output) || guardLeakage;
             boolean refusalOk = e.getKind() == AiFinetuneExample.Kind.REFUSAL
                     ? looksLikeRefusal(output)
                     : true;
@@ -296,7 +299,11 @@ public class AiFinetuneDatasetService {
             return false;
         }
         String lower = output.toLowerCase(Locale.ROOT);
-        return (lower.contains("can't") || lower.contains("cannot") || lower.contains("not able"))
+        return (lower.contains("can't")
+                || lower.contains("cannot")
+                || lower.contains("not able")
+                || lower.contains("unable")
+                || lower.contains("not allowed"))
                 && !output.contains("[REDACTED_");
     }
 

@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS ai_entities (
     label TEXT,
     source_document_id UUID NOT NULL REFERENCES ai_documents(id) ON DELETE CASCADE,
     metadata JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,npm run dev
     CONSTRAINT uq_ai_entities_canonical UNIQUE (canonical_key)
 );
 

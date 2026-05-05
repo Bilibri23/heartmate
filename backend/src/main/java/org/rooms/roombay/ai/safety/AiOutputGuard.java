@@ -17,10 +17,13 @@ public class AiOutputGuard {
 
     private static final String FALLBACK =
             "I’m not able to share that here. If this is about your own account or application, " +
-                    "open the relevant screen in RoomBay or contact our support team.";
+                    "open the relevant screen in RoomBay or contact support@roombay.com.";
 
     private static final Pattern UNGROUNDED_CLAIM = Pattern.compile(
             "(?i)(I\\s+have\\s+access\\s+to|admin\\s+notes?\\s+say|the\\s+database\\s+shows)"
+    );
+    private static final Pattern BYPASS_GUIDANCE = Pattern.compile(
+            "(?i)(bypass|evade|get\\s+around|skip\\s+verification|avoid\\s+verification|verification\\s+freelancer|without\\s+verification)"
     );
 
     private final AiContextSanitizer sanitizer;
@@ -38,6 +41,10 @@ public class AiOutputGuard {
         if (UNGROUNDED_CLAIM.matcher(modelText).find()) {
             log.warn("[AI] output guard tripped: ungrounded internal-data claim");
             return new GuardResult(FALLBACK, true, "ungrounded_claim");
+        }
+        if (BYPASS_GUIDANCE.matcher(modelText).find()) {
+            log.warn("[AI] output guard tripped: bypass-guidance content detected");
+            return new GuardResult(FALLBACK, true, "bypass_guidance");
         }
         return new GuardResult(modelText, false, "ok");
     }
