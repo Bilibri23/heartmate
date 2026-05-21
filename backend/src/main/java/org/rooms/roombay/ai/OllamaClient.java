@@ -20,7 +20,8 @@ import java.util.Map;
  *
  * Env vars:
  * - OLLAMA_BASE_URL (default http://localhost:11434)
- * - OLLAMA_CHAT_MODEL (default llama3.1)
+ * - OLLAMA_CHAT_MODEL (default llama3.2)
+ * - OLLAMA_FINETUNE_CHAT_MODEL (optional; overrides chat model for RAG assistant)
  * - OLLAMA_EMBEDDING_MODEL (default nomic-embed-text)
  */
 @Component
@@ -76,6 +77,15 @@ public class OllamaClient {
     }
 
     public String chat(String system, String user, String userContext, List<Map<String, Object>> contextChunks) {
+        return chat(system, user, userContext, contextChunks, null);
+    }
+
+    /**
+     * @param modelOverride when non-blank, used instead of {@link #chatModel} (e.g. fine-tuned Ollama tag).
+     */
+    public String chat(String system, String user, String userContext, List<Map<String, Object>> contextChunks,
+                       String modelOverride) {
+        String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
         String contextJson = contextChunks == null || contextChunks.isEmpty() ? "[]" : contextChunks.toString();
 
         String prompt = system + "\n\n" +
@@ -86,7 +96,7 @@ public class OllamaClient {
                 "Retrieved_context_chunks:\n" + contextJson + "\n\n" +
                 "Answer:";
 
-        Map<String, Object> payload = Map.of("model", chatModel, "prompt", prompt, "stream", false);
+        Map<String, Object> payload = Map.of("model", m, "prompt", prompt, "stream", false);
 
         var client = restClientBuilder
                 .baseUrl(baseUrl)
@@ -101,11 +111,11 @@ public class OllamaClient {
                     .retrieve()
                     .body(Map.class);
         } catch (HttpClientErrorException.NotFound e) {
-            String fallbackModel = chooseFallbackChatModel(client, chatModel);
+            String fallbackModel = chooseFallbackChatModel(client, m);
             if (fallbackModel == null) {
-                throw new BadRequestException("Ollama chat model not found: '" + chatModel + "'. Pull a model first (e.g. `ollama pull llama3.2`) or set OLLAMA_CHAT_MODEL.");
+                throw new BadRequestException("Ollama chat model not found: '" + m + "'. Pull a model first (e.g. `ollama pull llama3.2`) or set OLLAMA_CHAT_MODEL / OLLAMA_FINETUNE_CHAT_MODEL.");
             }
-            log.warn("[AI] Ollama model '{}' missing. Falling back to '{}'.", chatModel, fallbackModel);
+            log.warn("[AI] Ollama model '{}' missing. Falling back to '{}'.", m, fallbackModel);
             res = client.post()
                     .uri("/api/generate")
                     .body(Map.of("model", fallbackModel, "prompt", prompt, "stream", false))

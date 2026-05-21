@@ -5,9 +5,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.util.StringUtils;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -23,7 +25,16 @@ import java.time.Duration;
 @EnableCaching
 public class RedisConfig {
     private static final Logger log = LoggerFactory.getLogger(RedisConfig.class);
-    
+
+    @Value("${spring.data.redis.host:localhost}")
+    private String redisHost;
+
+    @Value("${spring.data.redis.port:6379}")
+    private int redisPort;
+
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
     /**
      * Redis connection factory - only created if Redis is enabled
      */
@@ -32,8 +43,11 @@ public class RedisConfig {
     public JedisConnectionFactory jedisConnectionFactory() {
         try {
             RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-            config.setHostName("localhost");
-            config.setPort(6379);
+            config.setHostName(redisHost);
+            config.setPort(redisPort);
+            if (StringUtils.hasText(redisPassword)) {
+                config.setPassword(redisPassword);
+            }
             JedisConnectionFactory factory = new JedisConnectionFactory(config);
             factory.afterPropertiesSet();
             factory.getConnection().ping();

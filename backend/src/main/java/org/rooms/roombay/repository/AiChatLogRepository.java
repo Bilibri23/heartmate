@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Repository
@@ -26,6 +27,25 @@ public class AiChatLogRepository {
         } catch (Exception e) {
             throw new BadRequestException("Failed to persist AI chat log: " + e.getMessage());
         }
+    }
+
+    public List<Map<String, Object>> listRecent(int limit) {
+        int cap = Math.max(1, Math.min(limit, 500));
+        return jdbcTemplate.queryForList(
+                """
+                SELECT id,
+                       user_id,
+                       persona,
+                       user_message,
+                       assistant_answer,
+                       COALESCE(jsonb_array_length(citation_chunk_ids), 0) AS citation_count,
+                       created_at
+                FROM ai_chat_logs
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                cap
+        );
     }
 }
 

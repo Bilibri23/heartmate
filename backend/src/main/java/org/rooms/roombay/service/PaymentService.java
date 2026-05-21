@@ -12,6 +12,7 @@ import org.rooms.roombay.exception.ResourceNotFoundException;
 import org.rooms.roombay.repository.LeaseRepository;
 import org.rooms.roombay.repository.PaymentRepository;
 import org.rooms.roombay.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,10 +33,13 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final LeaseService leaseService;
     private final NotificationService notificationService;
-    
-    // Platform configuration - Cameroon Mobile Money
-    private static final String MTN_MOMO_NUMBER = "670000000"; // Replace with actual
-    private static final String ORANGE_MONEY_NUMBER = "690000000"; // Replace with actual
+
+    @Value("${roombay.payments.platform-mtn-momo:670000000}")
+    private String platformMtnMomoNumber;
+
+    @Value("${roombay.payments.platform-orange-money:690000000}")
+    private String platformOrangeMoneyNumber;
+
     // Pass-through MVP: the platform does not take a fee; fees can be reintroduced later
     private static final double PLATFORM_FEE_PERCENTAGE = 0.0; // 0% commission for MVP
     
@@ -280,8 +284,8 @@ public class PaymentService {
         
         // Get landlord's MoMo numbers, fallback to platform defaults
         User landlord = payment.getRecipient();
-        String mtnNumber = landlord.getMtnMomoNumber() != null ? landlord.getMtnMomoNumber() : MTN_MOMO_NUMBER;
-        String orangeNumber = landlord.getOrangeMoneyNumber() != null ? landlord.getOrangeMoneyNumber() : ORANGE_MONEY_NUMBER;
+        String mtnNumber = landlord.getMtnMomoNumber() != null ? landlord.getMtnMomoNumber() : platformMtnMomoNumber;
+        String orangeNumber = landlord.getOrangeMoneyNumber() != null ? landlord.getOrangeMoneyNumber() : platformOrangeMoneyNumber;
         String recipientName = landlord.getMomoName() != null ? landlord.getMomoName() : 
                                (landlord.getFirstName() + " " + landlord.getLastName());
         

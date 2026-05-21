@@ -9,6 +9,6 @@ Use this list to mirror the four operational items that often get cut off after 
 | 3 | **Elasticsearch:** Set `roombay.search.elasticsearch.enabled=true` and `spring.elasticsearch.uris` to your cluster; restart backend; **Admin → Reindex** and verify document count. See [`backend/docs/ELASTICSEARCH-SETUP.md`](../backend/docs/ELASTICSEARCH-SETUP.md). | [ ] |
 | 4 | **Secrets only via env:** `JWT_SECRET`, Cloudinary keys, `SENTRY_DSN`, DB credentials, and any tokens must live in **`.env` or your host secret manager** — never committed. Rotate anything that was ever committed in git history. | [ ] |
 
-**Related:** [`mvp-vision-vs-implementation-gaps.md`](mvp-vision-vs-implementation-gaps.md), [`system-gaps-and-recommendations.md`](system-gaps-and-recommendations.md), [`onboarding-ux-and-flows.md`](onboarding-ux-and-flows.md), [`platform-ai-brain.md`](platform-ai-brain.md).
+**Related:** [`mvp-vision-vs-implementation-gaps.md`](mvp-vision-vs-implementation-gaps.md), [`system-gaps-and-recommendations.md`](system-gaps-and-recommendations.md), [`onboarding-ux-and-flows.md`](onboarding-ux-and-flows.md), [`platform-ai-brain.md`](platform-ai-brain.md), [`deploy/production-deploy.md`](deploy/production-deploy.md).
 
-**Google OAuth (staging):** `app.oauth.google.enabled=true`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI `{API}/login/oauth2/code/google`; frontend `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED=true`.
+**Google OAuth (production):** Redirect URI `https://www.roombay.com/login/oauth2/code/google` (Vercel proxy). See [`deploy/google-oauth.md`](../deploy/google-oauth.md).

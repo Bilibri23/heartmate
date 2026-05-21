@@ -36,7 +36,8 @@ public class AiIngestionService {
 
         List<Path> files;
         try {
-            files = Files.list(dir)
+            files = Files.walk(dir)
+                    .filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".md"))
                     .sorted()
                     .collect(Collectors.toList());
@@ -51,7 +52,8 @@ public class AiIngestionService {
         boolean skippedUnchanged = false;
 
         for (Path p : files) {
-            String source = "docs/" + p.getFileName();
+            String relative = dir.relativize(p).toString().replace('\\', '/');
+            String source = "docs/" + relative;
             String text;
             try {
                 text = Files.readString(p);

@@ -27,7 +27,9 @@ public class AiChatRequest {
 
     public enum Persona {
         TENANT,
-        LANDLORD
+        LANDLORD,
+        /** Platform administrator; server forces this when JWT role is ADMIN. */
+        ADMIN
     }
 }
 

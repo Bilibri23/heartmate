@@ -149,15 +149,78 @@ All endpoints require `ROLE_ADMIN`.
      `ft:gpt-4o-mini:org:...` model id.
    - **Local (Ollama)**: train a LoRA / QLoRA with your tooling of choice and `ollama
      create roombay-rationale -f Modelfile`.
-7. **Wire the fine-tuned head** for the structured tasks only:
-   - `OPENAI_STRUCTURED_MODEL=ft:gpt-4o-mini:...` (or `OLLAMA_STRUCTURED_MODEL=roombay-rationale`)
-   - Restart the backend. The main assistant chat keeps using `OPENAI_MODEL`; the
-     `chatStructuredJson` path now uses your finetune.
+7. **Wire the fine-tuned model**:
+   - **Structured JSON only** (similar-listing rationale, eval rows with `json_object`):
+     `OPENAI_STRUCTURED_MODEL=ft:...` or `OLLAMA_STRUCTURED_MODEL=your-tag`
+   - **Main RAG chat** (STYLE / REFUSAL / FALLBACK behaviour you trained):
+     `OPENAI_FINETUNE_CHAT_MODEL=ft:...` or `OLLAMA_FINETUNE_CHAT_MODEL=your-roombay-chat-tag`
+     When unset, chat uses the base `OPENAI_MODEL` / `OLLAMA_CHAT_MODEL` as before.
+   - Restart the backend after changing any of these.
 8. **Re-eval**: `POST /api/ai/admin/finetune/eval`. Compare to baseline. The fine-tuned
    head should improve `validJson` and length, and at minimum tie on `passedRefusal` and
    `passedNoLeak`.
 9. **Promote**: when the numbers are clearly better and a manual spot-check passes, leave
    the env var set in production. To roll back, unset it.
+
+### Why seed questions and live chat can still differ
+
+Training examples bundle a **fixed** `sanitizedContext`. Live `/api/ai/chat` uses **retrieval**
+from the ingested doc corpus plus a **different** system prompt and optional post-processing.
+Pointing `OLLAMA_FINETUNE_CHAT_MODEL` (or `OPENAI_FINETUNE_CHAT_MODEL`) at your assistant
+fine-tune fixes the **behavioural prior**; aligning answers with seed text still requires
+**good RAG coverage** (re-ingest after doc moves) and prompt tuning.
+
+---
+
+## 6b. Three actors (tenant, landlord, admin)
+
+**Spring Security role** (`STUDENT` | `LANDLORD` | `ADMIN` from the JWT) is the source of
+truth for **what data may appear in RAG** (`AiRetrievalPolicy` drops `docs/admin/`,
+`docs/internal/`, `docs/security/` for non-admins).
+
+**Chat persona** (`AiChatRequest.persona`) must be **derived on the server** so clients
+cannot spoof: `ADMIN` → `ADMIN`; `LANDLORD` → `LANDLORD`; `STUDENT` (tenant) → `TENANT`.
+Add `ADMIN` to the `Persona` enum in `AiChatRequest` and `AiFinetuneExample`; use an
+admin-specific system line and minimal `User_context` (no tenant/landlord aggregate
+stats for the admin user unless you intentionally add safe platform stats later).
+
+**Frontend**: expose the assistant to admins and send `persona: "ADMIN"` (the backend
+still forces persona from JWT). Today the floating widget can hide admins — enable it for
+`user.role === "ADMIN"` with persona `ADMIN`.
+
+---
+
+## 6c. Classified doc paths and ingest
+
+`AiRetrievalPolicy` keys off chunk **`source`** paths. Ingestion must store paths like
+`docs/admin/…`, `docs/security/…`, `docs/internal/…` so filtering works.
+
+- Move admin runbooks under `docs/admin/` (e.g. `ai-admin-runbook.md`).
+- Move security runbooks under `docs/security/`.
+- Move engineering-only notes under `docs/internal/`.
+- Change `AiIngestionService` to **`Files.walk` all `*.md`** under `AI_DOCS_DIR` and set
+  `source = "docs/" + relativePath` (forward slashes).
+
+After moving files, run **admin ingest** with `force=true` so vectors match new paths.
+
+---
+
+## 6d. Implementation checklist (apply in Agent mode)
+
+Plan mode in Cursor may block edits to `.java` / `.ts` files. When Agent mode is enabled,
+implement:
+
+| Area | Change |
+|------|--------|
+| `OllamaClient` | `chat(..., String modelOverride)` — use override when non-blank, else `OLLAMA_CHAT_MODEL`. |
+| `OpenAiClient` | `chat(..., String modelOverride)` — same for `OPENAI_MODEL`. |
+| `AiModelRouter` | Inject `OLLAMA_FINETUNE_CHAT_MODEL` / `OPENAI_FINETUNE_CHAT_MODEL`; pass override into both clients’ `chat`. |
+| `AiChatRequest` | Add enum value `ADMIN`. |
+| `AiFinetuneExample` | Add `ADMIN` to `Persona` (column is `VARCHAR`, no migration). |
+| `AiAssistantService` | `resolveEffectivePersona(request)` from `SecurityUtils.getCurrentUserRole()`; use everywhere instead of `request.getPersona()`; `buildSystemPrompt` / `buildUserContext` / `suggestNextStep` branches for `ADMIN`. |
+| `AiIngestionService` | Recursive markdown walk; `source` = `docs/` + relativized path. |
+| Docs layout | Create `docs/admin`, `docs/security`, `docs/internal`; move files; re-ingest. |
+| Frontend | `AiPersona` includes `ADMIN`; assistant widget shows for admins with `ADMIN` persona; greeting copy for admin. |
 
 ---
 
@@ -293,3 +356,42 @@ Gate definition (all runs must pass):
 - `passedRefusal == total`
 
 Artifacts are written under `tmp/ai-promotion-check-<timestamp>/`.
+
+---
+
+## 11. Real-chat feedback loop (hard negatives)
+
+Synthetic examples give a baseline, but quality jumps when you train on real failures from
+`ai_chat_logs`.
+
+### A) Mine draft failures from recent chats
+
+```powershell
+.\scripts\ai-finetune-mine-hard-negatives.ps1 -Token "<admin-access-token>" -RecentLimit 300 -MaxDrafts 80
+```
+
+This calls:
+
+- `GET /api/ai/admin/finetune/hard-negatives?recentLimit=300&maxDrafts=80`
+
+and writes:
+
+- `tmp/ai-hard-negatives-<timestamp>/hard-negatives.json`
+- `tmp/ai-hard-negatives-<timestamp>/hard-negatives-draft.jsonl`
+
+### B) Curate before import
+
+For each draft row:
+
+1. Keep the user message.
+2. Rewrite `draftIdealAssistant` into the exact product behavior you want.
+3. Confirm the `suggestedKind`.
+4. Add the final row via `POST /api/ai/admin/finetune/examples`.
+
+### C) Re-run the gate
+
+```powershell
+.\scripts\ai-finetune-promotion-check.ps1 -Token "<admin-access-token>" -Runs 3 -LimitPerKind 10
+```
+
+Repeat weekly: mine -> curate -> evaluate -> promote.

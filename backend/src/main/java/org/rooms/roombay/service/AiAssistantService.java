@@ -27,11 +27,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiAssistantService {
+    private static final int MAX_VISIBLE_ANSWER_CHARS = 520;
+    private static final Pattern NEXT_STEP_PATTERN = Pattern.compile("(?i)\\bnext\\s*step\\b");
 
     private final AiModelRouter modelRouter;
     private final AiGraphRagService graphRagService;
@@ -56,6 +59,7 @@ public class AiAssistantService {
         UUID userId = SecurityUtils.getCurrentUserId(); // ensure authenticated
         aiChatRateLimiter.checkAllowed(userId);
         String threadId = resolveThreadId(request.getThreadId());
+        AiChatRequest.Persona persona = resolveEffectivePersona(request);
 
         // Layer 4 (input side): deterministic refusal short-circuit. Model is also finetuned
         // to reproduce the same refusal copy, so the user-visible behaviour is consistent.
@@ -63,7 +67,7 @@ public class AiAssistantService {
         if (safety != AiSafetyClassifier.Decision.ALLOW) {
             String refusalText = safetyClassifier.refusalText(safety);
             log.info("[AI] safety short-circuit user={} decision={}", userId, safety);
-            chatLogRepository.insert(userId, request.getPersona().name(),
+            chatLogRepository.insert(userId, persona.name(),
                     request.getMessage(), refusalText, List.of());
             aiMemoryService.appendTurn(userId, threadId, request.getMessage(), refusalText);
             return AiChatResponse.builder()
@@ -75,7 +79,7 @@ public class AiAssistantService {
                     .build();
         }
 
-        // persona is provided by client; we still keep system prompt strict and role-agnostic.
+        // Persona is derived from authenticated role to prevent client spoofing.
         List<Double> qEmb = modelRouter.embed(request.getMessage());
         List<AiRagRepository.ChunkRow> chunks;
         try {
@@ -100,8 +104,8 @@ public class AiAssistantService {
         }).toList();
 
         boolean ragGrounded = !chunks.isEmpty();
-        String system = buildSystemPrompt(request.getPersona(), ragGrounded);
-        String userContext = contextSanitizer.sanitize(buildUserContext(userId, request.getPersona()));
+        String system = buildSystemPrompt(persona, ragGrounded);
+        String userContext = contextSanitizer.sanitize(buildUserContext(userId, persona));
         List<AiMemoryService.MemoryTurn> memoryTurns = aiMemoryService.loadRecentTurns(userId, threadId, memoryMaxTurns);
         String memoryContext = contextSanitizer.sanitize(buildMemoryContext(memoryTurns));
         String fullUserContext = memoryContext.isBlank() ? userContext : userContext + "\n\n" + memoryContext;
@@ -117,7 +121,13 @@ public class AiAssistantService {
 
         // Layer 3: post-generation guard. Replaces leaked PII or unsupported internal claims
         // with the canonical RoomBay fallback before the answer ever reaches the user.
-        AiOutputGuard.GuardResult guard = outputGuard.guard(ensureNonEmptyAnswer(parsed.answer, ragGrounded));
+        String styledAnswer = enforceExpectedChatStyle(
+                ensureNonEmptyAnswer(parsed.answer, ragGrounded),
+                persona,
+                ragGrounded,
+                request.getMessage()
+        );
+        AiOutputGuard.GuardResult guard = outputGuard.guard(styledAnswer);
         if (guard.redacted()) {
             log.warn("[AI] output guard redacted answer reason={}", guard.reason());
         }
@@ -136,7 +146,7 @@ public class AiAssistantService {
 
         chatLogRepository.insert(
                 userId,
-                request.getPersona().name(),
+                persona.name(),
                 request.getMessage(),
                 response.getAnswer(),
                 citations.stream().map(AiChatResponse.Citation::getChunkId).toList()
@@ -147,9 +157,14 @@ public class AiAssistantService {
     }
 
     private String buildSystemPrompt(AiChatRequest.Persona persona, boolean hasDocContext) {
-        String personaLine = persona == AiChatRequest.Persona.LANDLORD
-                ? "You are helping a landlord user of RoomBay."
-                : "You are helping a tenant user of RoomBay.";
+        String personaLine;
+        if (persona == AiChatRequest.Persona.ADMIN) {
+            personaLine = "You are helping a RoomBay platform administrator.";
+        } else if (persona == AiChatRequest.Persona.LANDLORD) {
+            personaLine = "You are helping a landlord user of RoomBay.";
+        } else {
+            personaLine = "You are helping a tenant user of RoomBay.";
+        }
 
         String noKb = "";
         if (!hasDocContext) {
@@ -176,6 +191,8 @@ public class AiAssistantService {
                 "Rules:",
                 "- Only answer questions about RoomBay features, workflows, and policies.",
                 "- Use the retrieved context chunks and the User_context lines to ground your answer; do not invent features.",
+                "- Keep the visible answer short and practical (normally 2-5 sentences).",
+                "- End with a clear 'Next step:' line whenever relevant.",
                 "- Never claim that landlords view, receive, or verify tenant government ID or selfie uploads; tenant verification documents are reviewed by admin. Landlords see application and lease-related information as the app provides — not the tenant verification document packet.",
                 "- For “what makes RoomBay unique” or differentiation questions, prioritize: (1) vision — home discovery as easy as booking a ride or shopping on Amazon; (2) feed/reels-style low-friction discovery (TikTok-like skim) and very fast first-pass decisions; (3) trust layers (admin-reviewed verification, leases) without misstating landlord access to tenant ID docs.",
                 "- If the answer isn't in the context, say so briefly and point to a relevant in-app screen.",
@@ -195,6 +212,12 @@ public class AiAssistantService {
         String role = SecurityUtils.getCurrentUserRole();
         lines.add("role=" + role);
         lines.add("persona=" + persona.name());
+
+        if (persona == AiChatRequest.Persona.ADMIN) {
+            lines.add("adminContext=true");
+            lines.add("adminSafety=never expose private user data, verification docs, or internal-only notes in chat");
+            return String.join("\n", lines);
+        }
 
         if (persona == AiChatRequest.Persona.TENANT) {
             var v = studentVerificationRepository.findByUserId(userId);
@@ -239,6 +262,17 @@ public class AiAssistantService {
             return UUID.randomUUID().toString();
         }
         return requestThreadId.trim();
+    }
+
+    private static AiChatRequest.Persona resolveEffectivePersona(AiChatRequest request) {
+        String role = SecurityUtils.getCurrentUserRole();
+        if ("ADMIN".equalsIgnoreCase(role)) {
+            return AiChatRequest.Persona.ADMIN;
+        }
+        if ("LANDLORD".equalsIgnoreCase(role)) {
+            return AiChatRequest.Persona.LANDLORD;
+        }
+        return AiChatRequest.Persona.TENANT;
     }
 
     private String ensureNonEmptyAnswer(String answer, boolean ragGrounded) {
@@ -314,6 +348,64 @@ public class AiAssistantService {
         String s = sb.toString().trim();
         s = s.replaceAll("(?i)\\(chunkId:\\s*[a-f0-9\\-]{36}\\)\\s*", "");
         return s.trim();
+    }
+
+    /**
+     * Last-mile response shaping so live chat output matches product expectations:
+     * short, practical, and with a clear next action.
+     */
+    private String enforceExpectedChatStyle(
+            String answer,
+            AiChatRequest.Persona persona,
+            boolean ragGrounded,
+            String userMessage) {
+        if (answer == null || answer.isBlank()) {
+            return answer;
+        }
+        String out = answer.trim();
+        out = out.replaceAll("\\n{3,}", "\n\n");
+
+        if (out.length() > MAX_VISIBLE_ANSWER_CHARS) {
+            out = trimToSentenceBoundary(out, MAX_VISIBLE_ANSWER_CHARS);
+        }
+
+        if (!NEXT_STEP_PATTERN.matcher(out).find()) {
+            out = out + "\n\nNext step: " + suggestNextStep(persona, ragGrounded, userMessage);
+        }
+        return out.trim();
+    }
+
+    private static String trimToSentenceBoundary(String text, int maxChars) {
+        if (text.length() <= maxChars) return text;
+        int cut = text.lastIndexOf('.', maxChars);
+        if (cut < maxChars / 2) {
+            cut = text.lastIndexOf('\n', maxChars);
+        }
+        if (cut < maxChars / 2) {
+            cut = maxChars;
+        }
+        return text.substring(0, cut).trim();
+    }
+
+    private static String suggestNextStep(AiChatRequest.Persona persona, boolean ragGrounded, String userMessage) {
+        String msg = userMessage == null ? "" : userMessage.toLowerCase();
+        if (msg.contains("trust") || msg.contains("scam") || msg.contains("safe")) {
+            return "use in-app messaging, request a viewing time, and verify the listing badge before any payment.";
+        }
+        if (msg.contains("pay") || msg.contains("payment") || msg.contains("rent")) {
+            return "complete payment inside RoomBay so your transaction stays protected.";
+        }
+        if (!ragGrounded) {
+            return persona == AiChatRequest.Persona.ADMIN
+                    ? "open the Admin dashboard and follow the runbook for this queue, or contact support@roombay.com."
+                    : "open the relevant RoomBay screen (Search, Leases, or Dashboard) or contact support@roombay.com.";
+        }
+        if (persona == AiChatRequest.Persona.ADMIN) {
+            return "open the Admin dashboard for the relevant queue and follow the documented checklist.";
+        }
+        return persona == AiChatRequest.Persona.LANDLORD
+                ? "open your Landlord dashboard and follow the pending action shown there."
+                : "open the listing and continue through the in-app flow.";
     }
 }
 

@@ -103,4 +103,13 @@ public class AiFinetuneAdminController {
             @RequestParam(defaultValue = "5") int limitPerKind) {
         return ResponseEntity.ok(datasetService.evaluate(limitPerKind));
     }
+
+    @GetMapping("/hard-negatives")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Draft hard negatives from chat logs", description = "Scans recent ai_chat_logs and returns draft examples for manual curation.")
+    public ResponseEntity<List<Map<String, Object>>> hardNegatives(
+            @RequestParam(defaultValue = "200") int recentLimit,
+            @RequestParam(defaultValue = "50") int maxDrafts) {
+        return ResponseEntity.ok(datasetService.draftHardNegatives(recentLimit, maxDrafts));
+    }
 }

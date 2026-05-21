@@ -72,9 +72,19 @@ public class OpenAiClient {
     }
 
     public String chat(String system, String user, List<Map<String, Object>> contextChunks, String userContext) {
+        return chat(system, user, contextChunks, userContext, null);
+    }
+
+    /**
+     * @param modelOverride when non-blank, replaces {@link #chatModel} (e.g. {@code ft:...} fine-tuned id).
+     */
+    public String chat(String system, String user, List<Map<String, Object>> contextChunks, String userContext,
+                       String modelOverride) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new BadRequestException("OPENAI_API_KEY is not configured");
         }
+
+        String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
 
         String contextJson = contextChunks == null || contextChunks.isEmpty()
                 ? "[]"
@@ -88,7 +98,7 @@ public class OpenAiClient {
                 contextJson;
 
         Map<String, Object> payload = Map.of(
-                "model", chatModel,
+                "model", m,
                 "temperature", 0.2,
                 "messages", List.of(
                         Map.of("role", "system", "content", system),

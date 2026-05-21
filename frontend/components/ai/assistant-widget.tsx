@@ -15,14 +15,13 @@ export function AssistantWidget() {
 
   const shouldShow = useMemo(() => {
     if (!user?.id) return false
-    if (user.role === "ADMIN") return false
     if (!pathname) return false
     if (pathname === "/") return false
     if (pathname.startsWith("/login") || pathname.startsWith("/register")) return false
     return true
   }, [pathname, user?.id, user?.role])
 
-  const persona = user?.role === "LANDLORD" ? "LANDLORD" : "TENANT"
+  const persona = user?.role === "ADMIN" ? "ADMIN" : user?.role === "LANDLORD" ? "LANDLORD" : "TENANT"
 
   if (!shouldShow) return null
 

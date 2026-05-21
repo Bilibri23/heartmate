@@ -15,6 +15,7 @@ import org.rooms.roombay.entity.AiFinetuneExample;
 import org.rooms.roombay.exception.BadRequestException;
 import org.rooms.roombay.exception.ResourceNotFoundException;
 import org.rooms.roombay.repository.AiFinetuneExampleRepository;
+import org.rooms.roombay.repository.AiChatLogRepository;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +54,7 @@ public class AiFinetuneDatasetService {
     private final AiModelRouter modelRouter;
     private final AiContextSanitizer sanitizer;
     private final AiOutputGuard outputGuard;
+    private final AiChatLogRepository chatLogRepository;
 
     @Transactional
     public AiFinetuneExampleResponse create(AiFinetuneExampleRequest req, UUID createdBy) {
@@ -278,6 +280,47 @@ public class AiFinetuneDatasetService {
                 .build();
     }
 
+    /**
+     * Builds draft hard-negative rows from recent chat logs so admins can curate
+     * real production failures into finetune examples.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> draftHardNegatives(int recentLimit, int maxDrafts) {
+        int recentCap = recentLimit <= 0 ? 200 : Math.min(recentLimit, 1000);
+        int draftCap = maxDrafts <= 0 ? 50 : Math.min(maxDrafts, 200);
+
+        List<Map<String, Object>> logs = chatLogRepository.listRecent(recentCap);
+        List<Map<String, Object>> drafts = new ArrayList<>();
+
+        for (Map<String, Object> row : logs) {
+            if (drafts.size() >= draftCap) break;
+
+            String userMessage = safeStr(row.get("user_message"));
+            String answer = safeStr(row.get("assistant_answer"));
+            int citationCount = toInt(row.get("citation_count"));
+
+            String reason = detectDraftReason(answer, citationCount);
+            if (reason == null) continue;
+
+            String suggestedKind = suggestKindFromMessage(userMessage);
+            String ideal = suggestedIdealAnswer(suggestedKind, userMessage);
+
+            Map<String, Object> draft = new LinkedHashMap<>();
+            draft.put("chatLogId", safeStr(row.get("id")));
+            draft.put("createdAt", safeStr(row.get("created_at")));
+            draft.put("persona", safeStr(row.get("persona")));
+            draft.put("userMessage", userMessage);
+            draft.put("assistantAnswer", answer);
+            draft.put("citationCount", citationCount);
+            draft.put("reason", reason);
+            draft.put("suggestedKind", suggestedKind);
+            draft.put("suggestedResponseFormat", "text");
+            draft.put("draftIdealAssistant", ideal);
+            drafts.add(draft);
+        }
+        return drafts;
+    }
+
     private String composeSystem(AiFinetuneExample e) {
         String tag = "json_object".equalsIgnoreCase(e.getResponseFormat())
                 ? "\n\n# response_format: json_object"
@@ -389,5 +432,57 @@ public class AiFinetuneDatasetService {
         if (v == null) return null;
         String s = String.valueOf(v);
         return s.isBlank() ? null : s;
+    }
+
+    private static String safeStr(Object v) {
+        return v == null ? "" : String.valueOf(v);
+    }
+
+    private static int toInt(Object v) {
+        if (v instanceof Number n) return n.intValue();
+        try {
+            return Integer.parseInt(String.valueOf(v));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private static String detectDraftReason(String answer, int citationCount) {
+        if (answer == null || answer.isBlank()) return "empty_answer";
+        String lower = answer.toLowerCase(Locale.ROOT);
+        if (lower.contains("could not format a full answer")) return "format_failure";
+        if (lower.contains("as an ai language model")) return "generic_ai_disclaimer";
+        if (lower.contains("i'm sorry") && answer.length() > 220) return "overlong_apology";
+        if (citationCount == 0 && answer.length() > 260) return "ungrounded_long_answer";
+        if (answer.length() > 700) return "too_verbose";
+        return null;
+    }
+
+    private static String suggestKindFromMessage(String userMessage) {
+        String m = userMessage == null ? "" : userMessage.toLowerCase(Locale.ROOT);
+        if (m.contains("phone") || m.contains("email") || m.contains("admin note")
+                || m.contains("verification document") || m.contains("bypass")) {
+            return "REFUSAL";
+        }
+        if (m.contains("policy code") || m.contains("not in docs")) {
+            return "FALLBACK";
+        }
+        if (m.contains("recommended for me") || m.contains("recommend")) {
+            return "RECOMMENDATION";
+        }
+        return "STYLE";
+    }
+
+    private static String suggestedIdealAnswer(String kind, String userMessage) {
+        return switch (kind) {
+            case "REFUSAL" ->
+                    "I can’t help with that request. I cannot share private user data, internal notes, or verification documents. If this concerns your own account, please use the correct RoomBay screen or contact support@roombay.com.";
+            case "FALLBACK" ->
+                    "I do not have enough verified information to confirm that detail. Please check the relevant RoomBay help page or contact support@roombay.com for official guidance.";
+            case "RECOMMENDATION" ->
+                    "Prioritize listings that match budget, location, and trust signals. Next step: shortlist top 3 and request viewing through RoomBay chat.";
+            default ->
+                    "Give a short, practical RoomBay answer with a clear next action. Avoid overpromising and keep the response grounded.";
+        };
     }
 }

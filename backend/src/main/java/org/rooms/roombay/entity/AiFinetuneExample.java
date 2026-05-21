@@ -32,7 +32,7 @@ public class AiFinetuneExample {
 
     public enum Kind { STYLE, REFUSAL, FALLBACK, STRUCTURED, RECOMMENDATION }
 
-    public enum Persona { TENANT, LANDLORD, NEUTRAL }
+    public enum Persona { TENANT, LANDLORD, NEUTRAL, ADMIN }
 
     public enum ResponseFormat { TEXT, JSON_OBJECT }
 

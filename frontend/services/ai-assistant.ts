@@ -1,6 +1,6 @@
 import api from "@/lib/api"
 
-export type AiPersona = "TENANT" | "LANDLORD"
+export type AiPersona = "TENANT" | "LANDLORD" | "ADMIN"
 
 export type AiCitation = {
   chunkId: string

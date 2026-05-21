@@ -30,14 +30,27 @@ public class AiModelRouter {
     @Value("${OLLAMA_STRUCTURED_MODEL:}")
     private String ollamaStructuredModel;
 
+    /** When set, RAG chat uses this model (e.g. Ollama fine-tuned tag) instead of the base chat model. */
+    @Value("${OPENAI_FINETUNE_CHAT_MODEL:}")
+    private String openAiFinetuneChatModel;
+
+    @Value("${OLLAMA_FINETUNE_CHAT_MODEL:}")
+    private String ollamaFinetuneChatModel;
+
     public List<Double> embed(String input) {
         if (useOpenAi()) return openAiClient.embed(input);
         return ollamaClient.embed(input);
     }
 
     public String chat(String system, String user, List<Map<String, Object>> contextChunks, String userContext) {
-        if (useOpenAi()) return openAiClient.chat(system, user, contextChunks, userContext);
-        return ollamaClient.chat(system, user, userContext, contextChunks);
+        if (useOpenAi()) {
+            String override = (openAiFinetuneChatModel != null && !openAiFinetuneChatModel.isBlank())
+                    ? openAiFinetuneChatModel : null;
+            return openAiClient.chat(system, user, contextChunks, userContext, override);
+        }
+        String override = (ollamaFinetuneChatModel != null && !ollamaFinetuneChatModel.isBlank())
+                ? ollamaFinetuneChatModel : null;
+        return ollamaClient.chat(system, user, userContext, contextChunks, override);
     }
 
     /**
