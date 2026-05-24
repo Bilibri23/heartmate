@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, Suspense } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
@@ -28,7 +28,7 @@ function profileEditHref(role: string | undefined) {
   return "/profile/edit"
 }
 
-export default function AccountVerifyPage() {
+function AccountVerifyContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user, isLoading: authLoading, refreshUser } = useAuth()
@@ -322,5 +322,22 @@ export default function AccountVerifyPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AccountVerifyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col bg-slate-50">
+          <MobileHeader title="Verify account" showNotifications={false} showLanguage={false} />
+          <div className="flex flex-1 items-center justify-center p-6">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        </div>
+      }
+    >
+      <AccountVerifyContent />
+    </Suspense>
   )
 }
