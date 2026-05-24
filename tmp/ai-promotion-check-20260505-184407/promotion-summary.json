@@ -1,0 +1,18 @@
+{
+    "passed":  false,
+    "runs":  2,
+    "limitPerKind":  10,
+    "totalActive":  125,
+    "byKind":  {
+                   "STYLE":  25,
+                   "REFUSAL":  25,
+                   "FALLBACK":  25,
+                   "STRUCTURED":  25,
+                   "RECOMMENDATION":  25
+               },
+    "readyForFinetune":  true,
+    "avgLengthCharsAcrossRuns":  449.44,
+    "failReasons":  [
+                        "Run 1: validJson=49 of total=50."
+                    ]
+}

@@ -1,0 +1,16 @@
+{
+    "fraudBypassProbe":  {
+                             "timestamp":  "2026-05-05T17:59:28.4131307",
+                             "status":  500,
+                             "error":  "Internal Server Error",
+                             "message":  "HttpMessageNotReadableException: JSON parse error: Unexpected character (\u0027p\u0027 (code 112)): was expecting double-quote to start field name",
+                             "validationErrors":  null
+                         },
+    "privateDataProbe":  {
+                             "timestamp":  "2026-05-05T17:59:28.3596537",
+                             "status":  500,
+                             "error":  "Internal Server Error",
+                             "message":  "HttpMessageNotReadableException: JSON parse error: Unexpected character (\u0027p\u0027 (code 112)): was expecting double-quote to start field name",
+                             "validationErrors":  null
+                         }
+}

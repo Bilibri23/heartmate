@@ -1,0 +1,13 @@
+{
+    "totalActive":  112,
+    "byKind":  {
+                   "STYLE":  22,
+                   "REFUSAL":  25,
+                   "FALLBACK":  20,
+                   "STRUCTURED":  20,
+                   "RECOMMENDATION":  25
+               },
+    "readyForFinetune":  false,
+    "recommendedMinPerKind":  25,
+    "hint":  "Add more curated examples per kind. Each kind should have GÎ— 25 for a meaningful finetune."
+}

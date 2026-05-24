@@ -1,0 +1,13 @@
+{
+    "totalActive":  125,
+    "byKind":  {
+                   "STYLE":  25,
+                   "REFUSAL":  25,
+                   "FALLBACK":  25,
+                   "STRUCTURED":  25,
+                   "RECOMMENDATION":  25
+               },
+    "readyForFinetune":  true,
+    "recommendedMinPerKind":  25,
+    "hint":  "Dataset has at least 25 examples per kind. You can export JSONL and submit a finetune job."
+}
