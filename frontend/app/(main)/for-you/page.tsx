@@ -84,7 +84,7 @@ export default function ForYouPage() {
       verified: Boolean(l.verified),
       trustTier: (l.trustTier as string) ?? null,
       featured: Boolean(l.featured),
-      averageRating: l.averageRating != null ? Number(l.averageRating) : null,
+      averageRating: l.averageRating != null ? Number(l.averageRating) : undefined,
       reviewCount: Number(l.reviewCount ?? 0),
       status: statusStr,
       isAvailable:
