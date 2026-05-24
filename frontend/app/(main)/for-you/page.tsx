@@ -92,7 +92,7 @@ export default function ForYouPage() {
           ? Boolean(l.isAvailable)
           : statusStr
             ? statusStr === "ACTIVE"
-            : null,
+            : undefined,
     }
   }
 
@@ -110,23 +110,23 @@ export default function ForYouPage() {
         },
       })
       const data = res.data || {}
-      const forYouItems = data.forYou?.items ?? []
-      const trendingItems = data.trending?.items ?? []
-      const recentItems = data.recent?.items ?? []
-      setListings(forYouItems.map((l) => normalizeListing(l as Record<string, unknown>)))
-      setTrendingListings(trendingItems.map((l) => normalizeListing(l as Record<string, unknown>, ["TRENDING_VIEWS"])))
-      setRecentListings(recentItems.map((l) => normalizeListing(l as Record<string, unknown>, ["NEW_LISTING"])))
+      const forYouItems: Record<string, unknown>[] = data.forYou?.items ?? []
+      const trendingItems: Record<string, unknown>[] = data.trending?.items ?? []
+      const recentItems: Record<string, unknown>[] = data.recent?.items ?? []
+      setListings(forYouItems.map((l) => normalizeListing(l)))
+      setTrendingListings(trendingItems.map((l) => normalizeListing(l, ["TRENDING_VIEWS"])))
+      setRecentListings(recentItems.map((l) => normalizeListing(l, ["NEW_LISTING"])))
     } catch (err: unknown) {
       console.error("Failed to fetch listings:", err)
       setError(err instanceof Error ? err.message : "Failed to load listings")
       try {
         const res = await api.get("/listings/active", { params: user?.id ? { userId: user.id } : {} })
-        const all = res.data || []
-        const trending = [...all].sort((a, b) => (b.viewsCount || 0) - (a.viewsCount || 0)).slice(0, 12)
-        const recent = [...all].sort((a, b) => (new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())).slice(0, 12)
-        setListings(all.slice(0, 12).map((l) => normalizeListing(l as Record<string, unknown>, ["BROWSE_POPULAR"])))
-        setTrendingListings(trending.map((l) => normalizeListing(l as Record<string, unknown>, ["TRENDING_VIEWS"])))
-        setRecentListings(recent.map((l) => normalizeListing(l as Record<string, unknown>, ["NEW_LISTING"])))
+        const all: Record<string, unknown>[] = res.data || []
+        const trending = [...all].sort((a, b) => ((b.viewsCount as number) || 0) - ((a.viewsCount as number) || 0)).slice(0, 12)
+        const recent = [...all].sort((a, b) => (new Date((b.createdAt as string) || 0).getTime() - new Date((a.createdAt as string) || 0).getTime())).slice(0, 12)
+        setListings(all.slice(0, 12).map((l) => normalizeListing(l, ["BROWSE_POPULAR"])))
+        setTrendingListings(trending.map((l) => normalizeListing(l, ["TRENDING_VIEWS"])))
+        setRecentListings(recent.map((l) => normalizeListing(l, ["NEW_LISTING"])))
       } catch { /* ignore */ }
     } finally {
       setIsLoading(false)

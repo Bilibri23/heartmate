@@ -9,6 +9,7 @@ import { translations } from "@/lib/i18n/translations"
 import { cn } from "@/lib/utils"
 
 type AppMessages = typeof translations.en
+type TranslationValues = typeof translations.en | typeof translations.fr
 
 interface NavItem {
   href: string
@@ -33,7 +34,7 @@ function isNavItemActive(pathname: string | null | undefined, href: string): boo
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-function studentNavItems(t: AppMessages): NavItem[] {
+function studentNavItems(t: TranslationValues): NavItem[] {
   return [
     { href: "/for-you", icon: Sparkles, label: t.nav.discoverHome },
     { href: "/search", icon: Search, label: t.nav.search },
@@ -53,7 +54,7 @@ function landlordNavItems(t: { nav: { home: string; applications: string; messag
   ]
 }
 
-function adminNavItems(t: AppMessages): NavItem[] {
+function adminNavItems(t: TranslationValues): NavItem[] {
   return [
     { href: "/admin", icon: Home, label: t.nav.home },
     { href: "/admin/verifications", icon: Shield, label: "Verify" },
