@@ -6,11 +6,12 @@ import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
-import { MessageSquare, Search } from "lucide-react"
+import { MessageSquare, Search, WifiOff } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
 import api from "@/lib/api"
 
 interface Conversation {
@@ -29,28 +30,36 @@ export default function MessagesPage() {
   const { user } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 
   const fetchConversations = useCallback(async () => {
     if (!user?.id) return
-    
     setIsLoading(true)
+    setError(null)
     try {
       const response = await api.get("/messages/conversations")
-      // Map backend response to frontend format
-      const mapped = (response.data || []).map((conv: any) => ({
-        id: conv.userId || conv.id,
-        participantId: conv.userId,
-        participantName: conv.participantName || `${conv.firstName || ''} ${conv.lastName || ''}`.trim() || 'Unknown User',
-        participantPhotoUrl: conv.participantPhotoUrl || conv.profilePhotoUrl || null,
-        lastMessage: conv.lastMessage?.content || conv.lastMessage || '',
-        lastMessageTime: conv.lastMessageTime,
-        unreadCount: conv.unreadCount || 0,
-        listingTitle: conv.listingTitle,
+      const mapped = (response.data || []).map((conv: Record<string, unknown>) => ({
+        id: (conv.userId as string) || (conv.id as string),
+        participantId: conv.userId as string,
+        participantName: (conv.participantName as string) || `${(conv.firstName as string) || ''} ${(conv.lastName as string) || ''}`.trim() || 'Unknown User',
+        participantPhotoUrl: (conv.participantPhotoUrl as string) || (conv.profilePhotoUrl as string) || null,
+        lastMessage: (conv.lastMessage as { content?: string })?.content || (conv.lastMessage as string) || '',
+        lastMessageTime: conv.lastMessageTime as string,
+        unreadCount: (conv.unreadCount as number) || 0,
+        listingTitle: conv.listingTitle as string | undefined,
       }))
       setConversations(mapped)
     } catch (err) {
       console.error("Failed to fetch conversations:", err)
+      const status = (err as { response?: { status?: number } })?.response?.status
+      setError(
+        status === 503 || status === 502
+          ? "Our server is warming up — try again in a moment."
+          : status === 401
+            ? "Your session expired. Please sign in again."
+            : "Couldn't load messages. Check your connection and retry."
+      )
     } finally {
       setIsLoading(false)
     }
@@ -127,8 +136,26 @@ export default function MessagesPage() {
           </div>
         )}
 
+        {/* Error Banner */}
+        {error && !isLoading && (
+          <div className="mx-4 mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <WifiOff className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-amber-900">{error}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100"
+              onClick={fetchConversations}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
         {/* Empty State */}
-        {!isLoading && conversations.length === 0 && (
+        {!isLoading && !error && conversations.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
             <div className="bg-slate-100 p-6 rounded-full mb-4">
               <MessageSquare className="h-12 w-12 text-slate-400" />

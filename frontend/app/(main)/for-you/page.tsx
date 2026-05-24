@@ -7,7 +7,7 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Clock, Filter, Flame, Star } from "lucide-react"
+import { Clock, Filter, Flame, Star, WifiOff } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -118,16 +118,28 @@ export default function ForYouPage() {
       setRecentListings(recentItems.map((l) => normalizeListing(l, ["NEW_LISTING"])))
     } catch (err: unknown) {
       console.error("Failed to fetch listings:", err)
-      setError(err instanceof Error ? err.message : "Failed to load listings")
+      // Detect HTTP status for user-friendly messaging
+      const status = (err as { response?: { status?: number } })?.response?.status
+      const friendlyError =
+        status === 503 || status === 502
+          ? "Our server is warming up — listings will appear shortly. Pull down to retry."
+          : status === 401
+            ? "Please sign in again to view listings."
+            : "Couldn't load listings right now. Check your connection and try again."
+      setError(friendlyError)
+      // Try the simple fallback endpoint — if it succeeds, clear the error banner
       try {
         const res = await api.get("/listings/active", { params: user?.id ? { userId: user.id } : {} })
         const all: Record<string, unknown>[] = res.data || []
-        const trending = [...all].sort((a, b) => ((b.viewsCount as number) || 0) - ((a.viewsCount as number) || 0)).slice(0, 12)
-        const recent = [...all].sort((a, b) => (new Date((b.createdAt as string) || 0).getTime() - new Date((a.createdAt as string) || 0).getTime())).slice(0, 12)
-        setListings(all.slice(0, 12).map((l) => normalizeListing(l, ["BROWSE_POPULAR"])))
-        setTrendingListings(trending.map((l) => normalizeListing(l, ["TRENDING_VIEWS"])))
-        setRecentListings(recent.map((l) => normalizeListing(l, ["NEW_LISTING"])))
-      } catch { /* ignore */ }
+        if (all.length > 0) {
+          const trending = [...all].sort((a, b) => ((b.viewsCount as number) || 0) - ((a.viewsCount as number) || 0)).slice(0, 12)
+          const recent = [...all].sort((a, b) => (new Date((b.createdAt as string) || 0).getTime() - new Date((a.createdAt as string) || 0).getTime())).slice(0, 12)
+          setListings(all.slice(0, 12).map((l) => normalizeListing(l, ["BROWSE_POPULAR"])))
+          setTrendingListings(trending.map((l) => normalizeListing(l, ["TRENDING_VIEWS"])))
+          setRecentListings(recent.map((l) => normalizeListing(l, ["NEW_LISTING"])))
+          setError(null) // fallback succeeded — hide the error banner
+        }
+      } catch { /* ignore fallback failure — keep friendly error message */ }
     } finally {
       setIsLoading(false)
     }
@@ -263,13 +275,23 @@ export default function ForYouPage() {
           )}
 
           {error && !isLoading && (
-            <div className="text-center py-12 px-4">
-              <p className="text-slate-500 mb-4">{error}</p>
-              <Button onClick={fetchAllSections}>{t.common.retry}</Button>
+            <div className="mx-4 mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+              <WifiOff className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-900">{error}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100"
+                onClick={fetchAllSections}
+              >
+                {t.common.retry}
+              </Button>
             </div>
           )}
 
-          {!isLoading && !error && (
+          {!isLoading && (listings.length > 0 || trendingListings.length > 0 || recentListings.length > 0) && (
             <>
               {/* Row 1: For You */}
               <div data-tour="tenant-feed">
