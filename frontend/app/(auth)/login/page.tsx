@@ -34,7 +34,7 @@ export default function LoginPage() {
   // Default to visible so local testing doesn't silently hide OAuth.
   const showGoogleOAuth = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED !== "false"
   // Same-origin OAuth so localhost stays on localhost and ngrok stays on ngrok.
-  const googleOAuthUrl = "/oauth2/authorization/google"
+  const googleOAuthUrl = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/google`
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),

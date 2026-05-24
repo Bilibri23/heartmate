@@ -59,7 +59,7 @@ function RegisterContent() {
   // Same-origin OAuth so localhost stays on localhost and ngrok stays on ngrok (avoids .env pointing at a dead tunnel).
   const signupRoleParam =
     selectedRole === "LANDLORD" ? "LANDLORD" : "STUDENT"
-  const googleOAuthUrl = `/oauth2/authorization/google?signup_role=${encodeURIComponent(signupRoleParam)}`
+  const googleOAuthUrl = `${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/google?signup_role=${encodeURIComponent(signupRoleParam)}`
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
