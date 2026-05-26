@@ -4,7 +4,10 @@ import { Providers } from "./providers";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { GlobalOverlays } from "./global-overlays";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://roombay.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "RoomBay — Rentals in Cameroon",
   description: "Find your perfect student accommodation in Cameroon. Search rooms, apartments, and connect with verified landlords.",
   manifest: "/manifest.json",
