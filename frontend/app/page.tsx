@@ -8,12 +8,14 @@ import { useAuth } from "@/context/auth-context"
 import {
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Heart,
   Home,
   MapPin,
   MessageSquare,
   Play,
+  Quote,
   Search,
   ShieldCheck,
   Sparkles,
@@ -61,6 +63,21 @@ const reelCards = [
   { title: "Room in Shared Flat", location: "Soa", price: "75,000 XAF/mo", tag: "New", image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80" },
 ]
 
+const testimonials = [
+  { name: "Aisha M.", role: "Student at Soa University", text: "I used to waste entire afternoons visiting apartments that looked nothing like the photos. RoomBay's video tours saved me weeks of frustration. Found my studio in 3 days.", rating: 5, city: "Soa" },
+  { name: "Jean-Paul K.", role: "Software Engineer", text: "Moved from Buea to Douala for work. The verified listings and trust scores gave me confidence to book a viewing without the usual back-and-forth. Best rental experience in Cameroon.", rating: 5, city: "Douala" },
+  { name: "Esther N.", role: "Landlord, Bonamoussadi", text: "As a landlord, I appreciate that RoomBay actually verifies properties. The quality of inquiries improved dramatically. Serious tenants who already watched the video tour before messaging.", rating: 5, city: "Douala" },
+]
+
+const faqs = [
+  { question: "How does RoomBay verify listings?", answer: "Every listing is manually reviewed by our admin team before going live. We verify the landlord's identity, cross-check property documents, and flag suspicious behavior. Listings with video tours get priority placement." },
+  { question: "Is RoomBay free for renters?", answer: "Yes, browsing and contacting landlords is completely free for renters. We never charge frais de visite or any hidden fees. Our revenue comes from landlord subscriptions and featured listings." },
+  { question: "What cities does RoomBay cover?", answer: "We currently focus on Cameroon's major rental markets: Douala, Yaoundé, Soa, Bastos, Logbessou, and Bonamoussadi. We're actively expanding to Buea and other cities across the country." },
+  { question: "Can I list my property if I'm not a professional landlord?", answer: "Absolutely. Whether you have one room or a full apartment building, you can list on RoomBay. We guide you through the verification process to ensure your listing gets maximum visibility." },
+  { question: "How does the AI search work?", answer: "Type naturally — like 'furnished studio near University of Douala under 150k with parking.' Our AI extracts location, budget, and amenities, then surfaces the best matches with a fit score. No more endless checkbox filtering." },
+  { question: "What if I encounter a suspicious listing?", answer: "Report it instantly through the flag button on any listing. Our team investigates within 24 hours. We also proactively scan for red flags using automated checks and community reports." },
+]
+
 export default function LandingPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
@@ -68,6 +85,7 @@ export default function LandingPage() {
   const [query, setQuery] = useState("")
   const [chips, setChips] = useState<string[]>([])
   const [showDemoListing, setShowDemoListing] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -441,6 +459,123 @@ export default function LandingPage() {
                       <p className="mt-1 text-sm text-white">&ldquo;Show me quiet places near Soa University under 100k&rdquo;</p>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="testimonials" className="px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-8 text-center sm:mb-12">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Testimonials</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">Trusted by renters & landlords across Cameroon.</h2>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
+              {testimonials.map((t) => (
+                <div key={t.name} className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:rounded-[28px] sm:p-7">
+                  <Quote className="h-6 w-6 text-cyan-300/60" />
+                  <p className="mt-3 text-sm leading-7 text-white/75 sm:text-base sm:leading-8">{t.text}</p>
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 text-xs font-semibold text-white">
+                      {t.name.split(" ").map(n => n[0]).join("")}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">{t.name}</p>
+                      <p className="text-xs text-white/50">{t.role}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-0.5">
+                    {Array.from({ length: t.rating }).map((_, i) => (
+                      <Star key={i} className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" className="border-y border-white/8 bg-white/[0.03] px-4 py-12 backdrop-blur-sm sm:px-6 sm:py-16 lg:px-8">
+          <div className="mx-auto max-w-3xl">
+            <div className="mb-8 text-center sm:mb-12">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">FAQ</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">Questions? We have answers.</h2>
+            </div>
+            <div className="space-y-3">
+              {faqs.map((faq, i) => {
+                const isOpen = openFaq === i
+                return (
+                  <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.05] transition sm:rounded-[24px]">
+                    <button
+                      onClick={() => setOpenFaq(isOpen ? null : i)}
+                      className="flex w-full items-center justify-between gap-4 p-4 text-left sm:p-5"
+                    >
+                      <span className="text-sm font-semibold text-white sm:text-base">{faq.question}</span>
+                      <ChevronDown className={`h-5 w-5 shrink-0 text-white/50 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    {isOpen && (
+                      <div className="px-4 pb-4 text-sm leading-7 text-white/60 sm:px-5 sm:pb-5 sm:text-base sm:leading-8">
+                        {faq.answer}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="beta" className="px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Founding users</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">Help shape the future of housing in Cameroon.</h2>
+                <p className="mt-3 max-w-xl text-sm leading-7 text-white/60 sm:text-base sm:leading-8">
+                  RoomBay is live — but we&apos;re just getting started. Be among the first to test AR room visualization, AI concierge, and premium landlord tools before anyone else.
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
+                  <Link href="/register">
+                    <Button size="lg" className="h-12 w-full rounded-full bg-white px-6 text-sm font-semibold text-slate-950 hover:bg-slate-200 sm:h-14 sm:w-auto sm:text-base">
+                      Become a Beta Tester
+                    </Button>
+                  </Link>
+                  <Link href="/listings">
+                    <Button size="lg" variant="outline" className="h-12 w-full rounded-full border-white/15 bg-white/6 px-6 text-sm text-white hover:bg-white/10 sm:h-14 sm:w-auto sm:text-base">
+                      Browse Listings
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 sm:rounded-[28px] sm:p-7">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 to-violet-500/20 sm:mb-5 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <Sparkles className="h-5 w-5 text-cyan-300" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white sm:text-xl">AI Housing Concierge Pro</h3>
+                  <p className="mt-2 text-sm leading-6 text-white/55 sm:mt-3 sm:text-base sm:leading-7">Natural language search that actually understands context. Early testers get unlimited AI queries.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 sm:rounded-[28px] sm:p-7">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-400/20 to-pink-500/20 sm:mb-5 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <Play className="h-5 w-5 text-violet-300" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white sm:text-xl">AR Room Visualization</h3>
+                  <p className="mt-2 text-sm leading-6 text-white/55 sm:mt-3 sm:text-base sm:leading-7">Place furniture in your future rental before you move. Be among the first 100 AR beta users.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 sm:rounded-[28px] sm:p-7">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/20 to-cyan-500/20 sm:mb-5 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <Building2 className="h-5 w-5 text-emerald-300" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white sm:text-xl">Premium Landlord Tools</h3>
+                  <p className="mt-2 text-sm leading-6 text-white/55 sm:mt-3 sm:text-base sm:leading-7">Analytics dashboards, automatic tenant screening, and priority listing placement for early adopters.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 sm:rounded-[28px] sm:p-7">
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400/20 to-orange-500/20 sm:mb-5 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <MapPin className="h-5 w-5 text-amber-300" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white sm:text-xl">New City Launches</h3>
+                  <p className="mt-2 text-sm leading-6 text-white/55 sm:mt-3 sm:text-base sm:leading-7">Buea, Limbe, and Bamenda are next. Beta testers get first access to listings in new markets.</p>
                 </div>
               </div>
             </div>
