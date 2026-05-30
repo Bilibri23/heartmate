@@ -42,6 +42,100 @@ interface VirtualTourItem {
   type: 'video' | '360'
 }
 
+interface ListingPreviewProps {
+  photos: PhotoItem[]
+  previewPhotoIndex: number
+  onSelectPhoto: (index: number) => void
+  formData: any
+  formatCurrency: (value: number) => string
+  t: any
+  language: string
+  className?: string
+}
+
+function ListingPreview({ photos, previewPhotoIndex, onSelectPhoto, formData, formatCurrency, t, language, className }: ListingPreviewProps) {
+  return (
+    <div className={`bg-white rounded-2xl shadow-sm overflow-hidden ${className ?? ""}`}>
+      <div className="relative h-48 bg-slate-200">
+        {photos.length > 0 ? (
+          <div className="relative h-full">
+            <img src={photos[previewPhotoIndex]?.preview} alt="Preview" className="h-full w-full object-cover" />
+            {photos.length > 1 && (
+              <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+                {photos.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => onSelectPhoto(index)}
+                    className={`h-1.5 rounded-full transition-all ${index === previewPhotoIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"}`}
+                    type="button"
+                    aria-label={`Show photo ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2">
+            <Camera className="h-10 w-10 text-slate-300" />
+            <p className="text-xs text-slate-400">{t.landlordForm.addPhotosCta}</p>
+          </div>
+        )}
+        <div className="absolute top-2 left-2">
+          <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs font-medium text-white">{t.landlordForm.livePreview}</span>
+        </div>
+      </div>
+      <div className="space-y-3 p-3">
+        <div>
+          <p className="text-lg font-bold text-blue-600">
+            {formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : "---"}
+            {t.listings.perMonth}
+          </p>
+          <h1 className="line-clamp-1 text-sm font-semibold text-slate-900">{formData.title || t.landlordForm.yourListingTitle}</h1>
+          <p className="flex items-center gap-1 text-xs text-slate-500">
+            <MapPin className="h-3 w-3" />
+            {formData.neighborhood || t.landlordForm.neighborhoodLabel}, {formData.city || t.search.city}
+          </p>
+        </div>
+        <div className="flex gap-3 border-y border-slate-100 py-2 text-xs">
+          {formData.amenities?.includes("Furnished") && (
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              {language === "fr" ? "Meublé" : "Furnished"}
+            </span>
+          )}
+          <div className="flex items-center gap-1">
+            <Bed className="h-3.5 w-3.5 text-slate-400" />
+            <span className="font-medium">{formData.bedrooms || "1"}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Bath className="h-3.5 w-3.5 text-slate-400" />
+            <span className="font-medium">{formData.bathrooms || "1"}</span>
+          </div>
+          {formData.size && (
+            <div className="flex items-center gap-1">
+              <Maximize className="h-3.5 w-3.5 text-slate-400" />
+              <span className="font-medium">{formData.size}m2</span>
+            </div>
+          )}
+        </div>
+        {formData.amenities?.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {formData.amenities.slice(0, 4).map((amenity: string) => (
+              <span key={amenity} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                {amenity}
+              </span>
+            ))}
+            {formData.amenities.length > 4 && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                +{formData.amenities.length - 4}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function NewListingPage() {
   const { formatCurrency, language, t } = useLanguage()
   const { user } = useAuth()
@@ -56,6 +150,7 @@ export default function NewListingPage() {
   const [formData, setFormData] = useState({ title: "", description: "", propertyType: "", city: "", neighborhood: "", address: "", rentAmount: "", depositAmount: "", bedrooms: "1", bathrooms: "1", size: "", amenities: [] as string[] })
   const { status: completionStatus } = useProfileCompletion()
   const canPublish = completionStatus?.operationEligibility?.LISTING_PUBLISH !== false
+  const [showMobilePreview, setShowMobilePreview] = useState(false)
 
   const handlePhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -211,6 +306,27 @@ export default function NewListingPage() {
               {completionStatus && !canPublish && (
                 <div className="mb-4">
                   <CompletionBanner status={completionStatus} />
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="mb-4 w-full rounded-xl border-blue-200 bg-blue-50 text-sm font-semibold text-blue-700 hover:bg-blue-100 hover:text-blue-800 lg:hidden"
+                onClick={() => setShowMobilePreview(prev => !prev)}
+              >
+                {showMobilePreview ? "Hide live preview" : "Show live preview"}
+              </Button>
+              {showMobilePreview && (
+                <div className="mb-6 lg:hidden">
+                  <ListingPreview
+                    photos={photos}
+                    previewPhotoIndex={previewPhotoIndex}
+                    onSelectPhoto={setPreviewPhotoIndex}
+                    formData={formData}
+                    formatCurrency={formatCurrency}
+                    t={t}
+                    language={language}
+                  />
                 </div>
               )}
               {currentStep === 1 && (
@@ -525,21 +641,17 @@ export default function NewListingPage() {
             </div>
           </div>
         </div>
-        <div className="hidden lg:block w-80 xl:w-96 border-l bg-slate-100 p-4">
+        <div className="hidden w-80 border-l bg-slate-100 p-4 lg:block xl:w-96">
           <div className="sticky top-4">
-            <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-              <div className="relative h-48 bg-slate-200">
-                {photos.length > 0 ? (<div className="relative h-full"><img src={photos[previewPhotoIndex]?.preview} alt="Preview" className="w-full h-full object-cover" />{photos.length > 1 && (<div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">{photos.map((_, index) => (<button key={index} onClick={() => setPreviewPhotoIndex(index)} className={`h-1.5 rounded-full transition-all ${index === previewPhotoIndex ? "w-4 bg-white" : "w-1.5 bg-white/60"}`} />))}</div>)}</div>) : (<div className="flex h-full items-center justify-center flex-col gap-2"><Camera className="h-10 w-10 text-slate-300" /><p className="text-slate-400 text-xs">{t.landlordForm.addPhotosCta}</p></div>)}
-                <div className="absolute top-2 left-2"><span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-xs font-medium">{t.landlordForm.livePreview}</span></div>
-              </div>
-              <div className="p-3 space-y-3">
-                <div><p className="text-lg font-bold text-blue-600">{formData.rentAmount ? formatCurrency(parseInt(formData.rentAmount)) : "---"}{t.listings.perMonth}</p><h1 className="text-sm font-semibold text-slate-900 line-clamp-1">{formData.title || t.landlordForm.yourListingTitle}</h1><p className="text-slate-500 text-xs flex items-center gap-1"><MapPin className="h-3 w-3" />{formData.neighborhood || t.landlordForm.neighborhoodLabel}, {formData.city || t.search.city}</p></div>
-                <div className="flex gap-3 py-2 border-y border-slate-100 text-xs">
-                  {formData.amenities.includes("Furnished") && <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{language === "fr" ? "Meublé" : "Furnished"}</span>}
-                  <div className="flex items-center gap-1"><Bed className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.bedrooms || "1"}</span></div><div className="flex items-center gap-1"><Bath className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.bathrooms || "1"}</span></div>{formData.size && <div className="flex items-center gap-1"><Maximize className="h-3.5 w-3.5 text-slate-400" /><span className="font-medium">{formData.size}m2</span></div>}</div>
-                {formData.amenities.length > 0 && (<div className="flex flex-wrap gap-1">{formData.amenities.slice(0, 4).map((amenity) => (<span key={amenity} className="px-2 py-0.5 bg-slate-100 rounded-full text-xs text-slate-600">{amenity}</span>))}{formData.amenities.length > 4 && <span className="px-2 py-0.5 bg-slate-100 rounded-full text-xs text-slate-600">+{formData.amenities.length - 4}</span>}</div>)}
-              </div>
-            </div>
+            <ListingPreview
+              photos={photos}
+              previewPhotoIndex={previewPhotoIndex}
+              onSelectPhoto={setPreviewPhotoIndex}
+              formData={formData}
+              formatCurrency={formatCurrency}
+              t={t}
+              language={language}
+            />
           </div>
         </div>
       </div>
