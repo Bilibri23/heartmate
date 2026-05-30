@@ -22,6 +22,12 @@ const STATIC_PATHS: Array<{
   { path: "/listings", changefreq: "daily", priority: 0.9 },
   { path: "/login", changefreq: "monthly", priority: 0.3 },
   { path: "/register", changefreq: "monthly", priority: 0.3 },
+  { path: "/douala", changefreq: "daily", priority: 0.85 },
+  { path: "/yaounde", changefreq: "daily", priority: 0.85 },
+  { path: "/soa", changefreq: "daily", priority: 0.85 },
+  { path: "/bastos", changefreq: "weekly", priority: 0.8 },
+  { path: "/logbessou", changefreq: "weekly", priority: 0.8 },
+  { path: "/bonamoussadi", changefreq: "weekly", priority: 0.8 },
 ];
 
 function escapeXml(value: string): string {

@@ -8,8 +8,24 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https:
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "RoomBay — Rentals in Cameroon",
-  description: "Find your perfect student accommodation in Cameroon. Search rooms, apartments, and connect with verified landlords.",
+  title: {
+    default: "RoomBay — Verified Rentals in Cameroon",
+    template: "%s | RoomBay",
+  },
+  description:
+    "Discover verified apartments, studios, and rental homes in Douala and Yaoundé through AI-powered search and immersive video tours. The modern way to rent in Cameroon.",
+  keywords: [
+    "apartments in yaoundé",
+    "rentals in douala",
+    "studios in yaoundé",
+    "verified rentals cameroon",
+    "housing in douala",
+    "rooms for rent in soa",
+    "furnished apartments cameroon",
+    "roombay",
+    "appartement douala",
+    "location yaoundé",
+  ],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -18,6 +34,39 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: true,
+  },
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    siteName: "RoomBay",
+    title: "RoomBay — Verified Rentals in Cameroon",
+    description:
+      "Discover verified apartments, studios, and rental homes in Douala and Yaoundé through AI-powered search and immersive video tours.",
+    images: [
+      {
+        url: `${siteUrl}/og-image.jpg`,
+        width: 1200,
+        height: 630,
+        alt: "RoomBay — Verified Rentals in Cameroon",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "RoomBay — Verified Rentals in Cameroon",
+    description:
+      "Discover verified apartments, studios, and rental homes in Douala and Yaoundé through AI-powered search and immersive video tours.",
+    images: [`${siteUrl}/og-image.jpg`],
+  },
+  alternates: {
+    canonical: siteUrl,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    "max-image-preview": "large",
+    "max-snippet": -1,
+    "max-video-preview": -1,
   },
 };
 
