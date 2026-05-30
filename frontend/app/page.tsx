@@ -64,9 +64,34 @@ const reelCards = [
 ]
 
 const testimonials = [
-  { name: "Aisha M.", role: "Student at Soa University", text: "I used to waste entire afternoons visiting apartments that looked nothing like the photos. RoomBay's video tours saved me weeks of frustration. Found my studio in 3 days.", rating: 5, city: "Soa" },
-  { name: "Jean-Paul K.", role: "Software Engineer", text: "Moved from Buea to Douala for work. The verified listings and trust scores gave me confidence to book a viewing without the usual back-and-forth. Best rental experience in Cameroon.", rating: 5, city: "Douala" },
-  { name: "Esther N.", role: "Landlord, Bonamoussadi", text: "As a landlord, I appreciate that RoomBay actually verifies properties. The quality of inquiries improved dramatically. Serious tenants who already watched the video tour before messaging.", rating: 5, city: "Douala" },
+  {
+    name: "Aisha M.",
+    role: "Product Designer, Bastos",
+    text: "RoomBay AI understood my wish list instantly. Within seconds it pulled three verified matches, complete with fit scores and video tours. I signed my lease in 48 hours.",
+    rating: 5,
+    city: "Yaoundé",
+  },
+  {
+    name: "Michael & Nadège",
+    role: "Roommates matched in Bonamoussadi",
+    text: "We both filled out the RoomBay roommate profile and the platform paired us with a verified shared flat. Zero awkward visits—just a perfect match for our budget and lifestyle.",
+    rating: 5,
+    city: "Douala",
+  },
+  {
+    name: "Fabrice N.",
+    role: "Software Engineer, Makepe",
+    text: "I listed my preferences and RoomBay matched me to a 2-bed apartment that ticked every box—prepaid meter, coworking nook, reliable landlord. No agents, no surprises.",
+    rating: 5,
+    city: "Douala",
+  },
+  {
+    name: "Clarisse E.",
+    role: "Interior stylist, Buea",
+    text: "The AR preview changed everything. I dropped my furniture into an unfurnished listing and could instantly see the layout. It gave me confidence to secure the place remotely.",
+    rating: 5,
+    city: "Buea",
+  },
 ]
 
 const faqs = [
@@ -78,13 +103,30 @@ const faqs = [
   { question: "What if I encounter a suspicious listing?", answer: "Report it instantly through the flag button on any listing. Our team investigates within 24 hours. We also proactively scan for red flags using automated checks and community reports." },
 ]
 
+const aiDemoConversation = [
+  {
+    role: "user",
+    message: "Find me a furnished studio in Bastos under 150k. I want a female roommate and prepaid utilities.",
+  },
+  {
+    role: "assistant",
+    message: "Got it. I extracted your preferences and filtered for verified listings only.",
+    tags: ["Bastos", "≤ 150k", "Furnished", "Female roommate", "Prepaid meter"],
+  },
+  {
+    role: "assistant",
+    message: "Top match: Bastos Skyline Studio — 145,000 XAF/mo, roommate Nadia (Product Analyst) already verified. Includes 360° video tour and prepaid utilities.",
+  },
+  {
+    role: "assistant",
+    message: "Need backups or want to preview the space in AR before visiting?",
+  },
+]
+
 export default function LandingPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const [heroIndex, setHeroIndex] = useState(0)
-  const [query, setQuery] = useState("")
-  const [chips, setChips] = useState<string[]>([])
-  const [showDemoListing, setShowDemoListing] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   useEffect(() => {
@@ -99,19 +141,6 @@ export default function LandingPage() {
     const interval = setInterval(() => setHeroIndex(i => (i + 1) % heroImages.length), 4000)
     return () => clearInterval(interval)
   }, [])
-
-  useEffect(() => {
-    if (query.length > 15) {
-      const t = setTimeout(() => {
-        setChips(["📍 Bastos", "💰 Under 150k", "⚡ Prepaid meter", "🛡 Verified listings"])
-        setShowDemoListing(true)
-      }, 600)
-      return () => clearTimeout(t)
-    } else {
-      setChips([])
-      setShowDemoListing(false)
-    }
-  }, [query])
 
   if (isLoading) {
     return (
@@ -140,7 +169,7 @@ export default function LandingPage() {
           </Link>
 
           <nav className="hidden items-center gap-7 text-sm text-white/60 lg:flex">
-            <a href="#search" className="transition hover:text-white">Search</a>
+            <a href="#hero" className="transition hover:text-white">AI Demo</a>
             <a href="#trust" className="transition hover:text-white">Trust</a>
             <a href="#how-it-works" className="transition hover:text-white">How it works</a>
             <a href="#cities" className="transition hover:text-white">Cities</a>
@@ -162,7 +191,7 @@ export default function LandingPage() {
       </header>
 
       <main>
-        <section id="search" className="relative px-4 pb-12 pt-8 sm:px-6 sm:pb-20 sm:pt-14 lg:px-8 lg:pb-28 lg:pt-20">
+        <section id="hero" className="relative px-4 pb-12 pt-8 sm:px-6 sm:pb-20 sm:pt-14 lg:px-8 lg:pb-28 lg:pt-20">
           <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1fr_0.95fr] lg:gap-14">
             <div className="animate-fade-up">
               <div className="mb-5 inline-flex max-w-full items-center gap-2 rounded-full border border-white/12 bg-white/6 px-3 py-1.5 text-xs font-medium text-cyan-300 shadow-[0_10px_30px_rgba(56,189,248,0.08)] backdrop-blur-xl sm:mb-6 sm:px-4 sm:py-2 sm:text-sm">
@@ -178,48 +207,33 @@ export default function LandingPage() {
               </p>
 
               <div className="mt-6 sm:mt-8">
-                <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl sm:rounded-3xl sm:p-4">
-                  <div className="flex items-center gap-3">
-                    <Search className="h-5 w-5 shrink-0 text-cyan-300" />
-                    <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Find me a furnished studio in Bastos under 150k with prepaid meter"
-                      className="w-full bg-transparent text-sm text-white placeholder:text-white/40 outline-none sm:text-base"
-                    />
-                    <Button size="sm" className="hidden shrink-0 rounded-full bg-white text-slate-950 hover:bg-slate-200 sm:flex">
-                      Start Searching
-                    </Button>
+                <div className="relative rounded-3xl border border-white/10 bg-white/[0.05] p-4 shadow-[0_24px_80px_rgba(2,6,23,0.55)] backdrop-blur-2xl sm:p-6">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-white/80">
+                      <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
+                      RoomBay AI in action
+                    </div>
+                    <span className="text-[11px] text-white/40">Real demo</span>
                   </div>
-                  {chips.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {chips.map((chip, i) => (
-                        <span key={chip} className="animate-chip inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-xl" style={{ animationDelay: `${i * 80}ms` }}>
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {showDemoListing && (
-                    <div className="animate-fade-up mt-4 rounded-xl border border-white/10 bg-[#0a1023] p-3 sm:p-4">
-                      <div className="flex gap-3">
-                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg sm:h-20 sm:w-20">
-                          <Image src={heroImages[0]} alt="Demo listing" fill className="object-cover" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                              <ShieldCheck className="h-3 w-3" /> Verified
-                            </span>
-                            <span className="text-[10px] text-white/40">Bastos, Yaoundé</span>
+                  <div className="space-y-3">
+                    {aiDemoConversation.map((entry, idx) => (
+                      <div
+                        key={idx}
+                        className={`rounded-2xl border border-white/10 p-3 sm:p-4 ${entry.role === "user" ? "bg-white/10 text-white" : "bg-[#0a1023] text-white/80"}`}
+                      >
+                        <p className="text-sm leading-6 sm:text-base">{entry.message}</p>
+                        {entry.tags && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {entry.tags.map((tag) => (
+                              <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-white/12 bg-white/12 px-2.5 py-1 text-[11px] font-medium text-white/80">
+                                {tag}
+                              </span>
+                            ))}
                           </div>
-                          <p className="mt-1 truncate text-sm font-semibold text-white">Furnished studio with prepaid meter</p>
-                          <p className="text-xs text-white/60">145,000 XAF / month</p>
-                        </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -227,12 +241,12 @@ export default function LandingPage() {
                 <Link href="/listings">
                   <Button size="lg" className="h-12 w-full rounded-full bg-white px-6 text-sm font-semibold text-slate-950 hover:bg-slate-200 sm:h-14 sm:w-auto sm:text-base">
                     <Search className="mr-2 h-5 w-5" />
-                    Explore Rentals
+                    Browse Listings
                   </Button>
                 </Link>
-                <Link href="/search">
+                <Link href="/register">
                   <Button size="lg" variant="outline" className="h-12 w-full rounded-full border-white/15 bg-white/6 px-6 text-sm text-white hover:bg-white/10 sm:h-14 sm:w-auto sm:text-base">
-                    Start Searching
+                    Create Account
                   </Button>
                 </Link>
                 <Link href="/register?role=LANDLORD">
@@ -277,8 +291,8 @@ export default function LandingPage() {
 
                   <div className="absolute bottom-0 left-0 right-0 p-4 text-white sm:p-5">
                     <div className="mb-3 rounded-xl border border-white/10 bg-white/10 p-2.5 backdrop-blur-xl sm:mb-4 sm:p-3">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-100/80 sm:text-xs">From your search</p>
-                      <p className="mt-1 text-xs text-white/90 sm:text-sm">Furnished • Prepaid meter • Bastos</p>
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-100/80 sm:text-xs">AI recommended match</p>
+                      <p className="mt-1 text-xs text-white/90 sm:text-sm">Furnished • Female roommate • Prepaid meter</p>
                     </div>
                     <div className="mb-1.5 flex items-center gap-1.5 text-xs text-white/80 sm:text-sm">
                       <MapPin className="h-3.5 w-3.5" />
@@ -471,7 +485,7 @@ export default function LandingPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Testimonials</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">Trusted by renters & landlords across Cameroon.</h2>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
+            <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
               {testimonials.map((t) => (
                 <div key={t.name} className="rounded-2xl border border-white/10 bg-white/[0.05] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.18)] backdrop-blur-xl sm:rounded-[28px] sm:p-7">
                   <Quote className="h-6 w-6 text-cyan-300/60" />
