@@ -23,6 +23,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Value("${cors.allowed-origins:}")
     private String corsAllowedOrigins;
 
+    @Value("${app.frontend-url:}")
+    private String appFrontendUrl;
+
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(webSocketAuthInterceptor);
@@ -37,10 +40,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         List<String> origins = new ArrayList<>(Arrays.asList(
-                "http://localhost:5173", "http://localhost:5174", "http://localhost:3000"
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://localhost:3000",
+                "https://roombay.app",
+                "https://www.roombay.app"
         ));
         if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
-            origins.addAll(Arrays.asList(corsAllowedOrigins.split(",")));
+            origins.addAll(Arrays.stream(corsAllowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(origin -> !origin.isBlank())
+                    .toList());
+        }
+        if (appFrontendUrl != null && !appFrontendUrl.isBlank()) {
+            origins.add(appFrontendUrl.trim());
         }
 
         registry.addEndpoint("/ws")

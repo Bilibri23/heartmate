@@ -103,6 +103,7 @@ public class Notification {
         LISTING_EXPIRED,
         
         // Verification notifications
+        VERIFICATION_SUBMITTED,
         VERIFICATION_APPROVED,
         VERIFICATION_REJECTED,
         

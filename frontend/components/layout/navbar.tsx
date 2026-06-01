@@ -1,7 +1,12 @@
 "use client";
 
 import { useAuth } from '@/context/auth-context';
+import { useWebSocketNotifications } from '@/hooks/use-websocket-notifications';
+import api from '@/lib/api';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,6 +21,45 @@ import { Bell, Home, LayoutDashboard, LogOut, MessageSquare, Search, Settings, U
 
 export function Navbar() {
   const { user, logout } = useAuth();
+  const router = useRouter();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const response = await api.get('/notifications/unread-count');
+      const count = Number(response.data?.count ?? 0);
+      setUnreadCount(Number.isFinite(count) ? count : 0);
+    } catch (err) {
+      console.error('Failed to fetch unread notifications:', err);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchUnreadCount();
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const interval = setInterval(fetchUnreadCount, 60000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount, user?.id]);
+
+  const handleNotification = useCallback((notification: { title: string; message?: string; actionUrl?: string }) => {
+    setUnreadCount((prev) => prev + 1);
+    toast(notification.title, {
+      description: notification.message,
+      action: notification.actionUrl ? {
+        label: 'View',
+        onClick: () => router.push(notification.actionUrl!),
+      } : undefined,
+    });
+  }, [router]);
+
+  useWebSocketNotifications({
+    enabled: Boolean(user?.id),
+    onNotification: handleNotification,
+  });
 
   if (!user) return null;
 
@@ -40,10 +84,15 @@ export function Navbar() {
         </Link>
       </nav>
       <div className="ml-auto flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          <span className="sr-only">Notifications</span>
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-600" />
+        <Button asChild variant="ghost" size="icon" className="relative">
+          <Link href="/notifications" aria-label="Notifications">
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </Link>
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

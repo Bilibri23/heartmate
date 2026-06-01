@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,6 +24,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     // Count methods
     long countByRole(User.UserRole role);
     long countByAccountStatus(User.AccountStatus accountStatus);
+    List<User> findAllByRole(User.UserRole role);
     
     // Find by role and status with pagination
     Page<User> findByRole(User.UserRole role, Pageable pageable);
@@ -43,4 +45,3 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     
     long countByCreatedAtAfter(LocalDateTime date);
 }
-

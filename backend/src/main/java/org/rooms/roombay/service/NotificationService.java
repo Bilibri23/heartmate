@@ -220,6 +220,39 @@ public class NotificationService {
                 reviewerName + " left you a review",
                 reviewId, "REVIEW", "/reviews");
     }
+
+    public void notifyStudentVerificationSubmitted(UUID verificationId, String userName) {
+        notifyAdmins(
+                Notification.NotificationType.VERIFICATION_SUBMITTED,
+                "New tenant verification",
+                userName + " submitted documents for review.",
+                verificationId,
+                "VERIFICATION",
+                "/admin/verifications"
+        );
+    }
+
+    public void notifyLandlordVerificationSubmitted(UUID verificationId, String userName, String verificationType) {
+        notifyAdmins(
+                Notification.NotificationType.VERIFICATION_SUBMITTED,
+                "New landlord verification",
+                userName + " submitted " + verificationType.toLowerCase() + " documents for review.",
+                verificationId,
+                "LANDLORD_VERIFICATION",
+                "/admin/verifications"
+        );
+    }
+
+    private void notifyAdmins(Notification.NotificationType type, String title, String message,
+                              UUID referenceId, String referenceType, String actionUrl) {
+        userRepository.findAllByRole(User.UserRole.ADMIN).forEach(admin -> {
+            try {
+                createNotification(admin.getId(), type, title, message, referenceId, referenceType, actionUrl);
+            } catch (Exception e) {
+                log.error("Failed to notify admin {} about {}: {}", admin.getId(), referenceType, e.getMessage());
+            }
+        });
+    }
     
     public void notifyDisputeUpdated(UUID userId, UUID disputeId, String status) {
         createNotification(userId, Notification.NotificationType.DISPUTE_UPDATED,

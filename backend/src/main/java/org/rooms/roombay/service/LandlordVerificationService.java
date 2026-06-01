@@ -39,6 +39,7 @@ public class LandlordVerificationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
+    private final NotificationService notificationService;
     
     // ==================== IDENTITY VERIFICATION ====================
     
@@ -108,6 +109,7 @@ public class LandlordVerificationService {
         
         LandlordVerification saved = verificationRepository.save(verification);
         log.info("Identity verification submitted for landlord: {}", userId);
+        notificationService.notifyLandlordVerificationSubmitted(saved.getId(), formatUserDisplayName(user), "identity");
         
         return mapToResponse(saved);
     }
@@ -141,6 +143,11 @@ public class LandlordVerificationService {
         
         LandlordVerification saved = verificationRepository.save(verification);
         log.info("Business verification submitted for landlord: {}", userId);
+        notificationService.notifyLandlordVerificationSubmitted(
+                saved.getId(),
+                formatUserDisplayName(saved.getUser()),
+                "business"
+        );
         
         return mapToResponse(saved);
     }
@@ -173,6 +180,11 @@ public class LandlordVerificationService {
         
         LandlordVerification saved = verificationRepository.save(verification);
         log.info("Property verification submitted for landlord: {}", userId);
+        notificationService.notifyLandlordVerificationSubmitted(
+                saved.getId(),
+                formatUserDisplayName(saved.getUser()),
+                "property"
+        );
         
         return mapToResponse(saved);
     }

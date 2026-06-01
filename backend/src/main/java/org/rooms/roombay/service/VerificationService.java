@@ -64,6 +64,7 @@ public class VerificationService {
                 
                 StudentVerification updated = verificationRepository.save(existing);
                 log.info("Verification resubmitted for user: {}", userId);
+                notificationService.notifyStudentVerificationSubmitted(updated.getId(), formatUserDisplayName(user));
                 return mapToResponse(updated);
             } else {
                 throw new BadRequestException("Verification request already exists with status: " + existing.getStatus());
@@ -78,6 +79,7 @@ public class VerificationService {
         
         StudentVerification saved = verificationRepository.save(verification);
         log.info("Verification request submitted successfully for user: {}", userId);
+        notificationService.notifyStudentVerificationSubmitted(saved.getId(), formatUserDisplayName(user));
         
         return mapToResponse(saved);
     }
@@ -160,6 +162,9 @@ public class VerificationService {
         
         StudentVerification updated = verificationRepository.save(verification);
         log.info("Verification updated successfully for user: {}", userId);
+        if (updated.getStatus() == StudentVerification.Status.PENDING) {
+            notificationService.notifyStudentVerificationSubmitted(updated.getId(), formatUserDisplayName(updated.getUser()));
+        }
         
         return mapToResponse(updated);
     }
@@ -299,5 +304,11 @@ public class VerificationService {
                 .updatedAt(verification.getUpdatedAt())
                 .build();
     }
-}
 
+    private static String formatUserDisplayName(User user) {
+        String first = user.getFirstName() != null ? user.getFirstName() : "";
+        String last = user.getLastName() != null ? user.getLastName() : "";
+        String combined = (first + " " + last).trim();
+        return combined.isEmpty() ? "Tenant" : combined;
+    }
+}

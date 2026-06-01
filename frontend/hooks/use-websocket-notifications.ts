@@ -52,11 +52,11 @@ export function useWebSocketNotifications(options: UseWebSocketNotificationsOpti
     if (!token) return
 
     try {
-      // Always use backend origin (NEXT_PUBLIC_API_URL) and strip /api
-      const apiBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082")
-        .replace(/\/api\/?$/, "")
-        .replace(/\/$/, "")
-      const wsUrl = `${apiBase}/ws`
+      // Prefer the configured backend origin, but fall back to same-origin /ws so Next rewrites can proxy it.
+      const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL
+      const wsUrl = configuredApiUrl
+        ? `${configuredApiUrl.replace(/\/api\/?$/, "").replace(/\/$/, "")}/ws`
+        : "/ws"
 
       // Probe the SockJS endpoint before connecting to avoid noisy errors
       try {

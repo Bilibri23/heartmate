@@ -7,6 +7,9 @@ import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -38,6 +41,7 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor 
             }
         }
         if (envFile == null) {
+            addNormalizedDatabaseUrl(environment, Map.of());
             return;
         }
 
@@ -58,5 +62,64 @@ public class DotenvEnvironmentPostProcessor implements EnvironmentPostProcessor 
         } else {
             environment.getPropertySources().addFirst(ps);
         }
+
+        addNormalizedDatabaseUrl(environment, map);
+    }
+
+    private void addNormalizedDatabaseUrl(ConfigurableEnvironment environment, Map<String, Object> dotenvValues) {
+        if (environment.getProperty("spring.datasource.url") != null
+                || environment.getProperty("SPRING_DATASOURCE_URL") != null) {
+            return;
+        }
+
+        String databaseUrl = environment.getProperty("DATABASE_URL");
+        if ((databaseUrl == null || databaseUrl.isBlank()) && dotenvValues.get("DATABASE_URL") instanceof String value) {
+            databaseUrl = value;
+        }
+        if (databaseUrl == null || databaseUrl.isBlank() || databaseUrl.startsWith("jdbc:")) {
+            return;
+        }
+
+        if (!databaseUrl.startsWith("postgres://") && !databaseUrl.startsWith("postgresql://")) {
+            return;
+        }
+
+        Map<String, Object> normalized = normalizePostgresDatabaseUrl(databaseUrl);
+        if (normalized.isEmpty()) {
+            return;
+        }
+
+        MapPropertySource ps = new MapPropertySource("normalizedDatabaseUrl", normalized);
+        environment.getPropertySources().addFirst(ps);
+    }
+
+    private Map<String, Object> normalizePostgresDatabaseUrl(String databaseUrl) {
+        try {
+            URI uri = URI.create(databaseUrl);
+            String query = uri.getRawQuery();
+            String jdbcUrl = "jdbc:postgresql://" + uri.getHost()
+                    + (uri.getPort() > 0 ? ":" + uri.getPort() : "")
+                    + (uri.getRawPath() != null ? uri.getRawPath() : "")
+                    + (query != null && !query.isBlank() ? "?" + query : "");
+
+            Map<String, Object> normalized = new HashMap<>();
+            normalized.put("spring.datasource.url", jdbcUrl);
+
+            String userInfo = uri.getRawUserInfo();
+            if (userInfo != null && !userInfo.isBlank()) {
+                String[] parts = userInfo.split(":", 2);
+                normalized.put("spring.datasource.username", decodeUrlPart(parts[0]));
+                if (parts.length > 1) {
+                    normalized.put("spring.datasource.password", decodeUrlPart(parts[1]));
+                }
+            }
+            return normalized;
+        } catch (IllegalArgumentException e) {
+            return Map.of();
+        }
+    }
+
+    private static String decodeUrlPart(String value) {
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 }

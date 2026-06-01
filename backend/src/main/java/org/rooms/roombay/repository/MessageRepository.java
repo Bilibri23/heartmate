@@ -33,24 +33,17 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     );
     
     /**
-     * Get all conversations for a user (last message from each conversation)
+     * Get visible messages for a user, newest first. The service picks the first message for each
+     * conversation, avoiding PostgreSQL-incompatible MAX(uuid) aggregation.
      */
     @Query("""
         SELECT m FROM Message m
-        WHERE m.id IN (
-            SELECT MAX(m2.id) FROM Message m2
-            WHERE (m2.sender.id = :userId OR m2.receiver.id = :userId)
-            AND ((m2.sender.id = :userId AND m2.isDeletedBySender = false)
-               OR (m2.receiver.id = :userId AND m2.isDeletedByReceiver = false))
-            GROUP BY 
-                CASE 
-                    WHEN m2.sender.id = :userId THEN m2.receiver.id
-                    ELSE m2.sender.id
-                END
-        )
+        WHERE (m.sender.id = :userId OR m.receiver.id = :userId)
+        AND ((m.sender.id = :userId AND m.isDeletedBySender = false)
+           OR (m.receiver.id = :userId AND m.isDeletedByReceiver = false))
         ORDER BY m.createdAt DESC
     """)
-    List<Message> findLastMessagesForUser(@Param("userId") UUID userId);
+    List<Message> findVisibleMessagesForUserOrderByCreatedAtDesc(@Param("userId") UUID userId);
     
     /**
      * Count unread messages from a specific user

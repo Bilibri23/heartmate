@@ -24,7 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -117,14 +119,18 @@ public class MessageService {
     public List<ConversationResponse> getConversations(UUID userId) {
         log.info("Getting all conversations for user: {}", userId);
         
-        List<Message> lastMessages = messageRepository.findLastMessagesForUser(userId);
+        List<Message> lastMessages = messageRepository.findVisibleMessagesForUserOrderByCreatedAtDesc(userId);
         List<ConversationResponse> conversations = new ArrayList<>();
+        Set<UUID> seenUsers = new HashSet<>();
         
         for (Message message : lastMessages) {
             // Determine the other user
             UUID otherUserId = message.getSender().getId().equals(userId) 
                     ? message.getReceiver().getId() 
                     : message.getSender().getId();
+            if (!seenUsers.add(otherUserId)) {
+                continue;
+            }
             
             User otherUser = message.getSender().getId().equals(userId) 
                     ? message.getReceiver() 
