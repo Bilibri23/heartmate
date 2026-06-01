@@ -8,6 +8,7 @@ import { User, LoginRequest, RegisterRequest, AuthResponse } from '../types/auth
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  mounted: boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
@@ -20,10 +21,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    setMounted(true);
     const initAuth = () => {
       const currentUser = authService.getCurrentUser();
       setUser(currentUser);
@@ -146,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, isLoading, pathname, router]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, mounted, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-context"
 import { useLanguage } from "@/context/language-context"
 import { translations } from "@/lib/i18n/translations"
 import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
 
 type AppMessages = typeof translations.en
 type TranslationValues = typeof translations.en | typeof translations.fr
@@ -70,6 +71,16 @@ export function BottomNav() {
   const pathname = usePathname()
   const { user } = useAuth()
   const { t } = useLanguage()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return null
+  }
 
   // Don't show on auth pages or landing
   if (pathname?.startsWith("/login") || pathname?.startsWith("/register") || pathname === "/") {

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { AssistantWidget } from "@/components/ai/assistant-widget";
+import { useEffect, useState } from "react";
 
 function shouldHidePortals(pathname: string | null): boolean {
   if (!pathname) return false;
@@ -11,7 +12,18 @@ function shouldHidePortals(pathname: string | null): boolean {
 
 export function GlobalOverlays() {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const hidePortals = shouldHidePortals(pathname);
+
+  // Don't render until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <>

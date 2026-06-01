@@ -10,14 +10,17 @@ interface LanguageContextType {
   setLanguage: (lang: Language) => void
   t: TranslationValues
   formatCurrency: (amount: number) => string
+  mounted: boolean
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>("fr") // Default to French for Cameroon
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     // Load saved language preference
     const saved = localStorage.getItem("roombay-language") as Language
     if (saved && (saved === "en" || saved === "fr")) {
@@ -51,6 +54,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     setLanguage,
     t: translations[language],
     formatCurrency,
+    mounted,
   }
 
   return (
