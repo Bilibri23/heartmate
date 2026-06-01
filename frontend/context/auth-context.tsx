@@ -143,10 +143,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (path === '/listings' || path.startsWith('/listings/')) return true;
       return false;
     };
-    if (!isLoading && !user && !isPublicRoute(pathname)) {
+    // Avoid redirecting during SSR/first render until client is mounted and auth state is resolved
+    if (!mounted || isLoading) return;
+    if (!user && !isPublicRoute(pathname)) {
       router.push('/login');
     }
-  }, [user, isLoading, pathname, router]);
+  }, [user, isLoading, pathname, router, mounted]);
 
   return (
     <AuthContext.Provider value={{ user, isLoading, mounted, login, register, logout, refreshUser }}>

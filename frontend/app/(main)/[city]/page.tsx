@@ -35,6 +35,23 @@ const CITY_DATA: Record<string, {
     propertyTypes: ["Studios", "2-Bed Apartments", "Shared Rooms", "Furnished Flats"],
     image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80",
   },
+  buea: {
+    name: "Buea",
+    region: "Southwest",
+    headline: "Housing in Buea & Molyko",
+    description:
+      "Find student-friendly rooms and studios around Molyko and Sandpit, plus family apartments near Clerk Quarters. Browse verified listings with video tours and landlord chat.",
+    demand:
+      "Strong student demand around University of Buea and Molyko; growing interest for furnished units near Mile 17 and Sandpit.",
+    nearby: [
+      "University of Buea",
+      "Molyko Stadium",
+      "Mile 17 Motor Park",
+      "Sandpit / Checkpoint",
+    ],
+    propertyTypes: ["Studios", "1-2 Bed Apartments", "Shared Rooms", "Furnished Flats"],
+    image: "https://images.unsplash.com/photo-1505761671935-60b3a7427bad?auto=format&fit=crop&w=1200&q=80",
+  },
   yaounde: {
     name: "Yaoundé",
     region: "Centre",
