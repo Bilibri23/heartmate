@@ -61,7 +61,7 @@ export function useWebSocketNotifications(options: UseWebSocketNotificationsOpti
       // Probe the SockJS endpoint before connecting to avoid noisy errors
       try {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 3000)
+        const timeoutId = setTimeout(() => controller.abort(), 1500)
         const probe = await fetch(`${wsUrl}/info`, { signal: controller.signal })
         clearTimeout(timeoutId)
         if (!probe.ok) {

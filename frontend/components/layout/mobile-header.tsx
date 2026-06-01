@@ -34,6 +34,11 @@ export function MobileHeader({
   const router = useRouter()
   const { user } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user?.id || !showNotifications) return
@@ -80,9 +85,11 @@ export function MobileHeader({
   }, [router])
 
   useWebSocketNotifications({
-    enabled: Boolean(user?.id) && showNotifications,
+    enabled: mounted && Boolean(user?.id) && showNotifications,
     onNotification: handleNotification,
   })
+
+  if (!mounted) return null
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-lg safe-area-top">
