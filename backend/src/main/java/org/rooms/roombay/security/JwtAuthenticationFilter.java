@@ -37,6 +37,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws ServletException, IOException {
         
+        String path = request.getRequestURI();
+        boolean isApiPath = path != null && path.startsWith("/api/");
+        boolean isPublicApi = isApiPath && (
+                path.startsWith("/api/auth/") ||
+                path.startsWith("/api/phone-verification/") ||
+                path.startsWith("/api/search") ||
+                path.startsWith("/api/feed") ||
+                path.startsWith("/api/listings") ||
+                path.startsWith("/api/ai/")
+        );
+        
         try {
             String jwt = getJwtFromRequest(request);
             
@@ -76,6 +87,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);
+        }
+        
+        // If this is a protected API path and no authentication was set, return 401
+        // instead of letting it fall through to OAuth2 redirect (which causes CORS issues)
+        if (isApiPath && !isPublicApi && SecurityContextHolder.getContext().getAuthentication() == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.setHeader("Access-Control-Allow-Origin", request.getHeader("Origin"));
+            response.setHeader("Access-Control-Allow-Credentials", "true");
+            response.getWriter().write("{\"success\":false,\"message\":\"Authentication required. Please log in.\"}");
+            return;
         }
         
         filterChain.doFilter(request, response);
