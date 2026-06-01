@@ -2,6 +2,7 @@ package org.rooms.roombay.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,6 +38,9 @@ public class SecurityConfig {
     @Value("${cors.allowed-origins:}")
     private String corsAllowedOrigins;
 
+    @Value("${spring.profiles.active:}")
+    private String activeProfiles;
+
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             OAuthSignupRoleCaptureFilter oauthSignupRoleCaptureFilter,
@@ -67,13 +71,22 @@ public class SecurityConfig {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .headers(headers -> headers
+                        .contentTypeOptions(Customizer.withDefaults())
+                        .frameOptions(frameOptions -> frameOptions.deny())
+                        .httpStrictTransportSecurity(hsts -> hsts
+                                .includeSubDomains(true)
+                                .preload(true)
+                                .maxAgeInSeconds(31_536_000))
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(
+                                "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'")))
                 // OAuth2 authorization-code flow needs a session during the redirect; API calls stay JWT-based.
                 .sessionManagement(session -> session.sessionCreationPolicy(
                         oauth2SuccessHandler != null
                                 ? SessionCreationPolicy.IF_REQUIRED
                                 : SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                .authorizeHttpRequests(auth -> {
+                        auth.requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         // Public auth endpoints
                         .requestMatchers(
                                 "/api/auth/register",
@@ -84,13 +97,14 @@ public class SecurityConfig {
                                 "/api/auth/reset-password",
                                 "/api/auth/verify-email",
                                 "/ws/**"  // WebSocket endpoints
-                        ).permitAll()
-                        // Swagger/API docs
-                        .requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+                        ).permitAll();
+                        if (!isProdProfile()) {
+                            auth.requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll();
+                        }
                         // PUBLIC: Allow browsing listings without login (critical for growth)
-                        .requestMatchers("GET", "/api/search").permitAll()
+                        auth.requestMatchers("GET", "/api/search").permitAll()
                         .requestMatchers("GET", "/api/feed").permitAll()
-                        .requestMatchers("GET", "/api/listings", "/api/listings/search", "/api/listings/featured").permitAll()
+                        .requestMatchers("GET", "/api/listings", "/api/listings/search", "/api/listings/active", "/api/listings/featured").permitAll()
                         .requestMatchers("GET", "/api/listings/*/similar").permitAll()
                         .requestMatchers("GET", "/api/listings/*/ar-markers").permitAll()
                         .requestMatchers("GET", "/api/listings/{id}").permitAll()
@@ -114,8 +128,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/ai/ingest-dev", "/api/ai/graph-stats-dev").permitAll()
                         // Admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated();
+                })
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         // Must run before Spring redirects to Google, otherwise signup_role never reaches the session.
@@ -138,7 +152,10 @@ public class SecurityConfig {
                 "http://127.0.0.1:*"
         ));
         if (corsAllowedOrigins != null && !corsAllowedOrigins.isBlank()) {
-            origins.addAll(Arrays.asList(corsAllowedOrigins.split(",")));
+            origins.addAll(Arrays.stream(corsAllowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(origin -> !origin.isBlank())
+                    .toList());
         }
         configuration.setAllowedOriginPatterns(origins);
         
@@ -152,6 +169,12 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/api/**", configuration);
         source.registerCorsConfiguration("/ws/**", configuration);
         return source;
+    }
+
+    private boolean isProdProfile() {
+        return activeProfiles != null && Arrays.stream(activeProfiles.split(","))
+                .map(String::trim)
+                .anyMatch("prod"::equalsIgnoreCase);
     }
     
 }

@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.ApiResponse;
 import org.rooms.roombay.service.FileUploadService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -57,6 +58,7 @@ public class FileUploadController {
     
     @DeleteMapping("/image")
     @Operation(summary = "Delete image", description = "Delete an image from Cloudinary")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteImage(@RequestParam("url") String imageUrl) {
         log.info("Deleting image: {}", imageUrl);
         fileUploadService.deleteImage(imageUrl);
@@ -66,4 +68,3 @@ public class FileUploadController {
                 .build());
     }
 }
-

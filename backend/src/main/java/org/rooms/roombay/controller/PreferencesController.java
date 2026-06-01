@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.request.PreferencesRequest;
 import org.rooms.roombay.dto.response.PreferencesResponse;
+import org.rooms.roombay.security.AuthorizationPolicyService;
+import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.PreferencesService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,12 +24,14 @@ import java.util.UUID;
 public class PreferencesController {
     
     private final PreferencesService preferencesService;
+    private final AuthorizationPolicyService authorizationPolicyService;
     
     @PostMapping
     @Operation(summary = "Create preferences", description = "Create roommate preferences for a user")
     public ResponseEntity<PreferencesResponse> createPreferences(
             @Valid @RequestBody PreferencesRequest request,
-            @RequestParam UUID userId) {
+            @RequestParam(required = false) UUID ignoredUserId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Creating preferences for user: {}", userId);
         PreferencesResponse response = preferencesService.createPreferences(userId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -36,6 +40,7 @@ public class PreferencesController {
     @GetMapping("/{userId}")
     @Operation(summary = "Get preferences by user ID", description = "Retrieve roommate preferences for a user")
     public ResponseEntity<PreferencesResponse> getPreferences(@PathVariable UUID userId) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Fetching preferences for user: {}", userId);
         PreferencesResponse response = preferencesService.getPreferences(userId);
         return ResponseEntity.ok(response);
@@ -46,6 +51,7 @@ public class PreferencesController {
     public ResponseEntity<PreferencesResponse> updatePreferences(
             @PathVariable UUID userId,
             @Valid @RequestBody PreferencesRequest request) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Updating preferences for user: {}", userId);
         PreferencesResponse response = preferencesService.updatePreferences(userId, request);
         return ResponseEntity.ok(response);
@@ -54,9 +60,9 @@ public class PreferencesController {
     @DeleteMapping("/{userId}")
     @Operation(summary = "Delete preferences", description = "Delete roommate preferences for a user")
     public ResponseEntity<Void> deletePreferences(@PathVariable UUID userId) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Deleting preferences for user: {}", userId);
         preferencesService.deletePreferences(userId);
         return ResponseEntity.noContent().build();
     }
 }
-

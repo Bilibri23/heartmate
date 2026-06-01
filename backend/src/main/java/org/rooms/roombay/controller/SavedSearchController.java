@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.request.SavedSearchRequest;
 import org.rooms.roombay.dto.response.SavedSearchResponse;
+import org.rooms.roombay.security.AuthorizationPolicyService;
+import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.SavedSearchService;
 import org.rooms.roombay.util.InputSanitizer;
 import org.springframework.http.ResponseEntity;
@@ -24,12 +26,14 @@ public class SavedSearchController {
     
     private final SavedSearchService savedSearchService;
     private final InputSanitizer inputSanitizer;
+    private final AuthorizationPolicyService authorizationPolicyService;
     
     @PostMapping
     @Operation(summary = "Create saved search", description = "Save search criteria for future use and notifications")
     public ResponseEntity<SavedSearchResponse> createSavedSearch(
-            @RequestParam UUID userId,
+            @RequestParam(required = false) UUID ignoredUserId,
             @Valid @RequestBody SavedSearchRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Creating saved search for user: {}", userId);
         
         // SECURITY: Sanitize all inputs
@@ -47,6 +51,7 @@ public class SavedSearchController {
     @GetMapping("/user/{userId}")
     @Operation(summary = "Get user's saved searches", description = "Get all saved searches for a user")
     public ResponseEntity<List<SavedSearchResponse>> getUserSavedSearches(@PathVariable UUID userId) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Getting saved searches for user: {}", userId);
         List<SavedSearchResponse> searches = savedSearchService.getUserSavedSearches(userId);
         return ResponseEntity.ok(searches);
@@ -56,8 +61,9 @@ public class SavedSearchController {
     @Operation(summary = "Update saved search", description = "Update an existing saved search")
     public ResponseEntity<SavedSearchResponse> updateSavedSearch(
             @PathVariable UUID searchId,
-            @RequestParam UUID userId,
+            @RequestParam(required = false) UUID ignoredUserId,
             @Valid @RequestBody SavedSearchRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Updating saved search: {} for user: {}", searchId, userId);
         
         // SECURITY: Sanitize all inputs
@@ -76,7 +82,8 @@ public class SavedSearchController {
     @Operation(summary = "Delete saved search", description = "Delete a saved search")
     public ResponseEntity<Void> deleteSavedSearch(
             @PathVariable UUID searchId,
-            @RequestParam UUID userId) {
+            @RequestParam(required = false) UUID ignoredUserId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Deleting saved search: {} for user: {}", searchId, userId);
         savedSearchService.deleteSavedSearch(searchId, userId);
         return ResponseEntity.noContent().build();

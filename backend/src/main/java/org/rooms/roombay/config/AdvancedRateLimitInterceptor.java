@@ -12,8 +12,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Advanced rate limiting interceptor
@@ -24,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
     
     private final RedisTemplate<String, Object> redisTemplate;
+    private final Map<String, LocalRateLimitEntry> localCounters = new ConcurrentHashMap<>();
     
     // Constructor with optional RedisTemplate
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -89,17 +93,15 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
     
     private boolean checkRateLimit(String key, int limit, long windowSeconds) {
         try {
-            // If Redis is not available, skip rate limiting (fail open)
             if (redisTemplate == null) {
-                return true;
+                return checkLocalRateLimit(key, limit, windowSeconds);
             }
             
             // Check if Redis connection is available
             try {
                 redisTemplate.hasKey("test");
             } catch (Exception e) {
-                // Redis not available, skip rate limiting silently
-                return true;
+                return checkLocalRateLimit(key, limit, windowSeconds);
             }
             
             String countStr = (String) redisTemplate.opsForValue().get(key);
@@ -120,11 +122,24 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         } catch (Exception e) {
             // Only log at debug level to avoid noise when Redis is intentionally not available
             if (log.isDebugEnabled()) {
-                log.debug("Rate limiting unavailable (allowing request): {}", e.getMessage());
+                log.debug("Redis rate limiting unavailable; using local limiter: {}", e.getMessage());
             }
-            // Allow request if Redis fails (fail open)
-            return true;
+            return checkLocalRateLimit(key, limit, windowSeconds);
         }
+    }
+
+    private boolean checkLocalRateLimit(String key, int limit, long windowSeconds) {
+        cleanupLocalCounters();
+        LocalRateLimitEntry entry = localCounters.computeIfAbsent(key, ignored -> new LocalRateLimitEntry());
+        return entry.allow(limit, windowSeconds * 1000L);
+    }
+
+    private void cleanupLocalCounters() {
+        if (localCounters.size() < 50_000) {
+            return;
+        }
+        long cutoff = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(10);
+        localCounters.entrySet().removeIf(e -> e.getValue().lastSeen < cutoff);
     }
     
     private int getUserLimitForEndpoint(String endpoint) {
@@ -194,5 +209,21 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
             log.error("Error sending rate limit response: {}", e.getMessage());
         }
     }
-}
 
+    private static final class LocalRateLimitEntry {
+        private final AtomicInteger count = new AtomicInteger();
+        private volatile long windowStart = System.currentTimeMillis();
+        private volatile long lastSeen = System.currentTimeMillis();
+
+        synchronized boolean allow(int limit, long windowMs) {
+            long now = System.currentTimeMillis();
+            lastSeen = now;
+            if (now - windowStart >= windowMs) {
+                windowStart = now;
+                count.set(1);
+                return true;
+            }
+            return count.incrementAndGet() <= limit;
+        }
+    }
+}

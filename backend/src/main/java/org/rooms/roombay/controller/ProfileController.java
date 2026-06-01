@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.request.ProfileRequest;
 import org.rooms.roombay.dto.response.ProfileResponse;
+import org.rooms.roombay.security.AuthorizationPolicyService;
+import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.FileUploadService;
 import org.rooms.roombay.service.ProfileService;
 import org.springframework.http.HttpStatus;
@@ -27,6 +29,7 @@ public class ProfileController {
 
     private final ProfileService profileService;
     private final FileUploadService fileUploadService;
+    private final AuthorizationPolicyService authorizationPolicyService;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Create a new profile", description = "Create a profile for a user (multipart)")
@@ -40,7 +43,8 @@ public class ProfileController {
             @RequestParam(required = false) String emergencyContactPhone,
             @RequestParam(required = false) String emergencyContactRelationship,
             @RequestParam(required = false) String visibility,
-            @RequestParam UUID userId) {
+            @RequestParam(required = false) UUID ignoredUserId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Creating profile for user: {}", userId);
 
         String profilePhotoUrl = null;
@@ -67,8 +71,9 @@ public class ProfileController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Create a new profile (JSON)", description = "Create a profile using a JSON body and userId query parameter")
     public ResponseEntity<ProfileResponse> createProfileJson(
-            @RequestParam UUID userId,
+            @RequestParam(required = false) UUID ignoredUserId,
             @RequestBody @Valid ProfileRequest request) {
+        UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Creating profile for user: {} (JSON)", userId);
         ProfileResponse response = profileService.createProfile(userId, request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -77,6 +82,7 @@ public class ProfileController {
     @GetMapping("/{userId}")
     @Operation(summary = "Get profile by user ID", description = "Retrieve a user's profile by their user ID")
     public ResponseEntity<ProfileResponse> getProfile(@PathVariable UUID userId) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Fetching profile for user: {}", userId);
         ProfileResponse response = profileService.getProfile(userId);
         return ResponseEntity.ok(response);
@@ -87,6 +93,7 @@ public class ProfileController {
     public ResponseEntity<ProfileResponse> updateProfileJson(
             @PathVariable UUID userId,
             @RequestBody @Valid ProfileRequest request) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Updating profile for user: {} (JSON)", userId);
         log.info("Received request - bio: '{}', photoUrl: '{}'", request.getBio(), request.getProfilePhotoUrl());
         ProfileResponse response = profileService.updateProfile(userId, request);
@@ -106,6 +113,7 @@ public class ProfileController {
             @RequestParam(required = false) String emergencyContactPhone,
             @RequestParam(required = false) String emergencyContactRelationship,
             @RequestParam(required = false) String visibility) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Updating profile for user: {} (Form Data)", userId);
         
         // Upload profile photo if provided as file
@@ -134,9 +142,9 @@ public class ProfileController {
     @DeleteMapping("/{userId}")
     @Operation(summary = "Delete profile", description = "Delete a user's profile")
     public ResponseEntity<Void> deleteProfile(@PathVariable UUID userId) {
+        authorizationPolicyService.assertCurrentUserOrAdmin(userId);
         log.info("Deleting profile for user: {}", userId);
         profileService.deleteProfile(userId);
         return ResponseEntity.noContent().build();
     }
 }
-

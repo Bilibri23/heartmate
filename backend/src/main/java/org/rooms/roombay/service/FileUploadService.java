@@ -31,16 +31,21 @@ public class FileUploadService {
     @Value("${cloudinary.api-secret:}")
     private String cloudinaryApiSecret;
     
-    private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB (increased for 360° panoramic images)
+    private static final long MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB for profile and verification images
+    private static final long MAX_LISTING_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB for 360-degree panoramic listing images
     private static final long MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB
     private static final String[] ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"};
     private static final String[] ALLOWED_VIDEO_TYPES = {"video/mp4", "video/quicktime", "video/x-msvideo", "video/webm"};
     
     public String uploadImage(MultipartFile file, String folder) {
+        return uploadImage(file, folder, MAX_IMAGE_SIZE);
+    }
+
+    private String uploadImage(MultipartFile file, String folder, long maxBytes) {
         log.info("Uploading image to folder: {}", folder);
         
         // Validate file
-        validateFile(file);
+        validateFile(file, maxBytes);
         
         try {
             // Check if we're using mock Cloudinary
@@ -106,7 +111,7 @@ public class FileUploadService {
     }
     
     public String uploadListingPhoto(MultipartFile file) {
-        return uploadImage(file, "property-listings");
+        return uploadImage(file, "property-listings", MAX_LISTING_IMAGE_SIZE);
     }
     
     public String uploadVideoTour(MultipartFile file) {
@@ -199,13 +204,13 @@ public class FileUploadService {
         }
     }
     
-    private void validateFile(MultipartFile file) {
+    private void validateFile(MultipartFile file, long maxBytes) {
         if (file == null || file.isEmpty()) {
             throw new BadRequestException("File is required");
         }
         
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new BadRequestException("File size exceeds maximum allowed size of 10MB");
+        if (file.getSize() > maxBytes) {
+            throw new BadRequestException("File size exceeds maximum allowed size of " + (maxBytes / (1024 * 1024)) + "MB");
         }
         
         String contentType = file.getContentType();
@@ -293,4 +298,3 @@ public class FileUploadService {
                 + "For local dev without outbound access, leave cloudinary credentials unset to use mock image URLs.";
     }
 }
-
