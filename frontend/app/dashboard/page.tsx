@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 
 export default function DashboardRedirect() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, mounted } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (!mounted || isLoading) return;
 
     if (!user) {
       router.replace("/login");
@@ -20,7 +20,7 @@ export default function DashboardRedirect() {
     } else {
       router.replace("/for-you");
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, mounted, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">

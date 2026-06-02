@@ -352,7 +352,7 @@ export default function LeasesPage() {
                             link.download = `lease-${lease.referenceCode}.pdf`
                             document.body.appendChild(link)
                             link.click()
-                            document.body.removeChild(link)
+                            link.remove()
                             window.URL.revokeObjectURL(url)
                           } catch (err) {
                             console.error('Failed to download lease document:', err)

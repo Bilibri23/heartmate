@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { authService } from '../services/auth.service';
-import { User, LoginRequest, RegisterRequest, AuthResponse } from '../types/auth';
+import { User, LoginRequest, RegisterRequest } from '../types/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +18,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function mergeUserFromMe(previous: User | null, me: Awaited<ReturnType<typeof authService.getMe>>): User {
+  return {
+    id: me.userId || previous?.id || '',
+    firstName: me.firstName ?? previous?.firstName ?? '',
+    lastName: me.lastName ?? previous?.lastName ?? '',
+    role: me.role ?? previous?.role ?? '',
+    email: me.email ?? previous?.email,
+    phone: me.phone ?? previous?.phone,
+    verificationStatus: previous?.verificationStatus,
+    emailVerified: me.emailVerified ?? previous?.emailVerified,
+    phoneVerified: me.phoneVerified ?? previous?.phoneVerified,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,13 +40,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
+    let cancelled = false;
     setMounted(true);
-    const initAuth = () => {
+
+    const initAuth = async () => {
       const currentUser = authService.getCurrentUser();
-      setUser(currentUser);
-      setIsLoading(false);
+      const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+
+      if (!token) {
+        if (!cancelled) {
+          setUser(null);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      if (currentUser && !cancelled) {
+        setUser(currentUser);
+      }
+
+      try {
+        const me = await authService.getMe();
+        if (cancelled) return;
+        const merged = mergeUserFromMe(currentUser, me);
+        window.localStorage.setItem('user', JSON.stringify(merged));
+        setUser(merged);
+      } catch {
+        if (!cancelled && !currentUser) {
+          setUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     };
-    initAuth();
+
+    void initAuth();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const login = async (data: LoginRequest) => {
@@ -54,11 +101,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Role-based redirect after login
         if (response.role === 'ADMIN') {
-          router.push('/admin');
+          router.replace('/admin');
         } else if (response.role === 'LANDLORD') {
-          router.push('/landlord');
+          router.replace('/landlord');
         } else {
-          router.push('/for-you');
+          router.replace('/for-you');
         }
       }
     } catch (error) {
@@ -91,12 +138,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Role-based redirect after registration
         if (response.role === 'LANDLORD') {
-          router.push('/landlord');
+          router.replace('/landlord');
         } else {
-          router.push('/onboarding');
+          router.replace('/onboarding');
         }
       } else {
-        router.push('/login?registered=true');
+        router.replace('/login?registered=true');
       }
     } catch (error) {
       console.error('Registration failed:', error);
@@ -107,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     authService.logout();
     setUser(null);
-    router.push('/login');
+    router.replace('/login');
   };
 
   const refreshUser = async () => {
@@ -117,16 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const me = await authService.getMe();
       const prev = authService.getCurrentUser();
-      if (!prev) return;
-      const merged: User = {
-        ...prev,
-        firstName: me.firstName ?? prev.firstName,
-        lastName: me.lastName ?? prev.lastName,
-        emailVerified: me.emailVerified,
-        phoneVerified: me.phoneVerified,
-        email: me.email ?? prev.email,
-        phone: me.phone ?? prev.phone,
-      };
+      const merged = mergeUserFromMe(prev, me);
       globalThis.window.localStorage.setItem("user", JSON.stringify(merged));
       setUser(merged);
     } catch {
@@ -146,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Avoid redirecting during SSR/first render until client is mounted and auth state is resolved
     if (!mounted || isLoading) return;
     if (!user && !isPublicRoute(pathname)) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [user, isLoading, pathname, router, mounted]);
 

@@ -1,5 +1,5 @@
 import api from '../lib/api';
-import { LoginRequest, RegisterRequest, AuthResponse, AuthMeResponse, UpdateMeRequest } from '@/types/auth';
+import { LoginRequest, RegisterRequest, AuthResponse, AuthMeResponse, UpdateMeRequest, User } from '@/types/auth';
 
 export const authService = {
   login: async (data: LoginRequest): Promise<AuthResponse> => {
@@ -50,10 +50,15 @@ export const authService = {
     }
   },
 
-  getCurrentUser: () => {
+  getCurrentUser: (): User | null => {
     if (typeof window !== 'undefined') {
-      const userStr = localStorage.getItem('user');
-      return userStr ? JSON.parse(userStr) : null;
+      try {
+        const userStr = localStorage.getItem('user');
+        return userStr ? JSON.parse(userStr) : null;
+      } catch {
+        localStorage.removeItem('user');
+        return null;
+      }
     }
     return null;
   },

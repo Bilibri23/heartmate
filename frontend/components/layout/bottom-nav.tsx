@@ -69,7 +69,7 @@ function adminNavItems(t: TranslationValues): NavItem[] {
 
 export function BottomNav() {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, isLoading, mounted: authMounted } = useAuth()
   const { t } = useLanguage()
   const [mounted, setMounted] = useState(false)
 
@@ -78,12 +78,17 @@ export function BottomNav() {
   }, [])
 
   // Don't render until mounted to prevent hydration mismatch
-  if (!mounted) {
+  if (!mounted || !authMounted || isLoading) {
     return null
   }
 
   // Don't show on auth pages or landing
   if (pathname?.startsWith("/login") || pathname?.startsWith("/register") || pathname === "/") {
+    return null
+  }
+
+  // Avoid rendering tenant navigation while a protected user's role is still unknown.
+  if (!user?.role) {
     return null
   }
 

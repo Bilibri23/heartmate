@@ -63,6 +63,10 @@ export function Navbar() {
 
   if (!user) return null;
 
+  const firstName = user.firstName || 'RoomBay';
+  const lastName = user.lastName || 'User';
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6">
       <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-lg">
@@ -98,8 +102,8 @@ export function Navbar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar>
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.firstName}`} />
-                <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(firstName)}`} />
+                <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
