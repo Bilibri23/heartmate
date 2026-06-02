@@ -40,6 +40,9 @@ WORKDIR /app
 # Copy the built JAR from builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
+# Copy only non-secret AI ingestion docs. Internal/security docs are intentionally excluded.
+COPY docs/admin ./docs/admin
+
 # Change ownership to non-root user
 RUN chown -R roombay:roombay /app
 
@@ -55,6 +58,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # JVM optimization for containers
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=50.0"
+ENV AI_DOCS_DIR="/app/docs"
 
 # Run the application
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

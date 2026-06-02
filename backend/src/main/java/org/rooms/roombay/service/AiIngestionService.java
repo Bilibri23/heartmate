@@ -1,5 +1,6 @@
 package org.rooms.roombay.service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.AiModelRouter;
@@ -28,11 +29,28 @@ public class AiIngestionService {
     @Value("${AI_DOCS_DIR:../docs}")
     private String docsDir;
 
+    @PostConstruct
+    void logDocsDiagnostic() {
+        Path configured = Path.of(docsDir).toAbsolutePath().normalize();
+        Path production = Path.of("/app/docs").toAbsolutePath().normalize();
+        log.info(
+                "[AI] Docs diagnostic: AI_DOCS_DIR='{}', configuredPath={}, configuredExists={}, configuredMarkdownFiles={}, productionPath={}, productionExists={}, productionMarkdownFiles={}",
+                docsDir,
+                configured,
+                Files.isDirectory(configured),
+                countMarkdownFiles(configured),
+                production,
+                Files.isDirectory(production),
+                countMarkdownFiles(production)
+        );
+    }
+
     /**
      * Ingests all markdown docs from docsDir into pgvector.
      */
     public AiIngestResponse ingestDocs(boolean force) {
         Path dir = resolveDocsDir();
+        log.info("[AI] Ingesting docs from {} (markdownFiles={})", dir, countMarkdownFiles(dir));
 
         List<Path> files;
         try {
@@ -123,6 +141,21 @@ public class AiIngestionService {
         throw new BadRequestException("Docs directory not found. Set AI_DOCS_DIR (tried " + primary + " and " + fallback + ")");
     }
 
+    private long countMarkdownFiles(Path dir) {
+        if (!Files.isDirectory(dir)) {
+            return 0;
+        }
+        try (var stream = Files.walk(dir)) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".md"))
+                    .count();
+        } catch (IOException e) {
+            log.warn("[AI] Failed counting markdown docs in {}: {}", dir, e.getMessage());
+            return 0;
+        }
+    }
+
     private static String extractTitle(String text, String fallback) {
         for (String line : text.split("\n")) {
             String trimmed = line.trim();
@@ -176,4 +209,3 @@ public class AiIngestionService {
                 .collect(Collectors.toList());
     }
 }
-
