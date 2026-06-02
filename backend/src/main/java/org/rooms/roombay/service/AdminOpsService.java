@@ -3,12 +3,19 @@ package org.rooms.roombay.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.rag.AiGraphRagService;
+import org.rooms.roombay.config.AdvancedRateLimitInterceptor;
 import org.rooms.roombay.dto.response.AiGraphStatsResponse;
 import org.rooms.roombay.entity.LandlordVerification;
+import org.rooms.roombay.entity.Payment;
 import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.entity.Report;
+import org.rooms.roombay.entity.RoomApplication;
 import org.rooms.roombay.entity.StudentVerification;
 import org.rooms.roombay.repository.LandlordVerificationRepository;
+import org.rooms.roombay.repository.PaymentRepository;
 import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.ReportRepository;
+import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.StudentVerificationRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -36,9 +43,22 @@ public class AdminOpsService {
     private final PropertyListingRepository listingRepository;
     private final StudentVerificationRepository studentVerificationRepository;
     private final LandlordVerificationRepository landlordVerificationRepository;
+    private final PaymentRepository paymentRepository;
+    private final ReportRepository reportRepository;
+    private final RoomApplicationRepository roomApplicationRepository;
+    private final AdvancedRateLimitInterceptor rateLimitInterceptor;
 
     @Value("${spring.profiles.active:default}")
     private String activeProfile;
+
+    @Value("${railway_git_commit_sha:${GIT_COMMIT:${SOURCE_VERSION:unknown}}}")
+    private String deployVersion;
+
+    @Value("${roombay.backup.last-verified-at:}")
+    private String backupLastVerifiedAt;
+
+    @Value("${roombay.backup.rpo-hours:24}")
+    private int backupRpoHours;
 
     public Map<String, Object> health() {
         boolean databaseUp = databaseUp();
@@ -59,6 +79,10 @@ public class AdminOpsService {
         health.put("uptime", ManagementFactory.getRuntimeMXBean().getUptime());
         health.put("uptimeSeconds", ManagementFactory.getRuntimeMXBean().getUptime() / 1000);
         health.put("environment", activeProfile);
+        health.put("deployVersion", deployVersion);
+        health.put("rateLimitMode", rateLimitInterceptor.getCurrentMode().name());
+        health.put("backupLastVerifiedAt", backupLastVerifiedAt.isBlank() ? null : backupLastVerifiedAt);
+        health.put("backupRpoHours", backupRpoHours);
         health.put("timestamp", Instant.now().toString());
         return health;
     }
@@ -134,6 +158,14 @@ public class AdminOpsService {
             alerts.add(alert("WARNING", "Pending verifications high", pendingVerifications + " tenant and landlord verification items are pending.", "Prioritize verification review queues."));
         }
 
+        if (rateLimitInterceptor.getCurrentMode() == AdvancedRateLimitInterceptor.RateLimitMode.UNAVAILABLE) {
+            alerts.add(alert("CRITICAL", "Rate limiting unavailable", "Redis-backed rate limiting is required but currently unavailable.", "Check Redis service variables and connectivity before scaling traffic."));
+        }
+
+        if (backupLastVerifiedAt == null || backupLastVerifiedAt.isBlank()) {
+            alerts.add(alert("WARNING", "Backup restore drill missing", "No backup restore verification timestamp is configured.", "Run the database restore drill and set ROOMBAY_BACKUP_LAST_VERIFIED_AT."));
+        }
+
         return alerts;
     }
 
@@ -147,6 +179,28 @@ public class AdminOpsService {
         data.put("lastIngest", safeLastSuccessfulIngest());
         data.put("aiNoAnswerCount", analyticsEventService.countSince("ai_no_answer", LocalDateTime.now().minusHours(24)));
         return data;
+    }
+
+    public Map<String, Object> queues() {
+        Map<String, Object> queues = new LinkedHashMap<>();
+        queues.put("pendingTenantVerifications", safeCount(() -> studentVerificationRepository.countByStatus(StudentVerification.Status.PENDING)));
+        queues.put("pendingLandlordVerifications", safeCount(() -> landlordVerificationRepository.findAllPendingVerifications().size()));
+        queues.put("pendingListings", safeCount(() -> listingRepository.findPendingListings().size()));
+        queues.put("pendingReports", safeCount(() -> {
+            Long count = reportRepository.countByStatus(Report.ReportStatus.PENDING);
+            return count != null ? count : 0;
+        }));
+        queues.put("pendingPaymentProofs", safeCount(() -> paymentRepository.countByStatus(Payment.PaymentStatus.SUBMITTED)));
+        queues.put("staleApplications", safeCount(() -> roomApplicationRepository.findExpiredApplications(LocalDateTime.now()).stream()
+                .filter(RoomApplication::isActive)
+                .count()));
+        queues.put("staleLandlordResponses", safeCount(() -> roomApplicationRepository.countByStatus(RoomApplication.Status.PENDING)));
+        queues.put("timestamp", Instant.now().toString());
+        return queues;
+    }
+
+    public List<Map<String, Object>> topNoAnswerQuestions(String range, int limit) {
+        return analyticsEventService.topNoAnswerQuestions(since(range), limit);
     }
 
     static double conversionRate(long numerator, long denominator) {
@@ -198,6 +252,19 @@ public class AdminOpsService {
         } catch (Exception ex) {
             return 0;
         }
+    }
+
+    private long safeCount(CountSupplier supplier) {
+        try {
+            return supplier.get();
+        } catch (Exception ex) {
+            return 0;
+        }
+    }
+
+    @FunctionalInterface
+    private interface CountSupplier {
+        long get();
     }
 
     private Map<String, Object> alert(String severity, String title, String message, String suggestedAction) {

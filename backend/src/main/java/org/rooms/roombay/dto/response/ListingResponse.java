@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Data
@@ -63,6 +64,11 @@ public class ListingResponse {
      * Stable keys for "why you see this" chips (feed / discovery). Localized on the client.
      */
     private List<String> recommendationReasonCodes;
+    /**
+     * Internal quality diagnostics for landlord/admin surfaces only.
+     */
+    private Integer qualityScore;
+    private Map<String, Boolean> qualitySignals;
     // Virtual Tour
     private String videoTourUrl;
     private String videoTourEmbedCode;
@@ -72,4 +78,3 @@ public class ListingResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

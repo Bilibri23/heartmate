@@ -17,6 +17,36 @@ RoomBay has moved beyond prototype status. The core monolith is operational, rol
 | Scalability | 5/10 | Monolith is appropriate for v1; rate limits and caches are mostly local/simple while Redis/search are disabled or optional. |
 | Reliability | 6/10 | Health, ops dashboard, Flyway, Sentry config, and error tables exist; needs backup drills, alert delivery, runbooks, and background job reliability. |
 
+### Implementation status
+
+Completed in the first roadmap execution slice:
+
+- WebSocket CONNECT rejection with regression tests.
+- Upload magic-byte validation for images and videos.
+- Cloudinary production startup guard.
+- Docker healthcheck port alignment.
+- Admin Operations Center v1.
+- AI docs packaging, role-aware retrieval, and canonical no-doc fallback.
+
+Completed or added in the 30-day code slice:
+
+- Production startup failure when admin seeding is enabled in `prod`.
+- Redis-aware production rate-limit mode reporting and fail-closed behavior when Redis is required.
+- WebSocket SUBSCRIBE destination authorization.
+- Admin Operations Center v2 queue summary, rate-limit/deploy/backup metadata, and AI no-answer topics.
+- Payment duplicate-risk warnings for reused transaction IDs and proof URLs.
+- Landlord/admin listing quality scoring metadata.
+- Next.js security headers and CSP.
+- Secret rotation and database restore runbooks.
+
+External/manual actions still required:
+
+- Rotate all exposed production secrets in Railway and provider dashboards.
+- Set `APP_ADMIN_SEED_ENABLED=false` in production.
+- Configure Redis or explicitly remain single-instance before scaling.
+- Perform a real Railway PostgreSQL restore drill and set `ROOMBAY_BACKUP_LAST_VERIFIED_AT`.
+- Review and merge unrelated local SEO/auth frontend edits separately.
+
 ### Security scan summary
 
 Threat model: RoomBay handles tenant identity data, landlord verification documents, listings, messages, leases, manual payment proofs, admin moderation, AI knowledge retrieval, and role-specific dashboards. Attackers include unauthenticated visitors, authenticated tenants/landlords, abusive marketplace actors, malicious admins with limited scope assumptions, bot traffic, and users attempting IDOR by changing UUIDs.

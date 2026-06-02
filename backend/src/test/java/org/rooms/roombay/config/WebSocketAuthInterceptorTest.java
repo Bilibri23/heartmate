@@ -62,12 +62,44 @@ class WebSocketAuthInterceptorTest {
                 .hasMessageContaining("Invalid WebSocket token");
     }
 
+    @Test
+    void subscribeToOwnUserQueueIsAllowed() {
+        Message<?> result = interceptor.preSend(subscribeMessage("/user/queue/notifications", UUID.randomUUID()), channel);
+
+        assertThat(result).isNotNull();
+    }
+
+    @Test
+    void subscribeToOtherUserQueueIsRejected() {
+        UUID currentUser = UUID.randomUUID();
+        UUID otherUser = UUID.randomUUID();
+
+        assertThatThrownBy(() -> interceptor.preSend(subscribeMessage("/user/" + otherUser + "/queue/notifications", currentUser), channel))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Unauthorized WebSocket subscription");
+    }
+
+    @Test
+    void subscribeToRawQueueIsRejected() {
+        assertThatThrownBy(() -> interceptor.preSend(subscribeMessage("/queue/private", UUID.randomUUID()), channel))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Unauthorized WebSocket subscription");
+    }
+
     private static Message<?> connectMessage(String authorization) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         accessor.setLeaveMutable(true);
         if (authorization != null) {
             accessor.addNativeHeader("Authorization", authorization);
         }
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+    }
+
+    private static Message<?> subscribeMessage(String destination, UUID userId) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setLeaveMutable(true);
+        accessor.setDestination(destination);
+        accessor.setUser(() -> userId.toString());
         return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 }

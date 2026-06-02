@@ -66,4 +66,23 @@ class MigrationCoverageTest {
                     .contains("create table if not exists " + tableName);
         }
     }
+
+    @Test
+    void opsV2IndexesAreCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V47__ops_v2_indexes.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains(
+                "idx_payments_momo_transaction_status",
+                "idx_payments_proof_url_status",
+                "idx_analytics_event_ai_no_answer_question"
+        );
+    }
 }

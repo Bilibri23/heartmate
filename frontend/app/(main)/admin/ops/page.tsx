@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import api from "@/lib/api"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { Button } from "@/components/ui/button"
@@ -10,8 +11,10 @@ import {
   Bot,
   CheckCircle2,
   Database,
+  ExternalLink,
   RefreshCw,
   Server,
+  ShieldAlert,
   Wifi,
 } from "lucide-react"
 
@@ -28,6 +31,10 @@ type Health = {
   uptimeSeconds?: number
   environment?: string
   timestamp?: string
+  deployVersion?: string
+  rateLimitMode?: string
+  backupLastVerifiedAt?: string | null
+  backupRpoHours?: number
   aiHealth?: AiHealth
 }
 
@@ -63,11 +70,22 @@ type ErrorLog = {
   createdAt: string
 }
 
+type Queues = Record<string, number | string>
+
+type NoAnswerQuestion = {
+  question: string
+  role: string
+  count: number
+  lastSeen: string
+}
+
 export default function AdminOpsPage() {
   const [health, setHealth] = useState<Health | null>(null)
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [funnel, setFunnel] = useState<Funnel | null>(null)
   const [errors, setErrors] = useState<ErrorLog[]>([])
+  const [queues, setQueues] = useState<Queues | null>(null)
+  const [noAnswerQuestions, setNoAnswerQuestions] = useState<NoAnswerQuestion[]>([])
   const [range, setRange] = useState("7d")
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -76,16 +94,20 @@ export default function AdminOpsPage() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [healthRes, alertsRes, funnelRes, errorsRes] = await Promise.all([
+      const [healthRes, alertsRes, funnelRes, errorsRes, queuesRes, noAnswerRes] = await Promise.all([
         api.get("/admin/ops/health"),
         api.get("/admin/ops/alerts"),
         api.get(`/admin/ops/funnel?range=${range}`),
         api.get("/admin/ops/errors?limit=50"),
+        api.get("/admin/ops/queues"),
+        api.get(`/admin/ops/ai/no-answer-questions?range=${range}&limit=10`),
       ])
       setHealth(healthRes.data)
       setAlerts(alertsRes.data || [])
       setFunnel(funnelRes.data)
       setErrors(errorsRes.data || [])
+      setQueues(queuesRes.data || null)
+      setNoAnswerQuestions(noAnswerRes.data || [])
     } catch (err) {
       console.error("Failed to load ops dashboard", err)
       setLoadError("Operations data could not be loaded.")
@@ -109,6 +131,15 @@ export default function AdminOpsPage() {
     { label: "AI / GraphRAG", value: health?.aiIngestionStatus || "UNKNOWN", icon: Bot },
     { label: "Environment", value: health?.environment || "unknown", icon: Activity },
   ], [health])
+
+  const queueCards = useMemo(() => [
+    { label: "Tenant Verifications", key: "pendingTenantVerifications", href: "/admin/verifications" },
+    { label: "Landlord Verifications", key: "pendingLandlordVerifications", href: "/admin/landlord-verifications" },
+    { label: "Listings Review", key: "pendingListings", href: "/admin/listings" },
+    { label: "Reports", key: "pendingReports", href: "/admin/reports" },
+    { label: "Payment Proofs", key: "pendingPaymentProofs", href: "/admin/payments" },
+    { label: "Stale Applications", key: "staleApplications", href: "/admin/applications" },
+  ], [])
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -134,6 +165,13 @@ export default function AdminOpsPage() {
           {healthCards.map((card) => (
             <HealthCard key={card.label} label={card.label} value={card.value} icon={card.icon} />
           ))}
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-4">
+          <OpsMeta label="Deploy" value={shortVersion(health?.deployVersion)} />
+          <OpsMeta label="Rate Limit" value={health?.rateLimitMode || "UNKNOWN"} />
+          <OpsMeta label="Backup Verified" value={formatTime(health?.backupLastVerifiedAt)} />
+          <OpsMeta label="Backup RPO" value={`${health?.backupRpoHours ?? 24}h`} />
         </section>
 
         <section className="grid gap-5 xl:grid-cols-[1fr_1.2fr]">
@@ -179,6 +217,47 @@ export default function AdminOpsPage() {
               <Rate label="View to submitted" value={rates.listing_view_to_application_submitted} />
               <Rate label="Submitted to approved" value={rates.application_submitted_to_approved} />
               <Rate label="Approved to signed" value={rates.approved_to_lease_signed} />
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
+          <div className="rounded-2xl bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-950">Queue Health</h2>
+              <ShieldAlert className="h-5 w-5 text-slate-400" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {queueCards.map((queue) => (
+                <QueueCard
+                  key={queue.key}
+                  label={queue.label}
+                  value={Number(queues?.[queue.key] ?? 0)}
+                  href={queue.href}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-semibold text-slate-950">AI Missing Knowledge</h2>
+              <span className="text-sm text-slate-500">{noAnswerQuestions.length} topics</span>
+            </div>
+            <div className="space-y-3">
+              {noAnswerQuestions.length === 0 ? (
+                <EmptyState icon={CheckCircle2} text="No repeated missing-doc questions in this range." />
+              ) : (
+                noAnswerQuestions.map((item, index) => (
+                  <div key={`${item.question}-${index}`} className="rounded-xl bg-slate-50 p-3">
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-slate-900">{item.question}</p>
+                      <span className="shrink-0 rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">{item.count}</span>
+                    </div>
+                    <p className="text-xs text-slate-500">{item.role} - last seen {formatTime(item.lastSeen)}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>
@@ -230,6 +309,30 @@ export default function AdminOpsPage() {
         </section>
       </main>
     </div>
+  )
+}
+
+function OpsMeta({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-lg font-semibold text-slate-950">{value || "-"}</p>
+    </div>
+  )
+}
+
+function QueueCard({ label, value, href }: { label: string; value: number; href: string }) {
+  const tone = value > 20 ? "text-amber-700" : value > 0 ? "text-blue-700" : "text-green-700"
+  return (
+    <Link href={href} className="group rounded-xl bg-slate-50 p-3 transition hover:bg-slate-100">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={`text-2xl font-bold ${tone}`}>{value}</p>
+          <p className="text-sm text-slate-500">{label}</p>
+        </div>
+        <ExternalLink className="h-4 w-4 text-slate-400 transition group-hover:text-blue-600" />
+      </div>
+    </Link>
   )
 }
 
@@ -308,4 +411,9 @@ function formatTime(value?: string | null) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "-"
   return date.toLocaleString()
+}
+
+function shortVersion(value?: string) {
+  if (!value || value === "unknown") return "unknown"
+  return value.length > 10 ? value.slice(0, 10) : value
 }

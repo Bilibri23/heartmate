@@ -38,7 +38,8 @@ class OnlineStatusServiceTest {
         
         // Then
         assertTrue(onlineStatusService.isUserOnline(userId));
-        verify(messagingTemplate, times(2)).convertAndSend(anyString(), any(Object.class));
+        verify(messagingTemplate).convertAndSend(eq("/topic/online-status"), any(Object.class));
+        verify(messagingTemplate).convertAndSendToUser(eq(userId.toString()), eq("/queue/online-status"), any(Object.class));
     }
     
     @Test
@@ -70,4 +71,3 @@ class OnlineStatusServiceTest {
         assertFalse(onlineStatusService.isUserOnline(userId));
     }
 }
-

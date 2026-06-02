@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -58,6 +59,28 @@ public class AnalyticsEventService {
                 WHERE event_type = ? AND created_at >= ?
                 """, Long.class, eventType, since);
         return count != null ? count : 0;
+    }
+
+    public List<Map<String, Object>> topNoAnswerQuestions(LocalDateTime since, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        return jdbcTemplate.query("""
+                SELECT
+                    COALESCE(metadata ->> 'question', '[question unavailable]') AS question,
+                    COALESCE(role, metadata ->> 'persona', 'UNKNOWN') AS role,
+                    COUNT(*) AS total,
+                    MAX(created_at) AS last_seen
+                FROM analytics_event
+                WHERE event_type = 'ai_no_answer'
+                  AND created_at >= ?
+                GROUP BY COALESCE(metadata ->> 'question', '[question unavailable]'), COALESCE(role, metadata ->> 'persona', 'UNKNOWN')
+                ORDER BY total DESC, last_seen DESC
+                LIMIT ?
+                """, (rs, rowNum) -> Map.of(
+                "question", rs.getString("question"),
+                "role", rs.getString("role"),
+                "count", rs.getLong("total"),
+                "lastSeen", rs.getTimestamp("last_seen").toLocalDateTime().toString()
+        ), since, safeLimit);
     }
 
     private static UUID safeCurrentUserId() {

@@ -51,6 +51,30 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     
     @Query("SELECT COUNT(p) FROM Payment p WHERE p.status = 'SUBMITTED'")
     long countPendingVerification();
+
+    @Query("""
+            SELECT COUNT(p) FROM Payment p
+            WHERE p.id <> :paymentId
+              AND p.momoTransactionId IS NOT NULL
+              AND LOWER(TRIM(p.momoTransactionId)) = LOWER(TRIM(:transactionId))
+              AND p.status IN ('SUBMITTED', 'VERIFIED')
+            """)
+    long countSubmittedOrVerifiedByTransactionIdExcluding(
+            @Param("transactionId") String transactionId,
+            @Param("paymentId") UUID paymentId
+    );
+
+    @Query("""
+            SELECT COUNT(p) FROM Payment p
+            WHERE p.id <> :paymentId
+              AND p.paymentProofUrl IS NOT NULL
+              AND TRIM(p.paymentProofUrl) = TRIM(:proofUrl)
+              AND p.status IN ('SUBMITTED', 'VERIFIED')
+            """)
+    long countSubmittedOrVerifiedByProofUrlExcluding(
+            @Param("proofUrl") String proofUrl,
+            @Param("paymentId") UUID paymentId
+    );
     
     boolean existsByLeaseIdAndPaymentTypeAndStatusIn(UUID leaseId, Payment.PaymentType type, List<Payment.PaymentStatus> statuses);
 }

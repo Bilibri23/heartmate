@@ -30,6 +30,7 @@ import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReviewRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.UserRepository;
+import org.rooms.roombay.security.SecurityUtils;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -673,6 +674,7 @@ public class ListingService {
                 .findByUserId(listing.getLandlord().getId())
                 .orElse(null);
         String trustTier = computeTrustTier(listing, landlordVerification);
+        Map<String, Boolean> qualitySignals = shouldExposeQualitySignals(listing, userId) ? qualitySignals(listing, photoDTOs) : null;
         
         // Get review stats for listing
         Double averageRating = reviewRepository.getAverageRatingForListing(listing.getId());
@@ -731,6 +733,8 @@ public class ListingService {
                 .reviewCount((int) reviewCount)
                 .compatibilityScore(compatibilityScore)
                 .compatibilityReason(compatibilityReason)
+                .qualityScore(qualitySignals != null ? qualityScore(qualitySignals) : null)
+                .qualitySignals(qualitySignals)
                 .videoTourUrl(listing.getVideoTourUrl())
                 .videoTourEmbedCode(listing.getVideoTourEmbedCode())
                 .virtualTourProvider(listing.getVirtualTourProvider())
@@ -739,6 +743,47 @@ public class ListingService {
                 .createdAt(listing.getCreatedAt())
                 .updatedAt(listing.getUpdatedAt())
                 .build();
+    }
+
+    private static boolean shouldExposeQualitySignals(PropertyListing listing, UUID userId) {
+        try {
+            String role = SecurityUtils.getCurrentUserRole();
+            if ("ADMIN".equalsIgnoreCase(role)) {
+                return true;
+            }
+            return "LANDLORD".equalsIgnoreCase(role)
+                    && userId != null
+                    && listing.getLandlord() != null
+                    && userId.equals(listing.getLandlord().getId());
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    static Map<String, Boolean> qualitySignals(PropertyListing listing, List<PhotoDTO> photos) {
+        Map<String, Boolean> signals = new java.util.LinkedHashMap<>();
+        signals.put("hasPhotos", photos != null && photos.size() >= 3);
+        signals.put("hasTitle", hasText(listing.getTitle()) && listing.getTitle().trim().length() >= 12);
+        signals.put("hasDescription", hasText(listing.getDescription()) && listing.getDescription().trim().length() >= 80);
+        signals.put("hasLocation", hasText(listing.getCity()) && hasText(listing.getNeighborhood()));
+        signals.put("hasPrice", listing.getRentAmount() != null && listing.getRentAmount() > 0);
+        signals.put("hasAmenities", listing.getAmenities() != null && listing.getAmenities().size() >= 3);
+        signals.put("isReviewed", Boolean.TRUE.equals(listing.getVerified()));
+        signals.put("hasAvailability", listing.getAvailableFrom() != null);
+        signals.put("hasVideoOrTour", hasText(listing.getVideoTourUrl()) || hasText(listing.getVideoTourEmbedCode()));
+        return signals;
+    }
+
+    static int qualityScore(Map<String, Boolean> signals) {
+        if (signals == null || signals.isEmpty()) {
+            return 0;
+        }
+        long passed = signals.values().stream().filter(Boolean.TRUE::equals).count();
+        return (int) Math.round(passed * 100.0 / signals.size());
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     /**
@@ -1261,4 +1306,3 @@ public List<ListingResponse> getAllListings(String status) {
         };
     }
 }
-

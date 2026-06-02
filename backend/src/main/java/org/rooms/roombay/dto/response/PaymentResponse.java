@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.rooms.roombay.entity.Payment;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -62,6 +63,10 @@ public class PaymentResponse {
     
     // Instructions for payment (for pending payments)
     private PaymentInstructions paymentInstructions;
+
+    // Admin reconciliation signals. These are warnings only, not automatic decisions.
+    private Boolean duplicateRisk;
+    private List<String> duplicateRiskReasons;
     
     @Data
     @Builder

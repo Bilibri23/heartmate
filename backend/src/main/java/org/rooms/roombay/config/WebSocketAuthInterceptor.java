@@ -15,6 +15,7 @@ import org.springframework.util.StringUtils;
 import org.rooms.roombay.security.JwtTokenProvider;
 import org.rooms.roombay.service.AppErrorLogService;
 
+import java.security.Principal;
 import java.util.UUID;
 
 /**
@@ -59,8 +60,49 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                 appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT missing Authorization header", "/ws", null);
                 throw new AccessDeniedException("Missing WebSocket Authorization header");
             }
+        } else if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
+            authorizeSubscription(accessor);
         }
 
         return message;
+    }
+
+    private void authorizeSubscription(StompHeaderAccessor accessor) {
+        Principal user = accessor.getUser();
+        String destination = accessor.getDestination();
+        if (!StringUtils.hasText(destination)) {
+            rejectSubscription("missing destination", null);
+        }
+        if (user == null || !StringUtils.hasText(user.getName())) {
+            rejectSubscription("missing principal", destination);
+        }
+        if (destination.startsWith("/user/queue/")) {
+            return;
+        }
+        if (destination.startsWith("/user/")) {
+            String[] parts = destination.split("/");
+            if (parts.length < 4 || !user.getName().equals(parts[2]) || !"queue".equals(parts[3])) {
+                rejectSubscription("cross-user private destination", destination);
+            }
+            return;
+        }
+        if (destination.startsWith("/queue/")) {
+            rejectSubscription("raw queue destination", destination);
+        }
+        if (destination.startsWith("/topic/")) {
+            if (destination.equals("/topic/listings")
+                    || destination.equals("/topic/listings/new")
+                    || destination.equals("/topic/online-status")) {
+                return;
+            }
+            rejectSubscription("unsupported topic", destination);
+        }
+    }
+
+    private void rejectSubscription(String reason, String destination) {
+        String message = "WebSocket SUBSCRIBE rejected: " + reason + (destination != null ? " destination=" + destination : "");
+        log.warn(message);
+        appErrorLogService.log("WARN", "WEBSOCKET", message, "/ws", null);
+        throw new AccessDeniedException("Unauthorized WebSocket subscription");
     }
 }

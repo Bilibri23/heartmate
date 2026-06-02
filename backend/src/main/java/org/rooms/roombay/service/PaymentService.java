@@ -17,9 +17,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -127,8 +130,8 @@ public class PaymentService {
         
         payment.setPaymentMethod(request.getPaymentMethod());
         payment.setMomoPhoneNumber(request.getMomoPhoneNumber());
-        payment.setMomoTransactionId(request.getMomoTransactionId());
-        payment.setPaymentProofUrl(request.getPaymentProofUrl());
+        payment.setMomoTransactionId(normalizeNullable(request.getMomoTransactionId()));
+        payment.setPaymentProofUrl(normalizeNullable(request.getPaymentProofUrl()));
         payment.setPayerNotes(request.getPayerNotes());
         payment.setStatus(Payment.PaymentStatus.SUBMITTED);
         
@@ -250,6 +253,7 @@ public class PaymentService {
     }
     
     private PaymentResponse mapToResponse(Payment payment) {
+        List<String> duplicateRiskReasons = duplicateRiskReasons(payment);
         return PaymentResponse.builder()
                 .id(payment.getId())
                 .referenceCode(payment.getReferenceCode())
@@ -279,7 +283,29 @@ public class PaymentService {
                 .payoutAt(payment.getPayoutAt())
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
+                .duplicateRisk(!duplicateRiskReasons.isEmpty())
+                .duplicateRiskReasons(duplicateRiskReasons)
                 .build();
+    }
+
+    private List<String> duplicateRiskReasons(Payment payment) {
+        if (payment == null || payment.getId() == null) {
+            return List.of();
+        }
+        List<String> reasons = new ArrayList<>();
+        if (StringUtils.hasText(payment.getMomoTransactionId())
+                && paymentRepository.countSubmittedOrVerifiedByTransactionIdExcluding(payment.getMomoTransactionId(), payment.getId()) > 0) {
+            reasons.add("MOMO_TRANSACTION_ID_REUSED");
+        }
+        if (StringUtils.hasText(payment.getPaymentProofUrl())
+                && paymentRepository.countSubmittedOrVerifiedByProofUrlExcluding(payment.getPaymentProofUrl(), payment.getId()) > 0) {
+            reasons.add("PAYMENT_PROOF_URL_REUSED");
+        }
+        return reasons;
+    }
+
+    private static String normalizeNullable(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
     
     private PaymentResponse mapToResponseWithInstructions(Payment payment) {

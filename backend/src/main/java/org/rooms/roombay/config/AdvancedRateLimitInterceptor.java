@@ -28,11 +28,13 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
     
     private final RedisTemplate<String, Object> redisTemplate;
     private final Map<String, LocalRateLimitEntry> localCounters = new ConcurrentHashMap<>();
+    private volatile RateLimitMode currentMode = RateLimitMode.LOCAL;
     
     // Constructor with optional RedisTemplate
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public AdvancedRateLimitInterceptor(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
+        this.currentMode = redisTemplate != null ? RateLimitMode.REDIS : RateLimitMode.LOCAL;
     }
     
     // Default constructor for when RedisTemplate is not available
@@ -45,6 +47,12 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
     
     @Value("${ratelimit.ip.requests-per-minute:50}")
     private int ipLimitPerMinute;
+
+    @Value("${ratelimit.redis.required:false}")
+    private boolean redisRequired;
+
+    @Value("${spring.profiles.active:}")
+    private String activeProfiles;
     
     @Value("${ratelimit.login.requests-per-minute:10}")
     private int loginLimitPerMinute;
@@ -94,6 +102,11 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
     private boolean checkRateLimit(String key, int limit, long windowSeconds) {
         try {
             if (redisTemplate == null) {
+                if (isRedisRequired()) {
+                    currentMode = RateLimitMode.UNAVAILABLE;
+                    return false;
+                }
+                currentMode = RateLimitMode.LOCAL;
                 return checkLocalRateLimit(key, limit, windowSeconds);
             }
             
@@ -101,6 +114,11 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
             try {
                 redisTemplate.hasKey("test");
             } catch (Exception e) {
+                if (isRedisRequired()) {
+                    currentMode = RateLimitMode.UNAVAILABLE;
+                    return false;
+                }
+                currentMode = RateLimitMode.LOCAL;
                 return checkLocalRateLimit(key, limit, windowSeconds);
             }
             
@@ -118,14 +136,33 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
                 redisTemplate.expire(key, Duration.ofSeconds(windowSeconds));
             }
             
+            currentMode = RateLimitMode.REDIS;
             return true;
         } catch (Exception e) {
+            if (isRedisRequired()) {
+                currentMode = RateLimitMode.UNAVAILABLE;
+                return false;
+            }
             // Only log at debug level to avoid noise when Redis is intentionally not available
             if (log.isDebugEnabled()) {
                 log.debug("Redis rate limiting unavailable; using local limiter: {}", e.getMessage());
             }
+            currentMode = RateLimitMode.LOCAL;
             return checkLocalRateLimit(key, limit, windowSeconds);
         }
+    }
+
+    public RateLimitMode getCurrentMode() {
+        if (redisTemplate == null && !isRedisRequired()) {
+            return RateLimitMode.LOCAL;
+        }
+        return currentMode;
+    }
+
+    private boolean isRedisRequired() {
+        return redisRequired || (activeProfiles != null && java.util.Arrays.stream(activeProfiles.split(","))
+                .map(String::trim)
+                .anyMatch("prod"::equalsIgnoreCase) && redisRequired);
     }
 
     private boolean checkLocalRateLimit(String key, int limit, long windowSeconds) {
@@ -225,5 +262,11 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
             }
             return count.incrementAndGet() <= limit;
         }
+    }
+
+    public enum RateLimitMode {
+        REDIS,
+        LOCAL,
+        UNAVAILABLE
     }
 }

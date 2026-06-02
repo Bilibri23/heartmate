@@ -41,4 +41,17 @@ public class AdminOpsController {
     public ResponseEntity<List<Map<String, Object>>> alerts() {
         return ResponseEntity.ok(adminOpsService.alerts());
     }
+
+    @GetMapping("/queues")
+    public ResponseEntity<Map<String, Object>> queues() {
+        return ResponseEntity.ok(adminOpsService.queues());
+    }
+
+    @GetMapping("/ai/no-answer-questions")
+    public ResponseEntity<List<Map<String, Object>>> noAnswerQuestions(
+            @RequestParam(defaultValue = "7d") String range,
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        return ResponseEntity.ok(adminOpsService.topNoAnswerQuestions(range, limit));
+    }
 }

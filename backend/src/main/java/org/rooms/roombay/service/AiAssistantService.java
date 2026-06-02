@@ -84,7 +84,7 @@ public class AiAssistantService {
                     request.getMessage(), refusalText, List.of());
             aiMemoryService.appendTurn(userId, threadId, request.getMessage(), refusalText);
             analyticsEventService.emit("ai_no_answer", userId, SecurityUtils.getCurrentUserRole(), null,
-                    Map.of("reason", "safety_refusal", "persona", persona.name()));
+                    Map.of("reason", "safety_refusal", "persona", persona.name(), "question", safeAnalyticsQuestion(request.getMessage())));
             return AiChatResponse.builder()
                     .answer(refusalText)
                     .threadId(threadId)
@@ -115,7 +115,7 @@ public class AiAssistantService {
             chatLogRepository.insert(userId, persona.name(), request.getMessage(), NO_DOC_FALLBACK_ANSWER, List.of());
             aiMemoryService.appendTurn(userId, threadId, request.getMessage(), NO_DOC_FALLBACK_ANSWER);
             analyticsEventService.emit("ai_no_answer", userId, SecurityUtils.getCurrentUserRole(), null,
-                    Map.of("reason", "no_docs", "persona", persona.name()));
+                    Map.of("reason", "no_docs", "persona", persona.name(), "question", safeAnalyticsQuestion(request.getMessage())));
             return AiChatResponse.builder()
                     .answer(NO_DOC_FALLBACK_ANSWER)
                     .threadId(threadId)
@@ -197,7 +197,7 @@ public class AiAssistantService {
                 userId,
                 SecurityUtils.getCurrentUserRole(),
                 null,
-                Map.of("persona", persona.name(), "ragGrounded", ragGrounded)
+                Map.of("persona", persona.name(), "ragGrounded", ragGrounded, "question", safeAnalyticsQuestion(request.getMessage()))
         );
 
         return response;
@@ -331,6 +331,18 @@ public class AiAssistantService {
             return AiChatRequest.Persona.LANDLORD;
         }
         return AiChatRequest.Persona.TENANT;
+    }
+
+    private static String safeAnalyticsQuestion(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+        String safe = message
+                .replaceAll("(?i)bearer\\s+[a-z0-9._\\-]+", "Bearer [redacted]")
+                .replaceAll("(?i)(password|token|secret|authorization|cookie)\\s*[:=]\\s*\\S+", "$1=[redacted]")
+                .replaceAll("[\\r\\n\\t]+", " ")
+                .trim();
+        return safe.length() <= 180 ? safe : safe.substring(0, 180);
     }
 
     private String ensureNonEmptyAnswer(String answer, boolean ragGrounded) {

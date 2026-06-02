@@ -33,6 +33,8 @@ public class ProductionSecretsValidator {
         require("cloudinary.api-secret", "CLOUDINARY_API_SECRET", missing);
         require("cors.allowed-origins", "CORS_ALLOWED_ORIGINS", missing);
         require("spring.datasource.url", "SPRING_DATASOURCE_URL or DATABASE_URL", missing);
+        require("spring.mail.username", "MAIL_USERNAME", missing);
+        require("spring.mail.password", "MAIL_PASSWORD", missing);
 
         if (!missing.isEmpty()) {
             throw new IllegalStateException("Missing required non-dev configuration values: " + String.join(", ", missing));
@@ -48,8 +50,20 @@ public class ProductionSecretsValidator {
         rejectUnresolvedRailwayTemplate("spring.flyway.user", "SPRING_FLYWAY_USER");
         rejectUnresolvedRailwayTemplate("spring.flyway.password", "SPRING_FLYWAY_PASSWORD");
 
-        if (Boolean.parseBoolean(environment.getProperty("app.admin.seed.enabled", "false"))) {
+        boolean prod = activeProfiles.stream().anyMatch("prod"::equalsIgnoreCase);
+        boolean adminSeedEnabled = Boolean.parseBoolean(environment.getProperty("app.admin.seed.enabled", "false"));
+        if (prod && adminSeedEnabled) {
+            throw new IllegalStateException("APP_ADMIN_SEED_ENABLED must be false in prod. Create the admin once, then disable the seed before deploying.");
+        }
+        if (adminSeedEnabled) {
             log.warn("APP_ADMIN_SEED_ENABLED is true in a non-dev profile. Disable it immediately after the admin exists.");
+        }
+
+        boolean redisEnabled = Boolean.parseBoolean(environment.getProperty("spring.data.redis.enabled", "false"));
+        boolean horizontalScaling = Boolean.parseBoolean(environment.getProperty("roombay.production.horizontal-scaling-enabled", "false"));
+        boolean redisRequired = Boolean.parseBoolean(environment.getProperty("ratelimit.redis.required", String.valueOf(prod && horizontalScaling)));
+        if (prod && (redisEnabled || horizontalScaling || redisRequired)) {
+            requireRedisProductionConfig();
         }
     }
 
@@ -64,6 +78,13 @@ public class ProductionSecretsValidator {
         String value = environment.getProperty(property);
         if (value != null && value.contains("${{")) {
             throw new IllegalStateException(envKey + " still contains an unresolved Railway template. Link the Postgres service variables or set the resolved value directly.");
+        }
+    }
+
+    private void requireRedisProductionConfig() {
+        String host = environment.getProperty("spring.data.redis.host");
+        if (!StringUtils.hasText(host) || "localhost".equalsIgnoreCase(host.trim()) || "127.0.0.1".equals(host.trim())) {
+            throw new IllegalStateException("Production Redis rate limiting requires REDIS_HOST to point at the managed Redis service, not localhost.");
         }
     }
 }

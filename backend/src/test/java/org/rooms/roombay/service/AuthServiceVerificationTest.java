@@ -15,6 +15,7 @@ import org.rooms.roombay.repository.RefreshTokenSessionRepository;
 import org.rooms.roombay.repository.UserRepository;
 import org.rooms.roombay.security.JwtTokenProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +48,7 @@ class AuthServiceVerificationTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(authService, "verificationRequiredForLogin", true);
         user = User.builder()
                 .id(UUID.randomUUID())
                 .email("test@example.com")
