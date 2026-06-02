@@ -35,6 +35,8 @@ import java.util.regex.Pattern;
 public class AiAssistantService {
     private static final int MAX_VISIBLE_ANSWER_CHARS = 520;
     private static final Pattern NEXT_STEP_PATTERN = Pattern.compile("(?i)\\bnext\\s*step\\b");
+    static final String NO_DOC_FALLBACK_ANSWER =
+            "I do not have documentation that answers this question. Please open the relevant RoomBay screen or contact support.";
 
     private final AiModelRouter modelRouter;
     private final AiGraphRagService graphRagService;
@@ -92,6 +94,20 @@ public class AiAssistantService {
 
         // Layer 1: drop chunks the caller's role isn't authorized to see.
         chunks = retrievalPolicy.filter(chunks, SecurityUtils.getCurrentUserRole());
+        boolean ragGrounded = !chunks.isEmpty();
+        if (!ragGrounded) {
+            log.info("[AI] chat user={} ragChunks=0 grounded=false graphRag={} ms={}",
+                    userId, graphRagService.isGraphRagEnabled(), System.currentTimeMillis() - started);
+            chatLogRepository.insert(userId, persona.name(), request.getMessage(), NO_DOC_FALLBACK_ANSWER, List.of());
+            aiMemoryService.appendTurn(userId, threadId, request.getMessage(), NO_DOC_FALLBACK_ANSWER);
+            return AiChatResponse.builder()
+                    .answer(NO_DOC_FALLBACK_ANSWER)
+                    .threadId(threadId)
+                    .citations(List.of())
+                    .suggestedActions(List.of())
+                    .ragGrounded(false)
+                    .build();
+        }
 
         // Layer 2: sanitize chunk text + user_context before they reach the model.
         List<Map<String, Object>> contextChunks = chunks.stream().map(c -> {
@@ -103,7 +119,6 @@ public class AiAssistantService {
             return m;
         }).toList();
 
-        boolean ragGrounded = !chunks.isEmpty();
         String system = buildSystemPrompt(persona, ragGrounded);
         String userContext = contextSanitizer.sanitize(buildUserContext(userId, persona));
         List<AiMemoryService.MemoryTurn> memoryTurns = aiMemoryService.loadRecentTurns(userId, threadId, memoryMaxTurns);
@@ -183,10 +198,7 @@ public class AiAssistantService {
             noKb = String.join("\n",
                     "",
                     "Critical: No documentation chunks were retrieved from the RoomBay knowledge base for this question.",
-                    "- Say clearly that you are answering without doc-grounded context.",
-                    "- Do not invent RoomBay-specific screens, URLs, or policies.",
-                    "- Suggest the user open Search, Profile, or Landlord dashboard as appropriate, or contact support.",
-                    "- Keep the reply short."
+                    "- Use exactly this answer and do not add tips: " + NO_DOC_FALLBACK_ANSWER
             );
         }
 
@@ -296,7 +308,7 @@ public class AiAssistantService {
         if (ragGrounded) {
             return "I found related RoomBay information, but I could not format a full answer this time. Please ask again in one sentence, and I will answer clearly with the same sources.";
         }
-        return "I could not generate a complete answer right now. Please rephrase your question, and if this continues, try again shortly.";
+        return NO_DOC_FALLBACK_ANSWER;
     }
 
     @lombok.Value
@@ -376,6 +388,9 @@ public class AiAssistantService {
         if (answer == null || answer.isBlank()) {
             return answer;
         }
+        if (!ragGrounded) {
+            return NO_DOC_FALLBACK_ANSWER;
+        }
         String out = answer.trim();
         out = out.replaceAll("\\n{3,}", "\n\n");
 
@@ -410,9 +425,7 @@ public class AiAssistantService {
             return "complete payment inside RoomBay so your transaction stays protected.";
         }
         if (!ragGrounded) {
-            return persona == AiChatRequest.Persona.ADMIN
-                    ? "open the Admin dashboard and follow the runbook for this queue, or contact support@roombay.com."
-                    : "open the relevant RoomBay screen (Search, Leases, or Dashboard) or contact support@roombay.com.";
+            return NO_DOC_FALLBACK_ANSWER;
         }
         if (persona == AiChatRequest.Persona.ADMIN) {
             return "open the Admin dashboard for the relevant queue and follow the documented checklist.";

@@ -34,6 +34,6 @@ class AiIngestionServiceTest {
     void packagedAiDocsAreAvailableOnClasspath() throws Exception {
         Resource[] docs = new PathMatchingResourcePatternResolver().getResources("classpath*:/ai-docs/**/*.md");
 
-        assertThat(Arrays.stream(docs).filter(Resource::isReadable)).hasSizeGreaterThanOrEqualTo(10);
+        assertThat(Arrays.stream(docs).filter(Resource::isReadable)).hasSizeGreaterThanOrEqualTo(30);
     }
 }
