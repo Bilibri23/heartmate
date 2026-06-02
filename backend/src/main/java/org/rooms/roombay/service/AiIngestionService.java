@@ -128,7 +128,7 @@ public class AiIngestionService {
      * use the repo root, where {@code docs/} sits next to {@code backend/}. If the configured path is missing,
      * fall back to {@code ./docs} relative to {@code user.dir}.
      */
-    private Path resolveDocsDir() {
+    Path resolveDocsDir() {
         Path primary = Path.of(docsDir).toAbsolutePath().normalize();
         if (Files.isDirectory(primary)) {
             return primary;

@@ -40,8 +40,8 @@ WORKDIR /app
 # Copy the built JAR from builder stage
 COPY --from=builder /app/target/*.jar app.jar
 
-# Copy only non-secret AI ingestion docs. Internal/security docs are intentionally excluded.
-COPY docs/admin ./docs/admin
+# Copy RoomBay AI knowledge corpus for RAG ingestion.
+COPY docs ./docs
 
 # Change ownership to non-root user
 RUN chown -R roombay:roombay /app

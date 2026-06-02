@@ -12,17 +12,28 @@ import java.util.Set;
 /**
  * Layer 1 of the safety stack: role-based filtering of RAG retrievals.
  *
- * <p>Today RoomBay's RAG corpus is built only from {@code docs/*.md} (public help content),
- * so this filter is conservative by default: drop chunks whose source path is flagged as
- * {@code admin-only} unless the caller has the ADMIN role. Centralizing the rule means
- * future private corpora (lease text, admin runbooks) can be onboarded with one allow-list change.
+ * <p>RoomBay's RAG corpus is organized by audience. Public docs can be used for every role,
+ * tenant docs are tenant-only, landlord docs are landlord-only, and admin/internal/security
+ * docs are admin-only.
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class AiRetrievalPolicy {
 
-    private static final Set<String> ADMIN_ONLY_SOURCE_PREFIXES = Set.of(
+    private static final Set<String> PUBLIC_SOURCE_PREFIXES = Set.of(
+            "docs/public/"
+    );
+
+    private static final Set<String> TENANT_SOURCE_PREFIXES = Set.of(
+            "docs/tenant/"
+    );
+
+    private static final Set<String> LANDLORD_SOURCE_PREFIXES = Set.of(
+            "docs/landlord/"
+    );
+
+    private static final Set<String> ADMIN_SOURCE_PREFIXES = Set.of(
             "docs/admin/",
             "docs/internal/",
             "docs/security/"
@@ -32,24 +43,32 @@ public class AiRetrievalPolicy {
         if (chunks == null || chunks.isEmpty()) {
             return List.of();
         }
-        boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
-        if (isAdmin) {
+        String role = userRole == null ? "" : userRole.toUpperCase(Locale.ROOT);
+        if ("ADMIN".equals(role)) {
             return chunks;
         }
         return chunks.stream()
-                .filter(c -> !isAdminOnly(c.getSource()))
+                .filter(c -> isAllowedForRole(c.getSource(), role))
                 .toList();
     }
 
-    private static boolean isAdminOnly(String source) {
+    private static boolean isAllowedForRole(String source, String role) {
         if (source == null) {
             return false;
         }
         String s = source.toLowerCase(Locale.ROOT).replace('\\', '/');
-        for (String prefix : ADMIN_ONLY_SOURCE_PREFIXES) {
-            if (s.startsWith(prefix) || s.contains("/" + prefix)) {
-                return true;
-            }
+        if (matchesAnyPrefix(s, PUBLIC_SOURCE_PREFIXES)) {
+            return true;
+        }
+        if ("LANDLORD".equals(role)) {
+            return matchesAnyPrefix(s, LANDLORD_SOURCE_PREFIXES);
+        }
+        return matchesAnyPrefix(s, TENANT_SOURCE_PREFIXES);
+    }
+
+    private static boolean matchesAnyPrefix(String normalizedSource, Set<String> prefixes) {
+        for (String prefix : prefixes) {
+            if (normalizedSource.startsWith(prefix) || normalizedSource.contains("/" + prefix)) return true;
         }
         return false;
     }

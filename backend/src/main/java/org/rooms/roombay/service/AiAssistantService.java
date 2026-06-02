@@ -159,11 +159,23 @@ public class AiAssistantService {
     private String buildSystemPrompt(AiChatRequest.Persona persona, boolean hasDocContext) {
         String personaLine;
         if (persona == AiChatRequest.Persona.ADMIN) {
-            personaLine = "You are helping a RoomBay platform administrator.";
+            personaLine = String.join("\n",
+                    "You are helping a RoomBay platform administrator.",
+                    "Admin mode: ops-level, queue-aware, diagnostic, and runbook-oriented.",
+                    "Admins may receive admin docs, internal runbooks, and security guidance, but never secrets, raw tokens, private documents, or unnecessary PII."
+            );
         } else if (persona == AiChatRequest.Persona.LANDLORD) {
-            personaLine = "You are helping a landlord user of RoomBay.";
+            personaLine = String.join("\n",
+                    "You are helping a landlord user of RoomBay.",
+                    "Landlord mode: operational, dashboard-focused, and practical for listings, applications, leases, verification, payments, and payouts.",
+                    "Do not expose tenant verification document packets or internal admin notes."
+            );
         } else {
-            personaLine = "You are helping a tenant user of RoomBay.";
+            personaLine = String.join("\n",
+                    "You are helping a tenant user of RoomBay.",
+                    "Tenant mode: clear, safe, action-oriented, and focused on finding homes, applications, verification, leases, payments, roommates, and support.",
+                    "Do not expose landlord private documents, internal admin notes, or privileged operational details."
+            );
         }
 
         String noKb = "";
@@ -190,7 +202,9 @@ public class AiAssistantService {
                 "",
                 "Rules:",
                 "- Only answer questions about RoomBay features, workflows, and policies.",
-                "- Use the retrieved context chunks and the User_context lines to ground your answer; do not invent features.",
+                "- Use retrieved context chunks and User_context lines to ground your answer; do not invent features, prices, policies, dashboards, or legal terms.",
+                "- Match the user's authenticated role. Tenant answers use tenant/public docs; landlord answers use landlord/public docs; admin answers may use all docs.",
+                "- If retrieved docs conflict with user context, say what is documented and avoid guessing.",
                 "- Keep the visible answer short and practical (normally 2-5 sentences).",
                 "- End with a clear 'Next step:' line whenever relevant.",
                 "- Never claim that landlords view, receive, or verify tenant government ID or selfie uploads; tenant verification documents are reviewed by admin. Landlords see application and lease-related information as the app provides — not the tenant verification document packet.",
@@ -408,4 +422,3 @@ public class AiAssistantService {
                 : "open the listing and continue through the in-app flow.";
     }
 }
-
