@@ -128,14 +128,20 @@ export default function LandingPage() {
   const router = useRouter()
   const [heroIndex, setHeroIndex] = useState(0)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (!isLoading && user) {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    // Only redirect after mount to avoid SSR/hydration mismatch and SEO redirect issues
+    if (mounted && !isLoading && user) {
       if (user.role === "ADMIN") router.replace("/admin")
       else if (user.role === "LANDLORD") router.replace("/landlord")
       else router.replace("/for-you")
     }
-  }, [user, isLoading, router])
+  }, [mounted, user, isLoading, router])
 
   useEffect(() => {
     const interval = setInterval(() => setHeroIndex(i => (i + 1) % heroImages.length), 4000)
@@ -149,7 +155,7 @@ export default function LandingPage() {
       </div>
     )
   }
-  if (user) return null
+  // Always render landing content; redirect happens client-side after mount
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#050816] text-white">

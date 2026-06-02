@@ -92,6 +92,7 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="google" content="notranslate" />
       </head>
       <body className="antialiased bg-slate-50">
         <Providers>
