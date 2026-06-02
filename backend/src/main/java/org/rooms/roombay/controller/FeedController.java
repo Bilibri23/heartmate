@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.HomeFeedResponse;
+import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.FeedService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,6 +28,7 @@ import java.util.UUID;
 public class FeedController {
 
     private final FeedService feedService;
+    private final AnalyticsEventService analyticsEventService;
 
     @GetMapping("/feed")
     @Operation(summary = "Home feed", description = "Returns requested sections in one response. Personalizes for-you when authenticated.")
@@ -45,6 +47,7 @@ public class FeedController {
             }
         }
 
+        analyticsEventService.emit("feed_opened", userId, null, null, java.util.Map.of("sections", sections, "size", size));
         HomeFeedResponse response = feedService.buildFeed(sections, size, lang, userId);
         return ResponseEntity.ok(response);
     }

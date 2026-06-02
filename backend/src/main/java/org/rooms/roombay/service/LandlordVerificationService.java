@@ -40,6 +40,7 @@ public class LandlordVerificationService {
     private final EmailService emailService;
     private final AuditLogService auditLogService;
     private final NotificationService notificationService;
+    private final AnalyticsEventService analyticsEventService;
     
     // ==================== IDENTITY VERIFICATION ====================
     
@@ -266,6 +267,10 @@ public class LandlordVerificationService {
         verification.updateVerificationLevel();
         
         LandlordVerification saved = verificationRepository.save(verification);
+        if (status == VerificationStatus.VERIFIED && saved.getIsTrustedLandlord()) {
+            analyticsEventService.emit("landlord_verified", saved.getUser().getId(), "LANDLORD", null,
+                    java.util.Map.of("verificationId", saved.getId().toString(), "verificationType", verificationType));
+        }
         
         // Log audit trail
         auditLogService.logAdminAction(

@@ -14,6 +14,7 @@ import org.rooms.roombay.dto.response.ListingResponse;
 import org.rooms.roombay.security.AuthorizationPolicyService;
 import org.rooms.roombay.security.RequiresCompletion;
 import org.rooms.roombay.security.SecurityUtils;
+import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.FileUploadService;
 import org.rooms.roombay.service.ListingService;
 import org.rooms.roombay.util.InputSanitizer;
@@ -41,6 +42,7 @@ public class ListingController {
     private final FileUploadService fileUploadService;
     private final InputSanitizer inputSanitizer;
     private final AuthorizationPolicyService authorizationPolicyService;
+    private final AnalyticsEventService analyticsEventService;
     
     @PostMapping
     @RequiresCompletion(operation = "LISTING_PUBLISH")
@@ -53,6 +55,7 @@ public class ListingController {
         UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Creating listing for landlord: {}", landlordId);
         ListingResponse response = listingService.createListing(landlordId, request);
+        analyticsEventService.emit("landlord_listing_created", landlordId, SecurityUtils.getCurrentUserRole(), response.getId(), null);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
     
@@ -155,6 +158,8 @@ public class ListingController {
                 query, city, neighborhood, propertyType, minPrice, maxPrice, 
                 bedrooms, bathrooms, amenities, maxDistance, userLat, userLon, 
                 availableFrom, userId, pageable);
+        analyticsEventService.emit("search_performed", userId, null, null,
+                Map.of("source", "listings", "query", query != null ? query : "", "city", city != null ? city : ""));
         return ResponseEntity.ok(listings);
     }
     
@@ -252,6 +257,9 @@ public class ListingController {
         UUID userId = SecurityUtils.getCurrentUserId();
         log.info("Toggling favorite for listing: {} by user: {}", listingId, userId);
         ListingResponse response = listingService.toggleFavorite(listingId, userId);
+        if (Boolean.TRUE.equals(response.getIsFavorite())) {
+            analyticsEventService.emit("save_listing", userId, SecurityUtils.getCurrentUserRole(), listingId, null);
+        }
         return ResponseEntity.ok(ApiResponse.<ListingResponse>builder()
                 .success(true)
                 .message("Favorite toggled successfully")
@@ -298,6 +306,7 @@ public class ListingController {
             @RequestParam(required = false) UUID userId) {
         log.info("Tracking view for listing: {} by user: {}", listingId, userId);
         listingService.trackView(listingId, userId);
+        analyticsEventService.emit("listing_view", userId, null, listingId, Map.of("source", "listing_detail"));
         return ResponseEntity.ok().build();
     }
     
@@ -311,4 +320,3 @@ public class ListingController {
     }
 
 }
-

@@ -56,6 +56,8 @@ public class AiAssistantService {
     private final AiSafetyClassifier safetyClassifier;
     private final AiOutputGuard outputGuard;
     private final AiRetrievalPolicy retrievalPolicy;
+    private final AnalyticsEventService analyticsEventService;
+    private final AppErrorLogService appErrorLogService;
 
     @Value("${roombay.ai.memory.max-turns:6}")
     private int memoryMaxTurns;
@@ -69,6 +71,8 @@ public class AiAssistantService {
         aiChatRateLimiter.checkAllowed(userId);
         String threadId = resolveThreadId(request.getThreadId());
         AiChatRequest.Persona persona = resolveEffectivePersona(request);
+        analyticsEventService.emit("ai_question_asked", userId, SecurityUtils.getCurrentUserRole(), null,
+                Map.of("persona", persona.name()));
 
         // Layer 4 (input side): deterministic refusal short-circuit. Model is also finetuned
         // to reproduce the same refusal copy, so the user-visible behaviour is consistent.
@@ -79,6 +83,8 @@ public class AiAssistantService {
             chatLogRepository.insert(userId, persona.name(),
                     request.getMessage(), refusalText, List.of());
             aiMemoryService.appendTurn(userId, threadId, request.getMessage(), refusalText);
+            analyticsEventService.emit("ai_no_answer", userId, SecurityUtils.getCurrentUserRole(), null,
+                    Map.of("reason", "safety_refusal", "persona", persona.name()));
             return AiChatResponse.builder()
                     .answer(refusalText)
                     .threadId(threadId)
@@ -108,6 +114,8 @@ public class AiAssistantService {
                     userId, graphRagService.isGraphRagEnabled(), System.currentTimeMillis() - started);
             chatLogRepository.insert(userId, persona.name(), request.getMessage(), NO_DOC_FALLBACK_ANSWER, List.of());
             aiMemoryService.appendTurn(userId, threadId, request.getMessage(), NO_DOC_FALLBACK_ANSWER);
+            analyticsEventService.emit("ai_no_answer", userId, SecurityUtils.getCurrentUserRole(), null,
+                    Map.of("reason", "no_docs", "persona", persona.name()));
             return AiChatResponse.builder()
                     .answer(NO_DOC_FALLBACK_ANSWER)
                     .threadId(threadId)
@@ -133,10 +141,16 @@ public class AiAssistantService {
         String memoryContext = contextSanitizer.sanitize(buildMemoryContext(memoryTurns));
         String fullUserContext = memoryContext.isBlank() ? userContext : userContext + "\n\n" + memoryContext;
         logPromptAssembly(userId, system, request.getMessage(), contextChunks, fullUserContext);
-        String raw = modelRouter.chat(system, request.getMessage(), contextChunks, fullUserContext);
-        logRawModelResponse(userId, raw);
-        ParsedAssistant parsed = parseAssistantOutput(raw);
-        logParsedResponse(userId, parsed);
+        ParsedAssistant parsed;
+        try {
+            String raw = modelRouter.chat(system, request.getMessage(), contextChunks, fullUserContext);
+            logRawModelResponse(userId, raw);
+            parsed = parseAssistantOutput(raw);
+            logParsedResponse(userId, parsed);
+        } catch (RuntimeException ex) {
+            appErrorLogService.log("ERROR", "AI", "AI chat synthesis failed: " + ex.getMessage(), "/api/ai/chat", ex);
+            throw ex;
+        }
 
         List<AiChatResponse.Citation> citations = chunks.stream().map(c -> AiChatResponse.Citation.builder()
                 .chunkId(c.getId().toString())
@@ -178,6 +192,13 @@ public class AiAssistantService {
                 citations.stream().map(AiChatResponse.Citation::getChunkId).toList()
         );
         aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
+        analyticsEventService.emit(
+                NO_DOC_FALLBACK_ANSWER.equals(response.getAnswer()) ? "ai_no_answer" : "ai_answer_returned",
+                userId,
+                SecurityUtils.getCurrentUserRole(),
+                null,
+                Map.of("persona", persona.name(), "ragGrounded", ragGrounded)
+        );
 
         return response;
     }

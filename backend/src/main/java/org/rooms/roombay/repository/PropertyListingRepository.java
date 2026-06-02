@@ -19,6 +19,8 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
     List<PropertyListing> findByLandlordId(UUID landlordId);
     
     List<PropertyListing> findByStatus(PropertyListing.Status status);
+
+    long countByStatus(PropertyListing.Status status);
     
     List<PropertyListing> findByStatusAndVerified(PropertyListing.Status status, Boolean verified);
     
@@ -74,4 +76,3 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
            "OR (l.videoTourEmbedCode IS NOT NULL AND TRIM(l.videoTourEmbedCode) <> '')) ")
     long countActiveWithVideoTour();
 }
-

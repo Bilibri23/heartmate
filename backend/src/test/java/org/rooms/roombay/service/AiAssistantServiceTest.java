@@ -9,7 +9,8 @@ class AiAssistantServiceTest {
 
     private final AiAssistantService service = new AiAssistantService(
             null, null, null, null, null, null, null,
-            null, null, null, null, null, null, null
+            null, null, null, null, null, null, null,
+            null, null
     );
 
     @Test

@@ -1,8 +1,11 @@
 package org.rooms.roombay.exception;
 
 import jakarta.persistence.PersistenceException;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.security.VerificationRequiredException;
+import org.rooms.roombay.service.AppErrorLogService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -22,7 +25,10 @@ import java.util.Map;
 
 @RestControllerAdvice
 @Slf4j
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final AppErrorLogService appErrorLogService;
 
     @Value("${app.api.error-detail:false}")
     private boolean apiErrorDetail;
@@ -164,8 +170,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(DataAccessException.class)
-    public ResponseEntity<ErrorResponse> handleDataAccessException(DataAccessException ex) {
+    public ResponseEntity<ErrorResponse> handleDataAccessException(DataAccessException ex, HttpServletRequest request) {
         log.error("Database error: ", ex);
+        appErrorLogService.log("ERROR", "DATABASE", "503 database error: " + ex.getMessage(), path(request), ex);
         String message = "Could not reach the database. Ensure PostgreSQL is running and DATABASE_URL (or spring.datasource.url) is correct.";
         if (apiErrorDetail) {
             message = message + " [" + ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage()) + "]";
@@ -180,8 +187,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(PersistenceException.class)
-    public ResponseEntity<ErrorResponse> handlePersistenceException(PersistenceException ex) {
+    public ResponseEntity<ErrorResponse> handlePersistenceException(PersistenceException ex, HttpServletRequest request) {
         log.error("JPA persistence error: ", ex);
+        appErrorLogService.log("ERROR", "DATABASE", "503 persistence error: " + ex.getMessage(), path(request), ex);
         String message = "Database operation failed. Check PostgreSQL is running and schema is up to date (e.g. refresh_token_sessions table exists).";
         if (apiErrorDetail) {
             message = message + " [" + ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage()) + "]";
@@ -196,8 +204,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, HttpServletRequest request) {
         log.error("Unexpected error: ", ex);
+        appErrorLogService.log("ERROR", "API", "500 unexpected error: " + ex.getMessage(), path(request), ex);
         String message = "An unexpected error occurred";
         if (apiErrorDetail) {
             message = ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage());
@@ -210,5 +219,8 @@ public class GlobalExceptionHandler {
                 .build();
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-}
 
+    private static String path(HttpServletRequest request) {
+        return request != null ? request.getRequestURI() : null;
+    }
+}

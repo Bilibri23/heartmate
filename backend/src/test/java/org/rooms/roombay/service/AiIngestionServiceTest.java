@@ -16,7 +16,7 @@ class AiIngestionServiceTest {
     @Test
     void resolvesConfiguredDocsDirectory() throws Exception {
         Path docs = Files.createTempDirectory("roombay-ai-docs");
-        AiIngestionService service = new AiIngestionService(null, null, null);
+        AiIngestionService service = new AiIngestionService(null, null, null, null, null);
         ReflectionTestUtils.setField(service, "docsDir", docs.toString());
 
         assertThat(service.resolveDocsDir()).isEqualTo(docs.toAbsolutePath().normalize());
@@ -24,7 +24,7 @@ class AiIngestionServiceTest {
 
     @Test
     void fallsBackToRepoDocsDirectoryWhenConfiguredPathIsMissing() {
-        AiIngestionService service = new AiIngestionService(null, null, null);
+        AiIngestionService service = new AiIngestionService(null, null, null, null, null);
         ReflectionTestUtils.setField(service, "docsDir", "__missing_ai_docs_dir__");
 
         assertThat(service.resolveDocsDir().getFileName().toString()).isEqualTo("docs");

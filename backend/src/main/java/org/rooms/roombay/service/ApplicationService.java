@@ -48,6 +48,7 @@ public class ApplicationService {
     private final CoApplicationInvitationRepository coInvitationRepository;
     private final MatchRepository matchRepository;
     private final org.springframework.context.ApplicationContext applicationContext;
+    private final AnalyticsEventService analyticsEventService;
     
     private static final int APPLICATION_EXPIRY_DAYS = 30;
     
@@ -97,6 +98,10 @@ public class ApplicationService {
         
         application = applicationRepository.save(application);
         log.info("Application created successfully with ID: {}", application.getId());
+        analyticsEventService.emit("application_started", studentId, "STUDENT", listing.getId(),
+                Map.of("applicationId", application.getId().toString()));
+        analyticsEventService.emit("application_submitted", studentId, "STUDENT", listing.getId(),
+                Map.of("applicationId", application.getId().toString()));
         
         // Send notification to landlord
         notificationService.notifyApplicationReceived(
@@ -173,6 +178,10 @@ public class ApplicationService {
         
         application = applicationRepository.save(application);
         log.info("Co-application created successfully with ID: {}", application.getId());
+        analyticsEventService.emit("application_started", applicantId, primaryApplicant.getRole().name(), listing.getId(),
+                Map.of("applicationId", application.getId().toString(), "coApplication", true));
+        analyticsEventService.emit("application_submitted", applicantId, primaryApplicant.getRole().name(), listing.getId(),
+                Map.of("applicationId", application.getId().toString(), "coApplication", true));
         
         // Mark the invitation as used (change status to reflect it's been acted upon)
         invitation.setStatus(CoApplicationInvitation.Status.APPLIED);
@@ -392,6 +401,8 @@ public class ApplicationService {
         
         // Send notification to student based on status
         if (request.getStatus() == RoomApplication.Status.ACCEPTED) {
+            analyticsEventService.emit("application_approved", landlordId, "LANDLORD", application.getListing().getId(),
+                    Map.of("applicationId", application.getId().toString()));
             notificationService.notifyApplicationAccepted(
                     application.getStudent().getId(),
                     application.getId(),

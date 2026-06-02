@@ -12,6 +12,7 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.rooms.roombay.security.JwtTokenProvider;
+import org.rooms.roombay.service.AppErrorLogService;
 
 import java.util.UUID;
 
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final AppErrorLogService appErrorLogService;
 
     @Override
     public Message<?> preSend(@NonNull Message<?> message, @NonNull MessageChannel channel) {
@@ -42,12 +44,15 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                         log.debug("WebSocket authenticated for user: {}", userId);
                     } else {
                         log.warn("WebSocket CONNECT: invalid token");
+                        appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT invalid token", "/ws", null);
                     }
                 } catch (Exception e) {
                     log.warn("WebSocket CONNECT: token validation failed: {}", e.getMessage());
+                    appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT token validation failed: " + e.getMessage(), "/ws", e);
                 }
             } else {
                 log.warn("WebSocket CONNECT: no Authorization header");
+                appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT missing Authorization header", "/ws", null);
             }
         }
 

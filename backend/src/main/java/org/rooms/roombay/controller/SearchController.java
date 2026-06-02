@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.ListingResponse;
 import org.rooms.roombay.search.ElasticsearchSearchService;
+import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.ListingService;
 import org.rooms.roombay.util.InputSanitizer;
 import org.springframework.data.domain.Page;
@@ -34,6 +35,7 @@ public class SearchController {
     private final Optional<ElasticsearchSearchService> elasticsearchSearchService;
     private final ListingService listingService;
     private final InputSanitizer inputSanitizer;
+    private final AnalyticsEventService analyticsEventService;
 
     @GetMapping
     @Operation(summary = "Search listings (Elasticsearch)", description = "Search with fuzzy matching, typo tolerance, boosting (featured, verified), and language-aware relevance. Uses Elasticsearch when enabled.")
@@ -82,6 +84,8 @@ public class SearchController {
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
+        analyticsEventService.emit("search_performed", userId, null, null,
+                java.util.Map.of("source", "search", "query", query != null ? query : "", "city", city != null ? city : ""));
 
         if (elasticsearchSearchService.isPresent()) {
             log.info("Searching via Elasticsearch - query: {}, city: {}, lang: {}", query, city, lang);

@@ -31,6 +31,8 @@ public class AiIngestionService {
     private final AiModelRouter modelRouter;
     private final AiRagRepository ragRepository;
     private final AiGraphRagIngestLinker graphRagIngestLinker;
+    private final AiIngestRunService aiIngestRunService;
+    private final AppErrorLogService appErrorLogService;
 
     @Value("${AI_DOCS_DIR:../docs}")
     private String docsDir;
@@ -58,6 +60,19 @@ public class AiIngestionService {
      * Ingests all markdown docs from docsDir into pgvector.
      */
     public AiIngestResponse ingestDocs(boolean force) {
+        UUID runId = aiIngestRunService.start();
+        try {
+            AiIngestResponse response = ingestDocsInternal(force);
+            aiIngestRunService.success(runId, response);
+            return response;
+        } catch (RuntimeException ex) {
+            aiIngestRunService.failure(runId, ex);
+            appErrorLogService.log("ERROR", "AI", "AI ingest failed: " + ex.getMessage(), "/api/ai/admin/ingest", ex);
+            throw ex;
+        }
+    }
+
+    private AiIngestResponse ingestDocsInternal(boolean force) {
         List<DocFile> files = loadDocs();
 
         int docsProcessed = 0;

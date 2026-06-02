@@ -3,6 +3,7 @@ package org.rooms.roombay.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.ListingResponse;
+import org.rooms.roombay.service.AppErrorLogService;
 import org.rooms.roombay.service.OnlineStatusService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.SendTo;
@@ -23,6 +24,7 @@ public class WebSocketController {
     
     private final SimpMessagingTemplate messagingTemplate;
     private final OnlineStatusService onlineStatusService;
+    private final AppErrorLogService appErrorLogService;
     
     /**
      * Broadcast listing update to all subscribers
@@ -71,6 +73,7 @@ public class WebSocketController {
             }
         } catch (Exception e) {
             log.error("Error handling heartbeat: {}", e.getMessage());
+            appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket heartbeat failed: " + e.getMessage(), "/ws/online/heartbeat", e);
         }
     }
     
@@ -87,6 +90,7 @@ public class WebSocketController {
             }
         } catch (Exception e) {
             log.error("Error handling user connect: {}", e.getMessage());
+            appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket user connect failed: " + e.getMessage(), "/ws/online/connect", e);
         }
     }
     
@@ -103,6 +107,7 @@ public class WebSocketController {
             }
         } catch (Exception e) {
             log.error("Error handling user disconnect: {}", e.getMessage());
+            appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket user disconnect failed: " + e.getMessage(), "/ws/online/disconnect", e);
         }
     }
     

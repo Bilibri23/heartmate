@@ -34,6 +34,7 @@ public class LeaseService {
     private final PropertyListingRepository listingRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final AnalyticsEventService analyticsEventService;
     
     // Lazy injection to avoid circular dependency
     private HouseholdService householdService;
@@ -118,6 +119,8 @@ public class LeaseService {
         
         Lease saved = leaseRepository.save(lease);
         log.info("Lease created: {} with reference: {}", saved.getId(), saved.getReferenceCode());
+        analyticsEventService.emit("lease_generated", landlordId, "LANDLORD", listing.getId(),
+                java.util.Map.of("leaseId", saved.getId().toString(), "applicationId", application.getId().toString()));
         
         // Notify student about lease creation
         notificationService.notifyLeaseCreated(
@@ -244,6 +247,8 @@ public class LeaseService {
             listing.setStatus(PropertyListing.Status.RENTED);
             listingRepository.save(listing);
             log.info("Lease {} is now ACTIVE", leaseId);
+            analyticsEventService.emit("lease_signed", userId, null, listing.getId(),
+                    java.util.Map.of("leaseId", lease.getId().toString()));
             
             // Auto-create household for the tenant
             try {
@@ -445,6 +450,8 @@ public class LeaseService {
                     leaseRepository.save(lease);
                     created++;
                     log.info("Created lease for application {}", application.getId());
+                    analyticsEventService.emit("lease_generated", landlord.getId(), "LANDLORD", listing.getId(),
+                            java.util.Map.of("leaseId", lease.getId().toString(), "applicationId", application.getId().toString(), "batch", true));
                     
                     // Notify student
                     notificationService.notifyLeaseCreated(

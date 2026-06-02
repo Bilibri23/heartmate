@@ -10,6 +10,7 @@ import org.rooms.roombay.repository.ListingFavoriteRepository;
 import org.rooms.roombay.repository.ListingPhotoRepository;
 import org.rooms.roombay.repository.ListingViewRepository;
 import org.rooms.roombay.repository.ReviewRepository;
+import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.ListingService;
 import org.rooms.roombay.service.MatchingService;
 import org.rooms.roombay.service.RecommendationService;
@@ -39,6 +40,7 @@ public class RecommendationController {
     private final ListingViewRepository viewRepository;
     private final ListingFavoriteRepository favoriteRepository;
     private final ReviewRepository reviewRepository;
+    private final AnalyticsEventService analyticsEventService;
     
     /**
      * GET /api/recommendations/listings
@@ -109,6 +111,8 @@ public class RecommendationController {
         
         UUID userId = UUID.fromString(userDetails.getUsername());
         recommendationService.trackListingView(userId, listingId, source);
+        analyticsEventService.emit("listing_view", userId, "STUDENT", listingId,
+                java.util.Map.of("source", "recommendations:" + source));
         
         return ResponseEntity.ok().build();
     }

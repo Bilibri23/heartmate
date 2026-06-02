@@ -35,6 +35,7 @@ import {
   Building,
   Flag,
   Mail,
+  Activity,
 } from "lucide-react"
 
 interface Statistics {
@@ -296,6 +297,18 @@ export default function AdminDashboardPage() {
                         <div className="flex items-center gap-3">
                           <Users className="h-5 w-5 text-blue-600" />
                           <span className="text-slate-700">Manage Users</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-slate-400" />
+                      </div>
+                    </Link>
+                    <Link href="/admin/ops">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <Activity className="h-5 w-5 text-emerald-600" />
+                          <div>
+                            <span className="text-slate-700">Operations Center</span>
+                            <p className="text-xs text-slate-500">Health, alerts, funnel &amp; errors</p>
+                          </div>
                         </div>
                         <ChevronRight className="h-5 w-5 text-slate-400" />
                       </div>

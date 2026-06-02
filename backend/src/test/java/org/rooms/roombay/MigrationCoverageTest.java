@@ -39,4 +39,31 @@ class MigrationCoverageTest {
                     .contains("create table if not exists " + tableName);
         }
     }
+
+    @Test
+    void adminOpsTablesAreCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V46__admin_ops_center.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("create extension if not exists pgcrypto");
+
+        List<String> requiredTables = List.of(
+                "app_error_log",
+                "analytics_event",
+                "ai_ingest_run"
+        );
+
+        for (String tableName : requiredTables) {
+            assertThat(migration)
+                    .as("V46 should create %s", tableName)
+                    .contains("create table if not exists " + tableName);
+        }
+    }
 }

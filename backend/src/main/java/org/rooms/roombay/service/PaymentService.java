@@ -33,6 +33,7 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final LeaseService leaseService;
     private final NotificationService notificationService;
+    private final AnalyticsEventService analyticsEventService;
 
     @Value("${roombay.payments.platform-mtn-momo:670000000}")
     private String platformMtnMomoNumber;
@@ -133,6 +134,8 @@ public class PaymentService {
         
         Payment saved = paymentRepository.save(payment);
         log.info("Payment proof submitted: {}", saved.getId());
+        analyticsEventService.emit("payment_proof_uploaded", studentId, "STUDENT", lease.getListing().getId(),
+                java.util.Map.of("paymentId", saved.getId().toString(), "leaseId", lease.getId().toString()));
         
         return mapToResponse(saved);
     }
