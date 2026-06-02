@@ -21,6 +21,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class OpenAiClient {
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
 
     private final RestClient.Builder restClientBuilder;
 
@@ -35,6 +36,9 @@ public class OpenAiClient {
 
     @Value("${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}")
     private String embeddingModel;
+
+    @Value("${roombay.ai.debug-synthesis-logging:false}")
+    private boolean debugSynthesisLogging;
 
     public List<Double> embed(String input) {
         if (apiKey == null || apiKey.isBlank()) {
@@ -86,9 +90,7 @@ public class OpenAiClient {
 
         String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
 
-        String contextJson = contextChunks == null || contextChunks.isEmpty()
-                ? "[]"
-                : contextChunks.toString();
+        String contextJson = toJson(contextChunks);
 
         String userPrompt = user + "\n\n" +
                 (userContext != null && !userContext.isBlank()
@@ -105,6 +107,9 @@ public class OpenAiClient {
                         Map.of("role", "user", "content", userPrompt)
                 )
         );
+        if (debugSynthesisLogging) {
+            log.info("[AI] OpenAI final prompt model={} system=\n{}\nuser=\n{}", m, system, userPrompt);
+        }
 
         var client = restClientBuilder
                 .baseUrl(baseUrl)
@@ -126,6 +131,14 @@ public class OpenAiClient {
         String content = message != null ? (String) message.get("content") : null;
         if (content == null) throw new BadRequestException("Chat response missing content");
         return content.trim();
+    }
+
+    private static String toJson(Object value) {
+        try {
+            return JSON.writeValueAsString(value == null ? List.of() : value);
+        } catch (Exception e) {
+            return String.valueOf(value);
+        }
     }
 
     /**
@@ -172,4 +185,3 @@ public class OpenAiClient {
         return content.trim();
     }
 }
-

@@ -23,6 +23,9 @@ import org.rooms.roombay.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +36,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 @Slf4j
 public class AiAssistantService {
+    private static final ObjectMapper JSON = new ObjectMapper();
     private static final int MAX_VISIBLE_ANSWER_CHARS = 520;
     private static final Pattern NEXT_STEP_PATTERN = Pattern.compile("(?i)\\bnext\\s*step\\b");
     static final String NO_DOC_FALLBACK_ANSWER =
@@ -55,6 +59,9 @@ public class AiAssistantService {
 
     @Value("${roombay.ai.memory.max-turns:6}")
     private int memoryMaxTurns;
+
+    @Value("${roombay.ai.debug-synthesis-logging:false}")
+    private boolean debugSynthesisLogging;
 
     public AiChatResponse chat(AiChatRequest request) {
         long started = System.currentTimeMillis();
@@ -94,6 +101,7 @@ public class AiAssistantService {
 
         // Layer 1: drop chunks the caller's role isn't authorized to see.
         chunks = retrievalPolicy.filter(chunks, SecurityUtils.getCurrentUserRole());
+        logRetrievedChunks(userId, chunks);
         boolean ragGrounded = !chunks.isEmpty();
         if (!ragGrounded) {
             log.info("[AI] chat user={} ragChunks=0 grounded=false graphRag={} ms={}",
@@ -124,8 +132,11 @@ public class AiAssistantService {
         List<AiMemoryService.MemoryTurn> memoryTurns = aiMemoryService.loadRecentTurns(userId, threadId, memoryMaxTurns);
         String memoryContext = contextSanitizer.sanitize(buildMemoryContext(memoryTurns));
         String fullUserContext = memoryContext.isBlank() ? userContext : userContext + "\n\n" + memoryContext;
+        logPromptAssembly(userId, system, request.getMessage(), contextChunks, fullUserContext);
         String raw = modelRouter.chat(system, request.getMessage(), contextChunks, fullUserContext);
+        logRawModelResponse(userId, raw);
         ParsedAssistant parsed = parseAssistantOutput(raw);
+        logParsedResponse(userId, parsed);
 
         List<AiChatResponse.Citation> citations = chunks.stream().map(c -> AiChatResponse.Citation.builder()
                 .chunkId(c.getId().toString())
@@ -306,6 +317,7 @@ public class AiAssistantService {
             return answer.trim();
         }
         if (ragGrounded) {
+            log.warn("[AI] Grounded retrieval produced blank parsed answer; using formatting fallback.");
             return "I found related RoomBay information, but I could not format a full answer this time. Please ask again in one sentence, and I will answer clearly with the same sources.";
         }
         return NO_DOC_FALLBACK_ANSWER;
@@ -320,6 +332,10 @@ public class AiAssistantService {
     private ParsedAssistant parseAssistantOutput(String raw) {
         if (raw == null) return new ParsedAssistant("", List.of());
         String trimmed = raw.trim();
+        ParsedAssistant jsonParsed = parseJsonAssistantOutput(trimmed);
+        if (jsonParsed != null) {
+            return jsonParsed;
+        }
         String[] markers = { "SUGGESTED_ACTIONS_JSON:", "SUGGESTIONS_JSON:", "SUGGESTED_ACTIONS:" };
         int bestIdx = -1;
         String bestMarker = null;
@@ -341,14 +357,69 @@ public class AiAssistantService {
             json = json.substring(lb, rb + 1);
         }
         try {
-            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            var listType = mapper.getTypeFactory().constructCollectionType(List.class, AiChatResponse.SuggestedAction.class);
-            List<AiChatResponse.SuggestedAction> actions = mapper.readValue(json, listType);
+            var listType = JSON.getTypeFactory().constructCollectionType(List.class, AiChatResponse.SuggestedAction.class);
+            List<AiChatResponse.SuggestedAction> actions = JSON.readValue(json, listType);
             return new ParsedAssistant(answerPart, actions != null ? actions : List.of());
         } catch (Exception e) {
             log.debug("[AI] Could not parse suggested actions JSON: {}", e.getMessage());
             return new ParsedAssistant(answerPart.isBlank() ? sanitizeAnswerText(trimmed) : answerPart, List.of());
         }
+    }
+
+    private ParsedAssistant parseJsonAssistantOutput(String text) {
+        String candidate = unwrapJsonCandidate(text);
+        if (candidate == null || !candidate.startsWith("{")) {
+            return null;
+        }
+        try {
+            JsonNode root = JSON.readTree(candidate);
+            String answer = firstText(root, "answer", "content", "message", "response", "text");
+            List<AiChatResponse.SuggestedAction> actions = List.of();
+            JsonNode actionNode = firstNode(root, "suggestedActions", "suggested_actions", "actions");
+            if (actionNode != null && actionNode.isArray()) {
+                var listType = JSON.getTypeFactory().constructCollectionType(List.class, AiChatResponse.SuggestedAction.class);
+                actions = JSON.convertValue(actionNode, listType);
+            }
+            if (answer != null || !actions.isEmpty()) {
+                return new ParsedAssistant(sanitizeAnswerText(answer == null ? "" : answer), actions);
+            }
+        } catch (Exception e) {
+            log.debug("[AI] Raw model response was not parseable assistant JSON: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private static String unwrapJsonCandidate(String text) {
+        if (text == null) return null;
+        String t = text.trim();
+        if (t.startsWith("```")) {
+            t = t.replaceFirst("(?is)^```(?:json)?\\s*", "");
+            int fence = t.lastIndexOf("```");
+            if (fence >= 0) {
+                t = t.substring(0, fence);
+            }
+            t = t.trim();
+        }
+        int first = t.indexOf('{');
+        int last = t.lastIndexOf('}');
+        if (first >= 0 && last > first) {
+            return t.substring(first, last + 1).trim();
+        }
+        return t;
+    }
+
+    private static String firstText(JsonNode root, String... names) {
+        JsonNode node = firstNode(root, names);
+        return node != null && node.isTextual() ? node.asText() : null;
+    }
+
+    private static JsonNode firstNode(JsonNode root, String... names) {
+        if (root == null) return null;
+        for (String name : names) {
+            JsonNode node = root.get(name);
+            if (node != null && !node.isNull()) return node;
+        }
+        return null;
     }
 
     /** Remove model junk lines and internal chunk references from the visible answer. */
@@ -374,6 +445,54 @@ public class AiAssistantService {
         String s = sb.toString().trim();
         s = s.replaceAll("(?i)\\(chunkId:\\s*[a-f0-9\\-]{36}\\)\\s*", "");
         return s.trim();
+    }
+
+    private void logRetrievedChunks(UUID userId, List<AiRagRepository.ChunkRow> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            log.info("[AI] retrieved chunks user={} count=0", userId);
+            return;
+        }
+        log.info("[AI] retrieved chunks user={} count={} sources={}", userId, chunks.size(),
+                chunks.stream().map(c -> c.getSource() + "#" + c.getChunkIndex()).toList());
+        if (debugSynthesisLogging) {
+            chunks.forEach(c -> log.info("[AI] retrieved chunk detail user={} chunkId={} source={} title={} text={}",
+                    userId, c.getId(), c.getSource(), c.getTitle(), c.getChunkText()));
+        }
+    }
+
+    private void logPromptAssembly(UUID userId, String system, String userMessage, List<Map<String, Object>> contextChunks, String userContext) {
+        int contextTextChars = contextChunks == null ? 0 : contextChunks.stream()
+                .mapToInt(c -> String.valueOf(c.getOrDefault("text", "")).length())
+                .sum();
+        log.info("[AI] prompt assembly user={} contextChunks={} contextTextChars={} userContextChars={} systemChars={} questionChars={}",
+                userId,
+                contextChunks == null ? 0 : contextChunks.size(),
+                contextTextChars,
+                userContext == null ? 0 : userContext.length(),
+                system == null ? 0 : system.length(),
+                userMessage == null ? 0 : userMessage.length());
+        if (debugSynthesisLogging) {
+            log.info("[AI] final prompt parts user={} system=\n{}\nUser_question:\n{}\nUser_context:\n{}\nRetrieved_context_chunks:\n{}",
+                    userId, system, userMessage, userContext, contextChunks);
+        }
+    }
+
+    private void logRawModelResponse(UUID userId, String raw) {
+        log.info("[AI] raw model response user={} chars={} blank={}", userId, raw == null ? 0 : raw.length(), raw == null || raw.isBlank());
+        if (debugSynthesisLogging) {
+            log.info("[AI] raw model response detail user={} raw=\n{}", userId, raw);
+        }
+    }
+
+    private void logParsedResponse(UUID userId, ParsedAssistant parsed) {
+        log.info("[AI] parsed model response user={} answerChars={} actions={} blankAnswer={}",
+                userId,
+                parsed == null || parsed.answer == null ? 0 : parsed.answer.length(),
+                parsed == null || parsed.actions == null ? 0 : parsed.actions.size(),
+                parsed == null || parsed.answer == null || parsed.answer.isBlank());
+        if (debugSynthesisLogging && parsed != null) {
+            log.info("[AI] parsed model response detail user={} answer=\n{}\nactions={}", userId, parsed.answer, parsed.actions);
+        }
     }
 
     /**
