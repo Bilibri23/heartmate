@@ -273,6 +273,22 @@ public class AiRagRepository {
         return out;
     }
 
+    public List<Map<String, Object>> sourceDistribution() {
+        try {
+            return jdbcTemplate.queryForList(
+                    """
+                    SELECT COALESCE(NULLIF(split_part(source, '/', 2), ''), 'unknown') AS source_group,
+                           COUNT(*) AS document_count
+                    FROM ai_documents
+                    GROUP BY source_group
+                    ORDER BY document_count DESC, source_group
+                    """
+            );
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
     public List<ChunkRow> topKSimilar(List<Double> queryEmbedding, int k) {
         return topKSimilarWithDistance(queryEmbedding, k).stream().map(SimilarChunk::getChunk).toList();
     }
@@ -333,4 +349,3 @@ public class AiRagRepository {
         return sb.toString();
     }
 }
-

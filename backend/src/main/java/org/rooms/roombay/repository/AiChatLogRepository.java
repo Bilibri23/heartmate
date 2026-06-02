@@ -47,5 +47,50 @@ public class AiChatLogRepository {
                 cap
         );
     }
-}
 
+    public Map<String, Object> getCoverageStats() {
+        Map<String, Object> totals = jdbcTemplate.queryForMap(
+                """
+                SELECT COUNT(*) AS total_questions,
+                       COUNT(*) FILTER (
+                         WHERE COALESCE(jsonb_array_length(COALESCE(citation_chunk_ids, '[]'::jsonb)), 0) > 0
+                       ) AS grounded_questions,
+                       COUNT(*) FILTER (
+                         WHERE COALESCE(jsonb_array_length(COALESCE(citation_chunk_ids, '[]'::jsonb)), 0) = 0
+                       ) AS ungrounded_questions
+                FROM ai_chat_logs
+                """
+        );
+
+        List<Map<String, Object>> byPersona = jdbcTemplate.queryForList(
+                """
+                SELECT persona,
+                       COUNT(*) AS question_count,
+                       COUNT(*) FILTER (
+                         WHERE COALESCE(jsonb_array_length(COALESCE(citation_chunk_ids, '[]'::jsonb)), 0) > 0
+                       ) AS grounded_count
+                FROM ai_chat_logs
+                GROUP BY persona
+                ORDER BY question_count DESC, persona
+                """
+        );
+
+        List<Map<String, Object>> recentUngrounded = jdbcTemplate.queryForList(
+                """
+                SELECT persona,
+                       user_message,
+                       created_at
+                FROM ai_chat_logs
+                WHERE COALESCE(jsonb_array_length(COALESCE(citation_chunk_ids, '[]'::jsonb)), 0) = 0
+                ORDER BY created_at DESC
+                LIMIT 10
+                """
+        );
+
+        return Map.of(
+                "totals", totals,
+                "byPersona", byPersona,
+                "recentUngrounded", recentUngrounded
+        );
+    }
+}

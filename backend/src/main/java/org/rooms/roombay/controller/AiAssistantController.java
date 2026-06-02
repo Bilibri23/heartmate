@@ -10,6 +10,8 @@ import org.rooms.roombay.dto.request.AiChatRequest;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.dto.response.AiGraphStatsResponse;
 import org.rooms.roombay.dto.response.AiIngestResponse;
+import org.rooms.roombay.repository.AiChatLogRepository;
+import org.rooms.roombay.ai.rag.AiRagRepository;
 import org.rooms.roombay.service.AiAssistantService;
 import org.rooms.roombay.service.AiIngestionService;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +30,8 @@ public class AiAssistantController {
     private final AiAssistantService aiAssistantService;
     private final AiIngestionService aiIngestionService;
     private final AiGraphRagService aiGraphRagService;
+    private final AiChatLogRepository aiChatLogRepository;
+    private final AiRagRepository aiRagRepository;
 
     @Value("${roombay.ai.ingest-dev-key:}")
     private String ingestDevKey;
@@ -50,6 +54,15 @@ public class AiAssistantController {
     @Operation(summary = "GraphRAG stats", description = "Counts for documents, chunks, entities, and edges")
     public ResponseEntity<AiGraphStatsResponse> graphStats() {
         return ResponseEntity.ok(aiGraphRagService.getGraphStats());
+    }
+
+    @GetMapping("/admin/analytics")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "AI coverage analytics", description = "Admin-only: usage, grounding, role split, and source distribution for RoomBay AI")
+    public ResponseEntity<java.util.Map<String, Object>> analytics() {
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>(aiChatLogRepository.getCoverageStats());
+        out.put("sourceDistribution", aiRagRepository.sourceDistribution());
+        return ResponseEntity.ok(out);
     }
 
     /**
@@ -88,4 +101,3 @@ public class AiAssistantController {
         return ResponseEntity.ok(aiGraphRagService.getGraphStats());
     }
 }
-

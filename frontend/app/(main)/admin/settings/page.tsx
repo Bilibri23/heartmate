@@ -26,6 +26,16 @@ export default function AdminSettingsPage() {
     chunkEntityLinkCount: number
     graphRagEnabled: boolean
   } | null>(null)
+  const [aiAnalytics, setAiAnalytics] = useState<{
+    totals?: {
+      total_questions?: number
+      grounded_questions?: number
+      ungrounded_questions?: number
+    }
+    byPersona?: Array<{ persona?: string; question_count?: number; grounded_count?: number }>
+    recentUngrounded?: Array<{ persona?: string; user_message?: string; created_at?: string }>
+    sourceDistribution?: Array<{ source_group?: string; document_count?: number }>
+  } | null>(null)
   const [settings, setSettings] = useState({
     maintenanceMode: false,
     allowNewRegistrations: true,
@@ -79,8 +89,20 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const fetchAiAnalytics = async () => {
+    try {
+      const res = await uploadApi.get("/ai/admin/analytics")
+      setAiAnalytics(res.data)
+    } catch {
+      setAiAnalytics(null)
+    }
+  }
+
   useEffect(() => {
-    if (user?.role === "ADMIN") fetchGraphStats()
+    if (user?.role === "ADMIN") {
+      fetchGraphStats()
+      fetchAiAnalytics()
+    }
   }, [user?.role])
 
   const handleReindexSearch = async () => {
@@ -124,6 +146,7 @@ export default function AdminSettingsPage() {
         `AI docs ingested: ${data?.documentsProcessed ?? 0} docs, ${data?.chunksInserted ?? 0} chunks.${graph}`
       )
       fetchGraphStats()
+      fetchAiAnalytics()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "AI ingest failed")
     } finally {
@@ -276,6 +299,46 @@ export default function AdminSettingsPage() {
               Refresh graph stats
             </Button>
           </div>
+          {aiAnalytics ? (
+            <div className="mt-4 text-sm space-y-3 p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <p className="text-xs text-slate-500">Questions</p>
+                  <p className="font-semibold text-slate-900">{aiAnalytics.totals?.total_questions ?? 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Grounded</p>
+                  <p className="font-semibold text-green-700">{aiAnalytics.totals?.grounded_questions ?? 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">No docs</p>
+                  <p className="font-semibold text-amber-700">{aiAnalytics.totals?.ungrounded_questions ?? 0}</p>
+                </div>
+              </div>
+              {aiAnalytics.sourceDistribution && aiAnalytics.sourceDistribution.length > 0 && (
+                <p className="text-slate-600">
+                  Sources: {aiAnalytics.sourceDistribution.map(s => `${s.source_group ?? "unknown"} ${s.document_count ?? 0}`).join(" · ")}
+                </p>
+              )}
+              {aiAnalytics.recentUngrounded && aiAnalytics.recentUngrounded.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Recent no-doc questions</p>
+                  <ul className="space-y-1">
+                    {aiAnalytics.recentUngrounded.slice(0, 3).map((q, idx) => (
+                      <li key={`${q.created_at ?? idx}-${idx}`} className="text-slate-600 line-clamp-2">
+                        <span className="font-medium">{q.persona ?? "AI"}:</span> {q.user_message}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <Button variant="ghost" size="sm" onClick={fetchAiAnalytics} className="rounded-xl px-0">
+                Refresh AI analytics
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 mt-4">AI analytics unavailable until backend redeploys.</p>
+          )}
         </div>
 
         {/* Notifications */}
