@@ -13,18 +13,21 @@ export const metadata: Metadata = {
     template: "%s | RoomBay",
   },
   description:
-    "Discover verified apartments, studios, and rental homes in Douala and Yaoundé through AI-powered search and immersive video tours. The modern way to rent in Cameroon.",
+    "RoomBay is a Cameroon housing marketplace that helps tenants find verified rentals and helps landlords manage listings, applications, leases, and rent collection in one platform. Fast browsing, clear trust signals, in-app messaging, protected payments, and guided next steps.",
   keywords: [
+    "roombay",
+    "cameroon housing marketplace",
+    "verified rentals cameroon",
     "apartments in yaoundé",
     "rentals in douala",
     "studios in yaoundé",
-    "verified rentals cameroon",
     "housing in douala",
     "rooms for rent in soa",
     "furnished apartments cameroon",
-    "roombay",
     "appartement douala",
     "location yaoundé",
+    "landlord platform cameroon",
+    "tenant applications cameroon",
   ],
   manifest: "/manifest.json",
   appleWebApp: {
@@ -41,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "RoomBay",
     title: "RoomBay — Verified Rentals in Cameroon",
     description:
-      "Discover verified apartments, studios, and rental homes in Douala and Yaoundé through AI-powered search and immersive video tours.",
+      "RoomBay is a Cameroon housing marketplace that helps tenants find verified rentals and helps landlords manage listings, applications, leases, and rent collection in one platform. Fast browsing, clear trust signals, in-app messaging, protected payments, and guided next steps.",
     images: [
       {
         url: `${siteUrl}/og-image.jpg`,
@@ -55,7 +58,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "RoomBay — Verified Rentals in Cameroon",
     description:
-      "Discover verified apartments, studios, and rental homes in Douala and Yaoundé through AI-powered search and immersive video tours.",
+      "RoomBay is a Cameroon housing marketplace that helps tenants find verified rentals and helps landlords manage listings, applications, leases, and rent collection in one platform. Fast browsing, clear trust signals, in-app messaging, protected payments, and guided next steps.",
     images: [`${siteUrl}/og-image.jpg`],
   },
   alternates: {
