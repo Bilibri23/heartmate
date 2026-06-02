@@ -9,9 +9,15 @@ import org.rooms.roombay.ai.rag.AiRagRepository;
 import org.rooms.roombay.dto.response.AiIngestResponse;
 import org.rooms.roombay.exception.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -29,19 +35,22 @@ public class AiIngestionService {
     @Value("${AI_DOCS_DIR:../docs}")
     private String docsDir;
 
+    private final ResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
+
     @PostConstruct
     void logDocsDiagnostic() {
         Path configured = Path.of(docsDir).toAbsolutePath().normalize();
         Path production = Path.of("/app/docs").toAbsolutePath().normalize();
         log.info(
-                "[AI] Docs diagnostic: AI_DOCS_DIR='{}', configuredPath={}, configuredExists={}, configuredMarkdownFiles={}, productionPath={}, productionExists={}, productionMarkdownFiles={}",
+                "[AI] Docs diagnostic: AI_DOCS_DIR='{}', configuredPath={}, configuredExists={}, configuredMarkdownFiles={}, productionPath={}, productionExists={}, productionMarkdownFiles={}, classpathMarkdownFiles={}",
                 docsDir,
                 configured,
                 Files.isDirectory(configured),
                 countMarkdownFiles(configured),
                 production,
                 Files.isDirectory(production),
-                countMarkdownFiles(production)
+                countMarkdownFiles(production),
+                countClasspathMarkdownFiles()
         );
     }
 
@@ -49,19 +58,7 @@ public class AiIngestionService {
      * Ingests all markdown docs from docsDir into pgvector.
      */
     public AiIngestResponse ingestDocs(boolean force) {
-        Path dir = resolveDocsDir();
-        log.info("[AI] Ingesting docs from {} (markdownFiles={})", dir, countMarkdownFiles(dir));
-
-        List<Path> files;
-        try {
-            files = Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".md"))
-                    .sorted()
-                    .collect(Collectors.toList());
-        } catch (IOException e) {
-            throw new BadRequestException("Failed to read docs directory");
-        }
+        List<DocFile> files = loadDocs();
 
         int docsProcessed = 0;
         int chunksInserted = 0;
@@ -69,16 +66,9 @@ public class AiIngestionService {
         int graphEdgesWritten = 0;
         boolean skippedUnchanged = false;
 
-        for (Path p : files) {
-            String relative = dir.relativize(p).toString().replace('\\', '/');
-            String source = "docs/" + relative;
-            String text;
-            try {
-                text = Files.readString(p);
-            } catch (IOException e) {
-                log.warn("[AI] Failed reading {}", p);
-                continue;
-            }
+        for (DocFile file : files) {
+            String source = file.source();
+            String text = file.text();
 
             String checksum = AiRagRepository.sha256(text);
             var existing = ragRepository.findDocumentBySource(source);
@@ -87,7 +77,7 @@ public class AiIngestionService {
                 continue;
             }
 
-            String title = extractTitle(text, p.getFileName().toString());
+            String title = extractTitle(text, file.fileName());
             UUID docId = ragRepository.upsertDocument(source, title, checksum);
             ragRepository.deleteChunksForDocument(docId);
             ragRepository.deleteEntitiesForDocument(docId);
@@ -129,16 +119,98 @@ public class AiIngestionService {
      * fall back to {@code ./docs} relative to {@code user.dir}.
      */
     Path resolveDocsDir() {
-        Path primary = Path.of(docsDir).toAbsolutePath().normalize();
-        if (Files.isDirectory(primary)) {
-            return primary;
+        return resolveFilesystemDocsDir()
+                .orElseThrow(() -> new BadRequestException("Docs directory not found. Set AI_DOCS_DIR (tried "
+                        + Path.of(docsDir).toAbsolutePath().normalize()
+                        + " and "
+                        + Path.of("docs").toAbsolutePath().normalize()
+                        + ")"));
+    }
+
+    private List<DocFile> loadDocs() {
+        Optional<Path> filesystemDocs = resolveFilesystemDocsDir();
+        if (filesystemDocs.isPresent()) {
+            Path dir = filesystemDocs.get();
+            log.info("[AI] Ingesting docs from filesystem {} (markdownFiles={})", dir, countMarkdownFiles(dir));
+            return loadFilesystemDocs(dir);
         }
+
+        List<DocFile> classpathDocs = loadClasspathDocs();
+        if (!classpathDocs.isEmpty()) {
+            log.warn("[AI] AI_DOCS_DIR not found; ingesting {} packaged classpath docs from ai-docs/", classpathDocs.size());
+            return classpathDocs;
+        }
+
+        throw new BadRequestException("Docs directory not found. Set AI_DOCS_DIR (tried "
+                + Path.of(docsDir).toAbsolutePath().normalize()
+                + " and "
+                + Path.of("docs").toAbsolutePath().normalize()
+                + "; classpath ai-docs also empty)");
+    }
+
+    private Optional<Path> resolveFilesystemDocsDir() {
+        Path primary = Path.of(docsDir).toAbsolutePath().normalize();
+        if (Files.isDirectory(primary)) return Optional.of(primary);
+
         Path fallback = Path.of("docs").toAbsolutePath().normalize();
         if (Files.isDirectory(fallback)) {
             log.warn("[AI] AI_DOCS_DIR not found at {}, using {}", primary, fallback);
-            return fallback;
+            return Optional.of(fallback);
         }
-        throw new BadRequestException("Docs directory not found. Set AI_DOCS_DIR (tried " + primary + " and " + fallback + ")");
+        return Optional.empty();
+    }
+
+    private List<DocFile> loadFilesystemDocs(Path dir) {
+        try (var stream = Files.walk(dir)) {
+            return stream
+                    .filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().toLowerCase().endsWith(".md"))
+                    .sorted()
+                    .map(p -> readFilesystemDoc(dir, p))
+                    .flatMap(Optional::stream)
+                    .collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new BadRequestException("Failed to read docs directory");
+        }
+    }
+
+    private Optional<DocFile> readFilesystemDoc(Path dir, Path p) {
+        try {
+            String relative = dir.relativize(p).toString().replace('\\', '/');
+            return Optional.of(new DocFile("docs/" + relative, p.getFileName().toString(), Files.readString(p)));
+        } catch (IOException e) {
+            log.warn("[AI] Failed reading {}", p);
+            return Optional.empty();
+        }
+    }
+
+    private List<DocFile> loadClasspathDocs() {
+        try {
+            Resource[] resources = resourcePatternResolver.getResources("classpath*:/ai-docs/**/*.md");
+            List<DocFile> docs = new ArrayList<>();
+            for (Resource resource : resources) {
+                if (!resource.isReadable()) continue;
+                String relative = classpathDocRelativePath(resource);
+                try (InputStream input = resource.getInputStream()) {
+                    String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                    docs.add(new DocFile("docs/" + relative, Objects.requireNonNullElse(resource.getFilename(), "unknown.md"), text));
+                }
+            }
+            docs.sort(Comparator.comparing(DocFile::source));
+            return docs;
+        } catch (IOException e) {
+            log.warn("[AI] Failed reading classpath ai-docs resources: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private String classpathDocRelativePath(Resource resource) throws IOException {
+        String raw = URLDecoder.decode(resource.getURL().toString(), StandardCharsets.UTF_8);
+        int marker = raw.indexOf("ai-docs/");
+        if (marker >= 0) {
+            return raw.substring(marker + "ai-docs/".length()).replace('\\', '/');
+        }
+        return Objects.requireNonNullElse(resource.getFilename(), "unknown.md");
     }
 
     private long countMarkdownFiles(Path dir) {
@@ -152,6 +224,16 @@ public class AiIngestionService {
                     .count();
         } catch (IOException e) {
             log.warn("[AI] Failed counting markdown docs in {}: {}", dir, e.getMessage());
+            return 0;
+        }
+    }
+
+    private long countClasspathMarkdownFiles() {
+        try {
+            return Arrays.stream(resourcePatternResolver.getResources("classpath*:/ai-docs/**/*.md"))
+                    .filter(Resource::isReadable)
+                    .count();
+        } catch (IOException e) {
             return 0;
         }
     }
@@ -207,5 +289,8 @@ public class AiIngestionService {
                 .map(String::trim)
                 .filter(s -> s.length() >= 200)
                 .collect(Collectors.toList());
+    }
+
+    private record DocFile(String source, String fileName, String text) {
     }
 }

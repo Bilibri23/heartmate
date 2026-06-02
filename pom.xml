@@ -205,6 +205,13 @@
             <resource>
                 <directory>${project.basedir}/backend/src/main/resources</directory>
             </resource>
+            <resource>
+                <directory>${project.basedir}/docs</directory>
+                <targetPath>ai-docs</targetPath>
+                <includes>
+                    <include>**/*.md</include>
+                </includes>
+            </resource>
         </resources>
         <testResources>
             <testResource>

@@ -26,9 +26,9 @@ Dockerfile
 docker-compose*.yml
 .dockerignore
 
-# Documentation
-*.md
-docs/
+# Documentation used by RoomBay AI ingestion
+!docs/
+!docs/**
 
 # Tests (built in CI, not in Docker image)
 src/test/
