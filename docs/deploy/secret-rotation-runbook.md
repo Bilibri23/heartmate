@@ -36,7 +36,8 @@ Rotate secrets that were exposed outside the deployment environment and make pro
    - Confirm the production admin user already exists.
    - Set `APP_ADMIN_SEED_ENABLED=false`.
    - Remove `APP_ADMIN_SEED_PASSWORD` from Railway if no longer needed.
-   - Production now fails startup if admin seeding is enabled.
+   - After confirming the seed is disabled, optionally set `APP_ADMIN_SEED_FAIL_PROD_ENABLED=true` so future accidental prod seed enablement fails startup.
+   - During recovery, production logs a high-severity warning instead of crash-looping when the seed flag is still enabled.
 
 ## Post-Rotation Smoke Checks
 

@@ -52,10 +52,13 @@ public class ProductionSecretsValidator {
 
         boolean prod = activeProfiles.stream().anyMatch("prod"::equalsIgnoreCase);
         boolean adminSeedEnabled = Boolean.parseBoolean(environment.getProperty("app.admin.seed.enabled", "false"));
-        if (prod && adminSeedEnabled) {
+        boolean failOnProdAdminSeed = Boolean.parseBoolean(environment.getProperty("app.admin.seed.fail-prod-enabled", "false"));
+        if (prod && adminSeedEnabled && failOnProdAdminSeed) {
             throw new IllegalStateException("APP_ADMIN_SEED_ENABLED must be false in prod. Create the admin once, then disable the seed before deploying.");
         }
-        if (adminSeedEnabled) {
+        if (prod && adminSeedEnabled) {
+            log.error("APP_ADMIN_SEED_ENABLED is true in prod. Production will start for recovery, but disable it immediately after confirming the admin exists.");
+        } else if (adminSeedEnabled) {
             log.warn("APP_ADMIN_SEED_ENABLED is true in a non-dev profile. Disable it immediately after the admin exists.");
         }
 

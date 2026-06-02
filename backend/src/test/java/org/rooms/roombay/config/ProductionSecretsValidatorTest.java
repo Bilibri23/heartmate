@@ -9,9 +9,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ProductionSecretsValidatorTest {
 
     @Test
-    void prodRejectsAdminSeed() {
+    void prodAllowsAdminSeedDuringRecoveryByDefault() {
         MockEnvironment env = baseProdEnvironment()
                 .withProperty("app.admin.seed.enabled", "true");
+
+        assertThatCode(() -> new ProductionSecretsValidator(env).validate())
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void prodRejectsAdminSeedWhenStrictFlagIsEnabled() {
+        MockEnvironment env = baseProdEnvironment()
+                .withProperty("app.admin.seed.enabled", "true")
+                .withProperty("app.admin.seed.fail-prod-enabled", "true");
 
         assertThatThrownBy(() -> new ProductionSecretsValidator(env).validate())
                 .isInstanceOf(IllegalStateException.class)
