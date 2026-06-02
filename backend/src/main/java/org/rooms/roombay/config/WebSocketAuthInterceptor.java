@@ -9,6 +9,7 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.rooms.roombay.security.JwtTokenProvider;
@@ -38,21 +39,25 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
                 String token = authHeader.substring(7);
                 try {
-                    if (jwtTokenProvider.validateToken(token)) {
+                    if (jwtTokenProvider.validateToken(token) && "access".equals(jwtTokenProvider.getTokenType(token))) {
                         UUID userId = jwtTokenProvider.getUserIdFromToken(token);
                         accessor.setUser(() -> userId.toString());
                         log.debug("WebSocket authenticated for user: {}", userId);
-                    } else {
-                        log.warn("WebSocket CONNECT: invalid token");
-                        appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT invalid token", "/ws", null);
+                        return message;
                     }
                 } catch (Exception e) {
                     log.warn("WebSocket CONNECT: token validation failed: {}", e.getMessage());
                     appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT token validation failed: " + e.getMessage(), "/ws", e);
+                    throw new AccessDeniedException("Invalid WebSocket token", e);
                 }
+
+                log.warn("WebSocket CONNECT: invalid token");
+                appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT invalid token", "/ws", null);
+                throw new AccessDeniedException("Invalid WebSocket token");
             } else {
                 log.warn("WebSocket CONNECT: no Authorization header");
                 appErrorLogService.log("WARN", "WEBSOCKET", "WebSocket CONNECT missing Authorization header", "/ws", null);
+                throw new AccessDeniedException("Missing WebSocket Authorization header");
             }
         }
 

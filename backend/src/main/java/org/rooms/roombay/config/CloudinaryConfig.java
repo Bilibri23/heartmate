@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Arrays;
 
 @Configuration
 @Slf4j
@@ -21,13 +22,20 @@ public class CloudinaryConfig {
     
     @Value("${cloudinary.api-secret:}")
     private String apiSecret;
+
+    @Value("${spring.profiles.active:}")
+    private String activeProfiles;
     
     @Bean
     public Cloudinary cloudinary() {
         // Check if Cloudinary credentials are configured
-        if (cloudName == null || cloudName.trim().isEmpty() || 
-            apiKey == null || apiKey.trim().isEmpty() || 
+        if (cloudName == null || cloudName.trim().isEmpty() ||
+            apiKey == null || apiKey.trim().isEmpty() ||
             apiSecret == null || apiSecret.trim().isEmpty()) {
+
+            if (isProdProfile()) {
+                throw new IllegalStateException("Cloudinary is not configured for production. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.");
+            }
             
             log.warn("Cloudinary credentials not configured properly. Using mock configuration for development.");
             log.warn("To enable Cloudinary uploads, please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.");
@@ -51,5 +59,10 @@ public class CloudinaryConfig {
         log.info("Cloudinary configured with cloud name: {}", cloudName);
         return new Cloudinary(config);
     }
-}
 
+    private boolean isProdProfile() {
+        return activeProfiles != null && Arrays.stream(activeProfiles.split(","))
+                .map(String::trim)
+                .anyMatch("prod"::equalsIgnoreCase);
+    }
+}

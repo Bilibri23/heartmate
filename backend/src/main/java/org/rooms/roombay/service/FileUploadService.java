@@ -10,7 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -176,6 +178,9 @@ public class FileUploadService {
         if (contentType == null || !isAllowedVideoType(contentType)) {
             throw new BadRequestException("Invalid video type. Only MP4, MOV, AVI, and WEBM are allowed");
         }
+        if (!matchesDeclaredVideoType(file, contentType)) {
+            throw new BadRequestException("Video content does not match the declared file type");
+        }
     }
     
     private boolean isAllowedVideoType(String contentType) {
@@ -217,6 +222,9 @@ public class FileUploadService {
         if (contentType == null || !isAllowedImageType(contentType)) {
             throw new BadRequestException("Invalid file type. Only JPEG, JPG, PNG, and WEBP are allowed");
         }
+        if (!matchesDeclaredImageType(file, contentType)) {
+            throw new BadRequestException("File content does not match the declared image type");
+        }
     }
     
     private boolean isAllowedImageType(String contentType) {
@@ -226,6 +234,59 @@ public class FileUploadService {
             }
         }
         return false;
+    }
+
+    private static boolean matchesDeclaredImageType(MultipartFile file, String contentType) {
+        byte[] header = readHeader(file, 16);
+        return switch (contentType) {
+            case "image/jpeg", "image/jpg" -> startsWith(header, 0xFF, 0xD8, 0xFF);
+            case "image/png" -> startsWith(header, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A);
+            case "image/webp" -> asciiAt(header, 0, "RIFF") && asciiAt(header, 8, "WEBP");
+            default -> false;
+        };
+    }
+
+    private static boolean matchesDeclaredVideoType(MultipartFile file, String contentType) {
+        byte[] header = readHeader(file, 16);
+        return switch (contentType) {
+            case "video/mp4", "video/quicktime" -> asciiAt(header, 4, "ftyp");
+            case "video/webm" -> startsWith(header, 0x1A, 0x45, 0xDF, 0xA3);
+            case "video/x-msvideo" -> asciiAt(header, 0, "RIFF") && asciiAt(header, 8, "AVI ");
+            default -> false;
+        };
+    }
+
+    private static byte[] readHeader(MultipartFile file, int maxBytes) {
+        try (InputStream in = file.getInputStream()) {
+            return in.readNBytes(maxBytes);
+        } catch (IOException e) {
+            throw new BadRequestException("Could not read uploaded file");
+        }
+    }
+
+    private static boolean startsWith(byte[] actual, int... expected) {
+        if (actual.length < expected.length) {
+            return false;
+        }
+        for (int i = 0; i < expected.length; i++) {
+            if ((actual[i] & 0xFF) != expected[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean asciiAt(byte[] actual, int offset, String expected) {
+        byte[] expectedBytes = expected.getBytes(StandardCharsets.US_ASCII);
+        if (actual.length < offset + expectedBytes.length) {
+            return false;
+        }
+        for (int i = 0; i < expectedBytes.length; i++) {
+            if (actual[offset + i] != expectedBytes[i]) {
+                return false;
+            }
+        }
+        return true;
     }
     
     private String extractPublicIdFromUrl(String url) {
