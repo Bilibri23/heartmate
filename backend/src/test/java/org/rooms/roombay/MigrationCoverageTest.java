@@ -85,4 +85,26 @@ class MigrationCoverageTest {
                 "idx_analytics_event_ai_no_answer_question"
         );
     }
+
+    @Test
+    void auditLogSchemaAlignmentIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V49__align_audit_log_schema.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("create extension if not exists pgcrypto");
+        assertThat(migration).contains(
+                "alter column id type uuid",
+                "add column if not exists user_email",
+                "add column if not exists user_role",
+                "add column if not exists status",
+                "idx_audit_entity"
+        );
+    }
 }

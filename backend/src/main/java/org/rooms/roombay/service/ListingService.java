@@ -68,6 +68,7 @@ public class ListingService {
     private final ListingArMarkerRepository listingArMarkerRepository;
     private final PlatformSettingsService platformSettingsService;
     private final AnalyticsEventService analyticsEventService;
+    private final AuditLogService auditLogService;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -600,6 +601,13 @@ public class ListingService {
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing {} {} by admin {}", listingId, status, adminId);
         securityAuditService.logAction("admin.listing.review", adminId, listingId, "LISTING");
+        auditLogService.logAdminAction(
+                adminId,
+                "LISTING_" + (status == PropertyListing.Status.ACTIVE ? "APPROVED" : "REJECTED"),
+                "Listing",
+                listingId,
+                "Listing review. status=" + status.name() + ", reason=" + request.getRejectionReason()
+        );
         analyticsEventService.emit(
                 status == PropertyListing.Status.ACTIVE ? "listing_approved" : "listing_rejected",
                 adminId,

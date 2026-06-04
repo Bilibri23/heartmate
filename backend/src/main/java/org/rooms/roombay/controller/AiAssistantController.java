@@ -12,8 +12,10 @@ import org.rooms.roombay.dto.response.AiGraphStatsResponse;
 import org.rooms.roombay.dto.response.AiIngestResponse;
 import org.rooms.roombay.repository.AiChatLogRepository;
 import org.rooms.roombay.ai.rag.AiRagRepository;
+import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.AiAssistantService;
 import org.rooms.roombay.service.AiIngestionService;
+import org.rooms.roombay.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +34,7 @@ public class AiAssistantController {
     private final AiGraphRagService aiGraphRagService;
     private final AiChatLogRepository aiChatLogRepository;
     private final AiRagRepository aiRagRepository;
+    private final AuditLogService auditLogService;
 
     @Value("${roombay.ai.ingest-dev-key:}")
     private String ingestDevKey;
@@ -46,7 +49,17 @@ public class AiAssistantController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Ingest docs", description = "Admin-only: ingest docs/*.md into pgvector for RAG")
     public ResponseEntity<AiIngestResponse> ingest(@RequestParam(defaultValue = "false") boolean force) {
-        return ResponseEntity.ok(aiIngestionService.ingestDocs(force));
+        AiIngestResponse response = aiIngestionService.ingestDocs(force);
+        auditLogService.logAdminAction(
+                SecurityUtils.getCurrentUserId(),
+                "AI_DOCS_INGEST",
+                "AI",
+                null,
+                "AI docs ingest completed. force=" + force
+                        + ", documents=" + response.getDocumentsProcessed()
+                        + ", chunks=" + response.getChunksInserted()
+        );
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/admin/graph-stats")

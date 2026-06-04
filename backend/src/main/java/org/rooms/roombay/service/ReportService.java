@@ -31,6 +31,7 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final PropertyListingRepository listingRepository;
+    private final AuditLogService auditLogService;
     
     /**
      * Create a new report
@@ -157,6 +158,13 @@ public class ReportService {
         
         Report resolvedReport = reportRepository.save(report);
         log.info("Report resolved successfully: {}", reportId);
+        auditLogService.logAdminAction(
+                adminId,
+                "REPORT_RESOLVED",
+                "Report",
+                reportId,
+                "Report resolved. action=" + action + ", notes=" + resolutionNotes
+        );
         
         // Execute action if needed
         executeAction(report, action);
@@ -182,6 +190,13 @@ public class ReportService {
         
         Report dismissedReport = reportRepository.save(report);
         log.info("Report dismissed successfully: {}", reportId);
+        auditLogService.logAdminAction(
+                adminId,
+                "REPORT_DISMISSED",
+                "Report",
+                reportId,
+                "Report dismissed. reason=" + reason
+        );
         
         return mapToReportResponse(dismissedReport);
     }

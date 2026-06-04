@@ -37,6 +37,7 @@ public class PaymentService {
     private final LeaseService leaseService;
     private final NotificationService notificationService;
     private final AnalyticsEventService analyticsEventService;
+    private final AuditLogService auditLogService;
 
     @Value("${roombay.payments.platform-mtn-momo:670000000}")
     private String platformMtnMomoNumber;
@@ -217,6 +218,13 @@ public class PaymentService {
         );
         
         log.info("Payment {} verified by admin {}", paymentId, adminId);
+        auditLogService.logAdminAction(
+                adminId,
+                "PAYMENT_PROOF_VERIFIED",
+                "Payment",
+                paymentId,
+                "Payment proof verified. notes=" + notes
+        );
         
         return mapToResponse(saved);
     }
@@ -241,6 +249,13 @@ public class PaymentService {
         
         Payment saved = paymentRepository.save(payment);
         log.info("Payment {} rejected by admin {}", paymentId, adminId);
+        auditLogService.logAdminAction(
+                adminId,
+                "PAYMENT_PROOF_REJECTED",
+                "Payment",
+                paymentId,
+                "Payment proof rejected. reason=" + reason
+        );
         
         // Notify student that payment was rejected
         notificationService.notifyPaymentRejected(

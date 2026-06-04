@@ -29,6 +29,7 @@ public class VerificationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final NotificationService notificationService;
+    private final AuditLogService auditLogService;
     
     public VerificationResponse submitVerification(UUID userId, VerificationRequest request) {
         log.info("Submitting verification request for user: {}", userId);
@@ -251,6 +252,13 @@ public class VerificationService {
         }
         
         log.info("Verification {} {} by admin {}", verificationId, status, adminId);
+        auditLogService.logAdminAction(
+                adminId,
+                "TENANT_VERIFICATION_" + status.name(),
+                "StudentVerification",
+                verificationId,
+                "Tenant verification reviewed. status=" + status.name() + ", reason=" + request.getRejectionReason()
+        );
         
         return mapToResponse(updated);
     }

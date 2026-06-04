@@ -325,6 +325,18 @@ export default function AdminDashboardPage() {
                         <ChevronRight className="h-5 w-5 text-slate-400" />
                       </div>
                     </Link>
+                    <Link href="/admin/audit">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <FileText className="h-5 w-5 text-slate-700" />
+                          <div>
+                            <span className="text-slate-700">Audit Trail</span>
+                            <p className="text-xs text-slate-500">Admin action history</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-slate-400" />
+                      </div>
+                    </Link>
                     <Link href="/admin/support-inquiries">
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                         <div className="flex items-center gap-3">

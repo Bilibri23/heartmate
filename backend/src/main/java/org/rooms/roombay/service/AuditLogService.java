@@ -44,7 +44,7 @@ public class AuditLogService {
                     .action(action)
                     .entityType(entityType)
                     .entityId(entityId)
-                    .details(details)
+                    .details(AppErrorLogService.sanitizeForOpsLog(details))
                     .status(AuditLog.AuditStatus.SUCCESS)
                     .build();
             
@@ -71,7 +71,7 @@ public class AuditLogService {
                     .action(action)
                     .entityType(entityType)
                     .entityId(entityId)
-                    .details(details)
+                    .details(AppErrorLogService.sanitizeForOpsLog(details))
                     .status(AuditLog.AuditStatus.SUCCESS)
                     .build();
             
@@ -93,7 +93,7 @@ public class AuditLogService {
                     .action(action)
                     .entityType(entityType)
                     .entityId(entityId)
-                    .details(details)
+                    .details(AppErrorLogService.sanitizeForOpsLog(details))
                     .userRole("SYSTEM")
                     .status(AuditLog.AuditStatus.SUCCESS)
                     .build();
@@ -122,7 +122,7 @@ public class AuditLogService {
                     .entityType(entityType)
                     .entityId(entityId)
                     .status(AuditLog.AuditStatus.FAILURE)
-                    .errorMessage(errorMessage)
+                    .errorMessage(AppErrorLogService.sanitizeForOpsLog(errorMessage))
                     .build();
             
             auditLogRepository.save(auditLog);

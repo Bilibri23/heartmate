@@ -17,7 +17,7 @@ class PaymentReconciliationTest {
     @Test
     void duplicateRiskFlagsReusedTransactionAndProof() {
         PaymentRepository paymentRepository = mock(PaymentRepository.class);
-        PaymentService service = new PaymentService(paymentRepository, null, null, null, null, null);
+        PaymentService service = new PaymentService(paymentRepository, null, null, null, null, null, null);
         Payment payment = Payment.builder()
                 .id(UUID.randomUUID())
                 .momoTransactionId("TX-123")
