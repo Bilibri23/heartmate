@@ -59,6 +59,21 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
     
     @Value("${ratelimit.register.requests-per-minute:5}")
     private int registerLimitPerMinute;
+
+    @Value("${ratelimit.ai.chat.requests-per-minute:20}")
+    private int aiChatLimitPerMinute;
+
+    @Value("${ratelimit.support.requests-per-minute:10}")
+    private int supportLimitPerMinute;
+
+    @Value("${ratelimit.messaging.requests-per-minute:60}")
+    private int messagingLimitPerMinute;
+
+    @Value("${ratelimit.upload.requests-per-minute:20}")
+    private int uploadLimitPerMinute;
+
+    @Value("${ratelimit.listing-create.requests-per-minute:10}")
+    private int listingCreateLimitPerMinute;
     
     @Override
     public boolean preHandle(@org.springframework.lang.NonNull HttpServletRequest request, 
@@ -73,14 +88,15 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         String userId = getUserId(request);
         String ip = getClientIp(request);
         String endpoint = path;
+        String rateLimitKey = request.getMethod() + ":" + endpoint;
         
         // Endpoint-specific limits
-        int userLimit = getUserLimitForEndpoint(endpoint);
-        int ipLimit = getIpLimitForEndpoint(endpoint);
+        int userLimit = getUserLimitForEndpoint(endpoint, request.getMethod());
+        int ipLimit = getIpLimitForEndpoint(endpoint, request.getMethod());
         
         // Check user-based rate limit (if authenticated)
         if (userId != null) {
-            String userKey = "ratelimit:user:" + userId + ":" + endpoint;
+            String userKey = "ratelimit:user:" + userId + ":" + rateLimitKey;
             if (!checkRateLimit(userKey, userLimit, 60)) {
                 log.warn("User rate limit exceeded: userId={}, endpoint={}", userId, endpoint);
                 sendRateLimitResponse(response, "User rate limit exceeded", userLimit);
@@ -89,7 +105,7 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         }
         
         // Check IP-based rate limit
-        String ipKey = "ratelimit:ip:" + ip + ":" + endpoint;
+        String ipKey = "ratelimit:ip:" + ip + ":" + rateLimitKey;
         if (!checkRateLimit(ipKey, ipLimit, 60)) {
             log.warn("IP rate limit exceeded: ip={}, endpoint={}", ip, endpoint);
             sendRateLimitResponse(response, "IP rate limit exceeded", ipLimit);
@@ -179,24 +195,59 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         localCounters.entrySet().removeIf(e -> e.getValue().lastSeen < cutoff);
     }
     
-    private int getUserLimitForEndpoint(String endpoint) {
+    private int getUserLimitForEndpoint(String endpoint, String method) {
         if (endpoint.contains("/auth/login")) {
             return loginLimitPerMinute;
         }
         if (endpoint.contains("/auth/register")) {
             return registerLimitPerMinute;
         }
+        if (endpoint.contains("/ai/chat")) {
+            return aiChatLimitPerMinute;
+        }
+        if (endpoint.contains("/support")) {
+            return supportLimitPerMinute;
+        }
+        if (endpoint.contains("/messages")) {
+            return messagingLimitPerMinute;
+        }
+        if (endpoint.contains("/upload")) {
+            return uploadLimitPerMinute;
+        }
+        if (isListingCreateEndpoint(endpoint, method)) {
+            return listingCreateLimitPerMinute;
+        }
         return userLimitPerMinute;
     }
     
-    private int getIpLimitForEndpoint(String endpoint) {
+    private int getIpLimitForEndpoint(String endpoint, String method) {
         if (endpoint.contains("/auth/login")) {
             return loginLimitPerMinute / 2;
         }
         if (endpoint.contains("/auth/register")) {
             return registerLimitPerMinute / 2;
         }
+        if (endpoint.contains("/ai/chat")) {
+            return Math.max(aiChatLimitPerMinute / 2, 1);
+        }
+        if (endpoint.contains("/support")) {
+            return Math.max(supportLimitPerMinute / 2, 1);
+        }
+        if (endpoint.contains("/messages")) {
+            return messagingLimitPerMinute;
+        }
+        if (endpoint.contains("/upload")) {
+            return Math.max(uploadLimitPerMinute / 2, 1);
+        }
+        if (isListingCreateEndpoint(endpoint, method)) {
+            return Math.max(listingCreateLimitPerMinute / 2, 1);
+        }
         return ipLimitPerMinute;
+    }
+
+    private static boolean isListingCreateEndpoint(String endpoint, String method) {
+        return "POST".equalsIgnoreCase(method)
+                && ("/api/listings".equals(endpoint) || endpoint.endsWith("/api/listings"));
     }
     
     private String getUserId(HttpServletRequest request) {

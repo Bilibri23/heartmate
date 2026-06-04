@@ -37,6 +37,9 @@ public class AuthEndpointRateLimitFilter extends OncePerRequestFilter {
     @Value("${ratelimit.auth.forgot-password-max-per-hour:10}")
     private int forgotPasswordMaxPerHour;
 
+    @Value("${ratelimit.auth.reset-password-max-per-hour:10}")
+    private int resetPasswordMaxPerHour;
+
     private final Map<String, RateLimitEntry> requestCounts = new ConcurrentHashMap<>();
 
     @Override
@@ -45,7 +48,8 @@ public class AuthEndpointRateLimitFilter extends OncePerRequestFilter {
         return !(uri.startsWith("/api/auth/login")
                 || uri.startsWith("/api/auth/register")
                 || uri.startsWith("/api/auth/refresh")
-                || uri.startsWith("/api/auth/forgot-password"));
+                || uri.startsWith("/api/auth/forgot-password")
+                || uri.startsWith("/api/auth/reset-password"));
     }
 
     @Override
@@ -65,6 +69,9 @@ public class AuthEndpointRateLimitFilter extends OncePerRequestFilter {
         } else if (endpoint.contains("refresh")) {
             max = refreshMaxPerMinute;
             windowMs = 60_000L;
+        } else if (endpoint.contains("reset-password")) {
+            max = resetPasswordMaxPerHour;
+            windowMs = 3_600_000L;
         } else {
             max = forgotPasswordMaxPerHour;
             windowMs = 3_600_000L;

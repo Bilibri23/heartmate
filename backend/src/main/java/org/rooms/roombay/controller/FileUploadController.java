@@ -22,6 +22,7 @@ public class FileUploadController {
     
     @PostMapping("/profile-photo")
     @Operation(summary = "Upload profile photo", description = "Upload a profile photo (max 10MB)")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<String>> uploadProfilePhoto(@RequestParam("file") MultipartFile file) {
         log.info("Uploading profile photo");
         String url = fileUploadService.uploadProfilePhoto(file);
@@ -34,6 +35,7 @@ public class FileUploadController {
     
     @PostMapping("/student-id")
     @Operation(summary = "Upload student ID photo", description = "Upload a student ID photo (max 10MB)")
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResponseEntity<ApiResponse<String>> uploadStudentIdPhoto(@RequestParam("file") MultipartFile file) {
         log.info("Uploading student ID photo");
         String url = fileUploadService.uploadStudentIdPhoto(file);
@@ -46,6 +48,7 @@ public class FileUploadController {
 
     @PostMapping("/verification-document")
     @Operation(summary = "Upload verification document", description = "Upload ID or selfie for tenant verification (max 10MB)")
+    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResponseEntity<ApiResponse<String>> uploadVerificationDocument(@RequestParam("file") MultipartFile file) {
         log.info("Uploading verification document");
         String url = fileUploadService.uploadVerificationDocument(file);
