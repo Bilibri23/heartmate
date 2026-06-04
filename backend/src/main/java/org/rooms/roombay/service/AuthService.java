@@ -43,6 +43,7 @@ public class AuthService {
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final RefreshTokenSessionRepository refreshTokenSessionRepository;
     private final EmailService emailService;
+    private final PlatformSettingsService platformSettingsService;
 
     /** When false, login succeeds without email/phone verification (remind later in UI). */
     @Value("${app.verification.require-for-login:false}")
@@ -57,6 +58,11 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         log.info("Registering new user with email: {}", request.getEmail());
+
+        // Check if new registrations are allowed
+        if (!Boolean.TRUE.equals(platformSettingsService.getRawSettings().getAllowNewRegistrations())) {
+            throw new BadRequestException("New registrations are currently disabled.");
+        }
 
         // Check if email already exists
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -145,7 +151,8 @@ public class AuthService {
                 user.getAccountStatus() != User.AccountStatus.PENDING) {
             throw new BadRequestException("Account is " + user.getAccountStatus());
         }
-        if (verificationRequiredForLogin) {
+        boolean requireEmail = verificationRequiredForLogin || Boolean.TRUE.equals(platformSettingsService.getRawSettings().getRequireEmailVerification());
+        if (requireEmail) {
             if (!Boolean.TRUE.equals(user.getEmailVerified())) {
                 throw new BadRequestException("Please verify your email before logging in.");
             }

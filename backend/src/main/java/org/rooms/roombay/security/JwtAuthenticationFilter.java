@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final org.rooms.roombay.service.PlatformSettingsService platformSettingsService;
 
     @Value("${app.verification.enforce-for-api:false}")
     private boolean verificationEnforceForApi;
@@ -84,6 +85,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                // Maintenance mode: block non-admin authenticated users
+                if (Boolean.TRUE.equals(platformSettingsService.getRawSettings().getMaintenanceMode())) {
+                    String tokenRole = jwtTokenProvider.getRoleFromToken(jwt);
+                    boolean isAdmin = tokenRole != null && (tokenRole.equals("ADMIN") || tokenRole.equals("ROLE_ADMIN"));
+                    if (!isAdmin) {
+                        response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"success\":false,\"message\":\"Platform is under maintenance. Please try again later.\"}");
+                        return;
+                    }
+                }
             }
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);

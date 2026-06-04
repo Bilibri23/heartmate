@@ -50,6 +50,7 @@ export default function AdminSettingsPage() {
   })
 
   const [authLoading, setAuthLoading] = useState(true)
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true)
   const [isReindexing, setIsReindexing] = useState(false)
   const [searchStatus, setSearchStatus] = useState<{ elasticsearchActive: boolean; indexDocumentCount: number; hint: string } | null>(null)
 
@@ -98,10 +99,37 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const fetchSettings = async () => {
+    setIsLoadingSettings(true)
+    try {
+      const res = await uploadApi.get("/admin/settings")
+      const data = res.data?.data
+      if (data) {
+        setSettings({
+          maintenanceMode: data.maintenanceMode ?? false,
+          allowNewRegistrations: data.allowNewRegistrations ?? true,
+          requireEmailVerification: data.requireEmailVerification ?? true,
+          requireTenantVerification: data.requireTenantVerification ?? true,
+          autoApproveListings: data.autoApproveListings ?? false,
+          maxListingsPerLandlord: data.maxListingsPerLandlord ?? 10,
+          platformFeePercent: data.platformFeePercent ?? 5,
+          supportEmail: data.supportEmail ?? "support@roombay.cm",
+          notifyOnNewListing: data.notifyOnNewListing ?? true,
+          notifyOnNewVerification: data.notifyOnNewVerification ?? true,
+        })
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to load settings")
+    } finally {
+      setIsLoadingSettings(false)
+    }
+  }
+
   useEffect(() => {
     if (user?.role === "ADMIN") {
       fetchGraphStats()
       fetchAiAnalytics()
+      fetchSettings()
     }
   }, [user?.role])
 
@@ -122,12 +150,11 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      // In a real app, this would save to backend
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await uploadApi.put("/admin/settings", settings)
       toast.success("Settings saved successfully!")
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      toast.error("Failed to save settings")
+      toast.error(err?.response?.data?.message || "Failed to save settings")
     } finally {
       setIsSaving(false)
     }
@@ -369,7 +396,7 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        <Button onClick={handleSave} disabled={isSaving} className="w-full rounded-xl bg-blue-600 hover:bg-blue-700">
+        <Button onClick={handleSave} disabled={isSaving || isLoadingSettings} className="w-full rounded-xl bg-blue-600 hover:bg-blue-700">
           {isSaving ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
           Save Settings
         </Button>

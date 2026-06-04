@@ -49,6 +49,7 @@ public class ApplicationService {
     private final MatchRepository matchRepository;
     private final org.springframework.context.ApplicationContext applicationContext;
     private final AnalyticsEventService analyticsEventService;
+    private final PlatformSettingsService platformSettingsService;
     
     private static final int APPLICATION_EXPIRY_DAYS = 30;
     
@@ -83,6 +84,16 @@ public class ApplicationService {
         // Check if student is trying to apply to their own listing
         if (listing.getLandlord().getId().equals(studentId)) {
             throw new BadRequestException("Cannot apply to your own listing");
+        }
+
+        // Check tenant identity verification requirement
+        if (Boolean.TRUE.equals(platformSettingsService.getRawSettings().getRequireTenantVerification())) {
+            var verification = verificationRepository.findByUserId(studentId);
+            boolean isVerified = verification.isPresent()
+                    && verification.get().getStatus() == org.rooms.roombay.entity.StudentVerification.Status.VERIFIED;
+            if (!isVerified) {
+                throw new BadRequestException("Tenant identity verification is required before applying. Please complete verification first.");
+            }
         }
         
         // Create application

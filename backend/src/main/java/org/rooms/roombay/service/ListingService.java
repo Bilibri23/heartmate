@@ -66,6 +66,7 @@ public class ListingService {
     private final LandlordVerificationRepository landlordVerificationRepository;
     private final ListingViewRepository listingViewRepository;
     private final ListingArMarkerRepository listingArMarkerRepository;
+    private final PlatformSettingsService platformSettingsService;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -77,6 +78,13 @@ public class ListingService {
         // Verify user is a landlord
         if (landlord.getRole() != User.UserRole.LANDLORD) {
             throw new BadRequestException("Only landlords can create listings");
+        }
+
+        // Enforce max listings per landlord
+        int maxListings = platformSettingsService.getRawSettings().getMaxListingsPerLandlord();
+        long currentListings = listingRepository.countByLandlordId(landlordId);
+        if (currentListings >= maxListings) {
+            throw new BadRequestException("You have reached the maximum allowed listings (" + maxListings + "). Please contact support.");
         }
         
         // Create listing
@@ -115,9 +123,13 @@ public class ListingService {
                 .favoritesCount(0)
                 .build();
         
-        // If status is PENDING or ACTIVE, set to PENDING for admin approval
+        // If status is PENDING or ACTIVE, set to PENDING for admin approval (unless auto-approve is on)
         if (listing.getStatus() == PropertyListing.Status.PENDING || listing.getStatus() == PropertyListing.Status.ACTIVE) {
-            listing.setStatus(PropertyListing.Status.PENDING);
+            boolean autoApprove = Boolean.TRUE.equals(platformSettingsService.getRawSettings().getAutoApproveListings());
+            listing.setStatus(autoApprove ? PropertyListing.Status.ACTIVE : PropertyListing.Status.PENDING);
+            if (autoApprove) {
+                listing.setVerified(true);
+            }
         }
         
         PropertyListing saved = listingRepository.save(listing);
