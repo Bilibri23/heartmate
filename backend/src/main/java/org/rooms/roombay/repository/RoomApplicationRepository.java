@@ -99,6 +99,9 @@ public interface RoomApplicationRepository extends JpaRepository<RoomApplication
      */
     @Query("SELECT a FROM RoomApplication a WHERE a.expiresAt < :now AND a.status IN ('PENDING', 'VIEWED', 'SHORTLISTED')")
     List<RoomApplication> findExpiredApplications(@Param("now") LocalDateTime now);
+
+    @Query("SELECT a FROM RoomApplication a WHERE a.createdAt < :cutoff AND a.status IN ('PENDING', 'VIEWED', 'SHORTLISTED') ORDER BY a.createdAt ASC")
+    List<RoomApplication> findStaleActiveApplications(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
     
     /**
      * Get recent applications for a student

@@ -313,6 +313,18 @@ export default function AdminDashboardPage() {
                         <ChevronRight className="h-5 w-5 text-slate-400" />
                       </div>
                     </Link>
+                    <Link href="/admin/queues">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <Shield className="h-5 w-5 text-indigo-600" />
+                          <div>
+                            <span className="text-slate-700">Control Tower</span>
+                            <p className="text-xs text-slate-500">Unified queues &amp; quick triage</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-slate-400" />
+                      </div>
+                    </Link>
                     <Link href="/admin/support-inquiries">
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                         <div className="flex items-center gap-3">

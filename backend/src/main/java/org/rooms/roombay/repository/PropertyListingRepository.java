@@ -32,6 +32,9 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
     
     @Query("SELECT l FROM PropertyListing l WHERE l.status = 'PENDING' ORDER BY l.createdAt ASC")
     List<PropertyListing> findPendingListings();
+
+    @Query("SELECT l FROM PropertyListing l WHERE l.status = 'PENDING' ORDER BY l.createdAt ASC")
+    List<PropertyListing> findPendingListings(Pageable pageable);
     
     long countByLandlordId(UUID landlordId);
 
