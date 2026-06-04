@@ -83,6 +83,15 @@ public class AnalyticsEventService {
         ), since, safeLimit);
     }
 
+    public int deleteOlderThan(LocalDateTime cutoff) {
+        try {
+            return jdbcTemplate.update("DELETE FROM analytics_event WHERE created_at < ?", cutoff);
+        } catch (Exception ex) {
+            log.warn("Analytics retention cleanup skipped: {}", ex.getMessage());
+            return 0;
+        }
+    }
+
     private static UUID safeCurrentUserId() {
         try {
             return SecurityUtils.isAuthenticated() ? SecurityUtils.getCurrentUserId() : null;

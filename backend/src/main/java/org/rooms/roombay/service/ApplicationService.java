@@ -435,6 +435,8 @@ public class ApplicationService {
                 log.warn("Failed to auto-create lease for application {}: {}", applicationId, e.getMessage());
             }
         } else if (request.getStatus() == RoomApplication.Status.REJECTED) {
+            analyticsEventService.emit("application_rejected", landlordId, "LANDLORD", application.getListing().getId(),
+                    Map.of("applicationId", application.getId().toString()));
             notificationService.notifyApplicationRejected(
                     application.getStudent().getId(),
                     application.getId(),

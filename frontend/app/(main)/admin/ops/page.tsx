@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import type { ReactNode } from "react"
 import Link from "next/link"
 import api from "@/lib/api"
 import { MobileHeader } from "@/components/layout/mobile-header"
@@ -49,8 +50,11 @@ type AiHealth = {
 
 type Alert = {
   severity: "INFO" | "WARNING" | "CRITICAL"
+  code?: string
   title: string
   message: string
+  metric?: string
+  threshold?: string | number
   createdAt: string
   suggestedAction: string
 }
@@ -89,6 +93,7 @@ export default function AdminOpsPage() {
   const [range, setRange] = useState("7d")
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
   const loadOps = useCallback(async () => {
     setLoading(true)
@@ -108,6 +113,7 @@ export default function AdminOpsPage() {
       setErrors(errorsRes.data || [])
       setQueues(queuesRes.data || null)
       setNoAnswerQuestions(noAnswerRes.data || [])
+      setLastUpdated(new Date().toISOString())
     } catch (err) {
       console.error("Failed to load ops dashboard", err)
       setLoadError("Operations data could not be loaded.")
@@ -161,27 +167,30 @@ export default function AdminOpsPage() {
           <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{loadError}</div>
         )}
 
-        <section className="grid gap-3 md:grid-cols-5">
+        <SectionShell title="System Health" loading={loading} error={loadError} lastUpdated={lastUpdated}>
+          <div className="grid gap-3 md:grid-cols-5">
           {healthCards.map((card) => (
             <HealthCard key={card.label} label={card.label} value={card.value} icon={card.icon} />
           ))}
-        </section>
+          </div>
+        </SectionShell>
 
-        <section className="grid gap-3 md:grid-cols-4">
+        <SectionShell title="Environment" loading={loading} error={loadError} lastUpdated={lastUpdated}>
+          <div className="grid gap-3 md:grid-cols-4">
           <OpsMeta label="Deploy" value={shortVersion(health?.deployVersion)} />
           <OpsMeta label="Rate Limit" value={health?.rateLimitMode || "UNKNOWN"} />
           <OpsMeta label="Backup Verified" value={formatTime(health?.backupLastVerifiedAt)} />
           <OpsMeta label="Backup RPO" value={`${health?.backupRpoHours ?? 24}h`} />
-        </section>
+          </div>
+        </SectionShell>
 
         <section className="grid gap-5 xl:grid-cols-[1fr_1.2fr]">
           <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-950">Alerts</h2>
-              <span className="text-sm text-slate-500">{alerts.length} active</span>
-            </div>
+            <SectionHeader title="Critical Alerts" meta={`${alerts.length} active`} loading={loading} error={loadError} lastUpdated={lastUpdated} />
             <div className="space-y-3">
-              {alerts.length === 0 ? (
+              {loading ? (
+                <LoadingState text="Loading alerts..." />
+              ) : alerts.length === 0 ? (
                 <EmptyState icon={CheckCircle2} text="No active alerts." />
               ) : (
                 alerts.map((alert, index) => <AlertRow key={`${alert.title}-${index}`} alert={alert} />)
@@ -191,9 +200,9 @@ export default function AdminOpsPage() {
 
           <div className="rounded-2xl bg-white p-4 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-semibold text-slate-950">Funnel Analytics</h2>
+              <SectionHeader title="Funnel Analytics" loading={loading} error={loadError} lastUpdated={lastUpdated} />
               <div className="flex rounded-xl bg-slate-100 p-1 text-sm">
-                {["24h", "7d", "30d"].map((item) => (
+                {["24h", "7d", "30d", "90d"].map((item) => (
                   <button
                     key={item}
                     onClick={() => setRange(item)}
@@ -204,30 +213,54 @@ export default function AdminOpsPage() {
                 ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Metric label="Feed Opens" value={counts.feed_opened} />
-              <Metric label="Searches" value={counts.search_performed} />
-              <Metric label="Listing Views" value={counts.listing_view} />
-              <Metric label="Saved Listings" value={counts.save_listing} />
-              <Metric label="Applications Submitted" value={counts.application_submitted} />
-              <Metric label="Applications Approved" value={counts.application_approved} />
-              <Metric label="Leases Signed" value={counts.lease_signed} />
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              <Rate label="View to submitted" value={rates.listing_view_to_application_submitted} />
-              <Rate label="Submitted to approved" value={rates.application_submitted_to_approved} />
-              <Rate label="Approved to signed" value={rates.approved_to_lease_signed} />
-            </div>
+            {loading ? (
+              <LoadingState text="Loading funnel..." />
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <Metric label="Feed Opens" value={counts.feed_opened} />
+                  <Metric label="Searches" value={counts.search_performed} />
+                  <Metric label="Listing Views" value={counts.listing_view} />
+                  <Metric label="Saved Listings" value={counts.save_listing} />
+                  <Metric label="Applications Started" value={counts.application_started} />
+                  <Metric label="Applications Submitted" value={counts.application_submitted} />
+                  <Metric label="Applications Approved" value={counts.application_approved} />
+                  <Metric label="Leases Signed" value={counts.lease_signed} />
+                  <Metric label="Payment Proofs" value={counts.payment_proof_uploaded} />
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-5">
+                  <Rate label="View to save" value={rates.listing_view_to_save} />
+                  <Rate label="View to submitted" value={rates.listing_view_to_application_submitted} />
+                  <Rate label="Submitted to approved" value={rates.application_submitted_to_approved} />
+                  <Rate label="Approved to signed" value={rates.approved_to_lease_signed} />
+                  <Rate label="Signed to proof" value={rates.lease_signed_to_payment_proof_uploaded} />
+                </div>
+              </>
+            )}
           </div>
         </section>
 
+        <SectionShell title="Traffic & Marketplace Activity" loading={loading} error={loadError} lastUpdated={lastUpdated}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+            <Metric label="Feed Opens" value={counts.feed_opened} />
+            <Metric label="Searches" value={counts.search_performed} />
+            <Metric label="Listing Views" value={counts.listing_view} />
+            <Metric label="Saved Listings" value={counts.save_listing} />
+            <Metric label="Listing Approved" value={counts.listing_approved} />
+            <Metric label="Listing Rejected" value={counts.listing_rejected} />
+          </div>
+        </SectionShell>
+
         <section className="grid gap-5 xl:grid-cols-[1fr_1fr]">
           <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-950">Queue Health</h2>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <SectionHeader title="Queue Health" loading={loading} error={loadError} lastUpdated={lastUpdated} />
               <ShieldAlert className="h-5 w-5 text-slate-400" />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            {loading ? (
+              <LoadingState text="Loading queue health..." />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
               {queueCards.map((queue) => (
                 <QueueCard
                   key={queue.key}
@@ -236,16 +269,16 @@ export default function AdminOpsPage() {
                   href={queue.href}
                 />
               ))}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-slate-950">AI Missing Knowledge</h2>
-              <span className="text-sm text-slate-500">{noAnswerQuestions.length} topics</span>
-            </div>
+            <SectionHeader title="AI Missing Knowledge" meta={`${noAnswerQuestions.length} topics`} loading={loading} error={loadError} lastUpdated={lastUpdated} />
             <div className="space-y-3">
-              {noAnswerQuestions.length === 0 ? (
+              {loading ? (
+                <LoadingState text="Loading AI gaps..." />
+              ) : noAnswerQuestions.length === 0 ? (
                 <EmptyState icon={CheckCircle2} text="No repeated missing-doc questions in this range." />
               ) : (
                 noAnswerQuestions.map((item, index) => (
@@ -264,19 +297,25 @@ export default function AdminOpsPage() {
 
         <section className="grid gap-5 xl:grid-cols-[1fr_1.4fr]">
           <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-4 font-semibold text-slate-950">AI Health</h2>
-            <div className="grid grid-cols-2 gap-3">
-              <Metric label="Docs" value={ai?.docs ?? health?.aiDocsCount} />
-              <Metric label="Chunks" value={ai?.chunks ?? health?.aiChunksCount} />
-              <Metric label="Entities" value={ai?.entities ?? health?.graphRagEntityCount} />
-              <Metric label="Edges" value={ai?.edges ?? health?.graphRagEdgeCount} />
-              <Metric label="No Answer 24h" value={ai?.aiNoAnswerCount} />
-            </div>
-            <p className="mt-4 text-sm text-slate-500">Last ingest: {formatTime(health?.lastSuccessfulAiIngestTime || ai?.lastIngest?.finishedAt)}</p>
+            <SectionHeader title="AI / GraphRAG Health" loading={loading} error={loadError} lastUpdated={lastUpdated} />
+            {loading ? (
+              <LoadingState text="Loading AI health..." />
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <Metric label="Docs" value={ai?.docs ?? health?.aiDocsCount} />
+                  <Metric label="Chunks" value={ai?.chunks ?? health?.aiChunksCount} />
+                  <Metric label="Entities" value={ai?.entities ?? health?.graphRagEntityCount} />
+                  <Metric label="Edges" value={ai?.edges ?? health?.graphRagEdgeCount} />
+                  <Metric label="No Answer 24h" value={ai?.aiNoAnswerCount} />
+                </div>
+                <p className="mt-4 text-sm text-slate-500">Last ingest: {formatTime(health?.lastSuccessfulAiIngestTime || ai?.lastIngest?.finishedAt)}</p>
+              </>
+            )}
           </div>
 
           <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <h2 className="mb-4 font-semibold text-slate-950">Recent Errors</h2>
+            <SectionHeader title="Recent Errors" meta={`${errors.length} rows`} loading={loading} error={loadError} lastUpdated={lastUpdated} />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
                 <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
@@ -289,7 +328,9 @@ export default function AdminOpsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {errors.length === 0 ? (
+                  {loading ? (
+                    <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading recent errors...</td></tr>
+                  ) : errors.length === 0 ? (
                     <tr><td colSpan={5} className="py-8 text-center text-slate-500">No recent errors.</td></tr>
                   ) : (
                     errors.map((error) => (
@@ -308,6 +349,62 @@ export default function AdminOpsPage() {
           </div>
         </section>
       </main>
+    </div>
+  )
+}
+
+function SectionShell({
+  title,
+  loading,
+  error,
+  lastUpdated,
+  children,
+}: {
+  title: string
+  loading: boolean
+  error: string | null
+  lastUpdated: string | null
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-2xl bg-white p-4 shadow-sm">
+      <SectionHeader title={title} loading={loading} error={error} lastUpdated={lastUpdated} />
+      {loading ? <LoadingState text={`Loading ${title.toLowerCase()}...`} /> : children}
+    </section>
+  )
+}
+
+function SectionHeader({
+  title,
+  meta,
+  loading,
+  error,
+  lastUpdated,
+}: {
+  title: string
+  meta?: string
+  loading: boolean
+  error: string | null
+  lastUpdated: string | null
+}) {
+  return (
+    <div className="mb-4 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold text-slate-950">{title}</h2>
+        {meta && <span className="text-sm text-slate-500">{meta}</span>}
+      </div>
+      <p className="mt-1 text-xs text-slate-500">
+        {error ? "Could not refresh this section." : loading ? "Refreshing..." : `Last updated ${formatTime(lastUpdated)}`}
+      </p>
+    </div>
+  )
+}
+
+function LoadingState({ text }: { text: string }) {
+  return (
+    <div className="flex items-center justify-center gap-2 rounded-xl bg-slate-50 p-8 text-sm text-slate-500">
+      <RefreshCw className="h-4 w-4 animate-spin" />
+      {text}
     </div>
   )
 }
@@ -364,6 +461,11 @@ function AlertRow({ alert }: { alert: Alert }) {
         <Severity value={alert.severity} />
       </div>
       <p className="text-sm text-slate-600">{alert.message}</p>
+      {(alert.metric || alert.threshold !== undefined) && (
+        <p className="mt-2 text-xs text-slate-500">
+          {alert.metric || "metric"} threshold: {alert.threshold ?? "-"}
+        </p>
+      )}
       <p className="mt-2 text-xs text-slate-500">{alert.suggestedAction}</p>
     </div>
   )

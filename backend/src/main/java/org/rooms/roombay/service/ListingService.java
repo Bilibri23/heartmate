@@ -67,6 +67,7 @@ public class ListingService {
     private final ListingViewRepository listingViewRepository;
     private final ListingArMarkerRepository listingArMarkerRepository;
     private final PlatformSettingsService platformSettingsService;
+    private final AnalyticsEventService analyticsEventService;
     
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
@@ -599,6 +600,13 @@ public class ListingService {
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing {} {} by admin {}", listingId, status, adminId);
         securityAuditService.logAction("admin.listing.review", adminId, listingId, "LISTING");
+        analyticsEventService.emit(
+                status == PropertyListing.Status.ACTIVE ? "listing_approved" : "listing_rejected",
+                adminId,
+                "ADMIN",
+                listingId,
+                Map.of("landlordId", listing.getLandlord().getId().toString())
+        );
         
         // Re-index search so approved/rejected listings appear in search (ES filters by ACTIVE)
         enqueueSearchOutbox(updated, ListingSearchOutbox.EVENT_UPDATED);

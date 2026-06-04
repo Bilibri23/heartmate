@@ -22,7 +22,10 @@ public class AppErrorLogService {
     private static final int MAX_MESSAGE_LENGTH = 2_000;
     private static final int MAX_STACK_LENGTH = 6_000;
     private static final Pattern BEARER = Pattern.compile("(?i)bearer\\s+[a-z0-9._~+/=-]+");
-    private static final Pattern SECRET_PAIR = Pattern.compile("(?i)(authorization|cookie|jwt|token|refresh[_-]?token|password|secret|api[_-]?key)\\s*[:=]\\s*[^,;\\s}]+");
+    private static final Pattern JWT = Pattern.compile("(?i)\\beyJ[a-z0-9_-]+\\.[a-z0-9_-]+\\.[a-z0-9_-]+\\b");
+    private static final Pattern SECRET_PAIR = Pattern.compile("(?i)(authorization|cookie|set-cookie|jwt|token|refresh[_-]?token|reset[_-]?token|verification[_-]?token|password|secret|payment[_-]?secret|api[_-]?key|cloudinary[_-]?secret|oauth[_-]?secret|client[_-]?secret|database[_-]?url)\\s*[:=]\\s*[^,;\\s}\\]]+");
+    private static final Pattern DATABASE_URL = Pattern.compile("(?i)(jdbc:postgresql://|postgres(?:ql)?://)[^\\s,;\\]}]+");
+    private static final Pattern SENSITIVE_URL = Pattern.compile("(?i)https?://[^\\s,;\\]}]*(government|identity|verification|document|passport|national[_-]?id|selfie|payment-proof|payment_proof|cloudinary)[^\\s,;\\]}]*");
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -77,12 +80,24 @@ public class AppErrorLogService {
         return count != null ? count : 0;
     }
 
+    public int deleteOlderThan(LocalDateTime cutoff) {
+        try {
+            return jdbcTemplate.update("DELETE FROM app_error_log WHERE created_at < ?", cutoff);
+        } catch (Exception ex) {
+            log.warn("Failed to delete old app_error_log rows: {}", ex.getMessage());
+            return 0;
+        }
+    }
+
     static String sanitizeForOpsLog(String value) {
         if (value == null) {
             return null;
         }
         String sanitized = BEARER.matcher(value).replaceAll("Bearer [REDACTED]");
+        sanitized = JWT.matcher(sanitized).replaceAll("[JWT_REDACTED]");
         sanitized = SECRET_PAIR.matcher(sanitized).replaceAll("$1=[REDACTED]");
+        sanitized = DATABASE_URL.matcher(sanitized).replaceAll("[DATABASE_URL_REDACTED]");
+        sanitized = SENSITIVE_URL.matcher(sanitized).replaceAll("[SENSITIVE_URL_REDACTED]");
         return sanitized;
     }
 
