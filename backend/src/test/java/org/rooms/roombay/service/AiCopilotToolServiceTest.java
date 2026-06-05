@@ -13,7 +13,9 @@ import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.StudentVerificationRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,6 +37,8 @@ class AiCopilotToolServiceTest {
     private final PropertyListingRepository propertyListingRepository = mock(PropertyListingRepository.class);
     private final LandlordVerificationRepository landlordVerificationRepository = mock(LandlordVerificationRepository.class);
     private final ReportRepository reportRepository = mock(ReportRepository.class);
+    private final AppErrorLogService appErrorLogService = mock(AppErrorLogService.class);
+    private final AnalyticsEventService analyticsEventService = mock(AnalyticsEventService.class);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
 
     private final AiCopilotToolService service = new AiCopilotToolService(
@@ -46,6 +50,8 @@ class AiCopilotToolServiceTest {
             propertyListingRepository,
             landlordVerificationRepository,
             reportRepository,
+            appErrorLogService,
+            analyticsEventService,
             jdbcTemplate
     );
 
@@ -55,6 +61,9 @@ class AiCopilotToolServiceTest {
         assertThat(service.isToolAllowed("TENANT", "tenant_status_snapshot")).isTrue();
         assertThat(service.isToolAllowed("LANDLORD", "landlord_portfolio_status")).isTrue();
         assertThat(service.isToolAllowed("ADMIN", "admin_ops_snapshot")).isTrue();
+        assertThat(service.isToolAllowed("ADMIN", "admin_recent_errors")).isTrue();
+        assertThat(service.isToolAllowed("ADMIN", "admin_ai_unanswered_questions")).isTrue();
+        assertThat(service.isToolAllowed("ADMIN", "admin_funnel_summary")).isTrue();
 
         assertThat(service.isToolAllowed("STUDENT", "admin_ops_snapshot")).isFalse();
         assertThat(service.isToolAllowed("LANDLORD", "tenant_status_snapshot")).isFalse();
@@ -73,6 +82,9 @@ class AiCopilotToolServiceTest {
         when(roomApplicationRepository.countByStudentIdAndStatus(userId, RoomApplication.Status.ACCEPTED)).thenReturn(2L);
         when(leaseRepository.countByStudentId(userId)).thenReturn(1L);
         when(paymentRepository.countByPayerId(userId)).thenReturn(3L);
+        when(paymentRepository.countByPayerIdAndStatus(userId, org.rooms.roombay.entity.Payment.PaymentStatus.PENDING)).thenReturn(1L);
+        when(paymentRepository.countByPayerIdAndStatus(userId, org.rooms.roombay.entity.Payment.PaymentStatus.SUBMITTED)).thenReturn(1L);
+        when(paymentRepository.countByPayerIdAndStatus(userId, org.rooms.roombay.entity.Payment.PaymentStatus.VERIFIED)).thenReturn(1L);
         when(listingFavoriteRepository.findByUserId(userId)).thenReturn(List.of());
 
         String context = service.buildToolContext(userId, "STUDENT");
@@ -80,7 +92,32 @@ class AiCopilotToolServiceTest {
         assertThat(context).contains("Read_only_platform_tools:");
         assertThat(context).contains("tenantStatusSnapshot={verificationStatus=VERIFIED");
         assertThat(context).contains("applicationsAccepted=2");
+        assertThat(context).contains("paymentsPending=1", "paymentsSubmitted=1", "paymentsVerified=1", "savedListings=0");
         assertThat(context).doesNotContain("adminOpsSnapshot", "documentUrl", "password", "token");
         verify(jdbcTemplate).update(anyString(), eq(userId), eq("STUDENT"), eq("tenant_status_snapshot"), eq(true), any());
+    }
+
+    @Test
+    void adminContextIncludesOpsErrorsNoAnswersAndFunnelWithoutSecrets() {
+        UUID adminId = UUID.randomUUID();
+        when(appErrorLogService.recent(5)).thenReturn(List.of(
+                Map.of("level", "ERROR", "source", "API", "path", "/api/listings?token=abc123")
+        ));
+        when(analyticsEventService.topNoAnswerQuestions(any(LocalDateTime.class), eq(5))).thenReturn(List.of(
+                Map.of("question", "How do I bypass verification?", "count", 3L)
+        ));
+        when(analyticsEventService.countsByTypeSince(any(LocalDateTime.class))).thenReturn(Map.of(
+                "feed_opened", 10L,
+                "listing_view", 7L,
+                "application_submitted", 2L
+        ));
+
+        String context = service.buildToolContext(adminId, "ADMIN");
+
+        assertThat(context).contains("adminOpsSnapshot");
+        assertThat(context).contains("adminRecentErrors");
+        assertThat(context).contains("adminAiUnansweredQuestions");
+        assertThat(context).contains("adminFunnelSummary");
+        assertThat(context).doesNotContain("abc123", "Bearer", "password");
     }
 }

@@ -48,6 +48,10 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     long countByPayerId(UUID payerId);
     
     long countByRecipientId(UUID recipientId);
+
+    long countByPayerIdAndStatus(UUID payerId, Payment.PaymentStatus status);
+
+    long countByRecipientIdAndStatus(UUID recipientId, Payment.PaymentStatus status);
     
     @Query("SELECT COUNT(p) FROM Payment p WHERE p.status = 'SUBMITTED'")
     long countPendingVerification();
