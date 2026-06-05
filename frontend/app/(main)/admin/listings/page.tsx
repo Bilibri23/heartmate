@@ -8,6 +8,7 @@ import { MobileHeader } from "@/components/layout/mobile-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import {
   Select,
   SelectContent,
@@ -233,6 +234,12 @@ export default function AdminListingsPage() {
           </div>
         </div>
 
+        <NextStepCard
+          title="What happens next?"
+          body="Open pending listings, confirm photos, location, price, trust signals, and policy fit, then approve or reject with a clear reason. Approved listings become visible to tenants."
+          icon={<CheckCircle className="h-5 w-5" />}
+        />
+
         {/* Listings */}
         {isLoading ? (
           <div className="space-y-4">
@@ -243,7 +250,10 @@ export default function AdminListingsPage() {
         ) : filteredListings.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl">
             <Home className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-600">No listings found</p>
+            <h3 className="font-semibold text-slate-900">No listings found</h3>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+              Listing review items appear here when landlords submit or update properties for marketplace visibility.
+            </p>
           </div>
         ) : (
           <div className="space-y-4 pb-24">

@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { GuidedEmptyState } from "@/components/workflows/guided-empty-state"
 import Link from "next/link"
 import api from "@/lib/api"
 
@@ -205,16 +206,14 @@ export default function NotificationsPage() {
 
         {/* Empty State */}
         {!isLoading && notifications.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="bg-slate-100 p-6 rounded-full mb-4">
-              <Bell className="h-12 w-12 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              {t.notifications.noNotifications}
-            </h3>
-            <p className="text-slate-500 text-sm max-w-xs">
-              You're all caught up! New notifications will appear here.
-            </p>
+          <div className="p-4">
+            <GuidedEmptyState
+              icon={<Bell className="h-8 w-8" />}
+              title={t.notifications.noNotifications}
+              body="You're all caught up. New application, message, lease, payment, and account updates will appear here."
+              primaryHref="/for-you"
+              primaryLabel="Go home"
+            />
           </div>
         )}
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import {
   Sheet,
   SheetContent,
@@ -296,6 +298,15 @@ function PaymentsContent() {
 
         <div className="p-4 space-y-3">
           {completionStatus && !canPay && <CompletionBanner status={completionStatus} />}
+          {!isLoading && payments.length > 0 && (
+            <NextStepCard
+              title="What happens next?"
+              body="Submit your Mobile Money reference carefully. Submitted payments wait for RoomBay admin verification, and rejected proofs can be retried from this page."
+              href="/leases"
+              actionLabel="Review leases"
+              icon={<CreditCard className="h-5 w-5" />}
+            />
+          )}
           {/* Loading */}
           {isLoading && (
             <>
@@ -317,8 +328,16 @@ function PaymentsContent() {
                 No payments yet
               </h3>
               <p className="text-slate-500 text-sm">
-                Your payment history will appear here.
+                Payment steps appear after a lease reaches the payment stage.
               </p>
+              <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+                <Button asChild className="rounded-xl">
+                  <Link href="/leases">Review leases</Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-xl">
+                  <Link href="/help">Get help</Link>
+                </Button>
+              </div>
             </div>
           )}
 

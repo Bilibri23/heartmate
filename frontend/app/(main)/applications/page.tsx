@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import Link from "next/link"
 import api from "@/lib/api"
 
@@ -173,6 +174,16 @@ export default function ApplicationsPage() {
         />
 
         <div className="p-4 space-y-3">
+          {!isLoading && applications.length > 0 && (
+            <NextStepCard
+              title="What happens next?"
+              body="Pending applications wait for landlord review. If an application is accepted, RoomBay guides you into lease and payment steps from the same account."
+              href="/leases"
+              actionLabel="Check leases"
+              icon={<CheckCircle className="h-5 w-5" />}
+            />
+          )}
+
           {/* Loading */}
           {isLoading && (
             <>
@@ -199,11 +210,16 @@ export default function ApplicationsPage() {
                 {t.applications.noApplications}
               </h3>
               <p className="text-slate-500 text-sm mb-4">
-                Start browsing listings and apply to your favorites
+                Start with search, save homes you like, then apply when a listing fits your budget and move-in timing.
               </p>
               <Link href="/search">
                 <Button>{t.nav.search}</Button>
               </Link>
+              <div className="mt-3">
+                <Link href="/help" className="text-sm font-medium text-blue-600">
+                  Get help
+                </Link>
+              </div>
             </div>
           )}
 

@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Sheet,
@@ -168,6 +169,14 @@ export default function LandlordApplicationsPage() {
         />
 
         <div className="p-4 space-y-3">
+          {!isLoading && applications.length > 0 && (
+            <NextStepCard
+              title="What happens next?"
+              body="Open each application, compare fit, then shortlist, accept, or reject with a clear response. Accepted applications can move into lease steps."
+              icon={<CheckCircle className="h-5 w-5" />}
+            />
+          )}
+
           {/* Loading */}
           {isLoading && (
             <>
@@ -196,7 +205,7 @@ export default function LandlordApplicationsPage() {
               </h3>
               <p className="text-slate-500 text-sm">
                 {statusFilter === "PENDING" 
-                  ? "No pending applications at the moment"
+                  ? "No pending applications at the moment. Share complete listings and keep photos/prices current to improve tenant confidence."
                   : "No applications match this filter"}
               </p>
             </div>

@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -201,6 +202,18 @@ function LandlordDashboardInner() {
             </Link>
           </div>
 
+          {!isLoading && (
+            <NextStepCard
+              title="What happens next?"
+              body={stats?.pendingApplications
+                ? "Review pending applications, shortlist strong tenants, then generate lease steps once you accept an applicant."
+                : "Keep listings complete with photos, price, location, amenities, and review status so tenants can decide quickly."}
+              href={stats?.pendingApplications ? "/landlord/applications" : "/landlord/listings/new"}
+              actionLabel={stats?.pendingApplications ? "Review applications" : "Improve supply"}
+              icon={<FileText className="h-5 w-5" />}
+            />
+          )}
+
           <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-slate-50 p-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white">
@@ -239,6 +252,9 @@ function LandlordDashboardInner() {
                   <Home className="h-7 w-7 text-slate-400" />
                 </div>
                 <p className="text-slate-500 text-sm mb-3">No listings yet</p>
+                <p className="mx-auto mb-4 max-w-xs text-xs leading-relaxed text-slate-500">
+                  Create one high-quality listing first: clear photos, exact neighborhood, monthly rent, amenities, and availability.
+                </p>
                 <Link href="/landlord/listings/new">
                   <Button size="sm">Create Your First Listing</Button>
                 </Link>

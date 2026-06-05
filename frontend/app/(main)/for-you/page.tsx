@@ -11,6 +11,7 @@ import { Clock, Filter, Flame, Star, WifiOff } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import api from "@/lib/api"
 
 interface RecommendedListing {
@@ -293,6 +294,16 @@ export default function ForYouPage() {
 
           {!isLoading && (listings.length > 0 || trendingListings.length > 0 || recentListings.length > 0) && (
             <>
+              <div className="px-4 pb-4">
+                <NextStepCard
+                  title="What happens next?"
+                  body="Save homes you like, open a listing to message or apply, then complete verification, lease, and payment steps inside RoomBay."
+                  href="/verification"
+                  actionLabel="Check verification"
+                  icon={<Star className="h-5 w-5" />}
+                />
+              </div>
+
               {/* Row 1: For You */}
               <div data-tour="tenant-feed">
                 <ListingRow

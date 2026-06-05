@@ -10,6 +10,7 @@ import { MessageSquare, Search, WifiOff } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { GuidedEmptyState } from "@/components/workflows/guided-empty-state"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import api from "@/lib/api"
@@ -156,16 +157,14 @@ export default function MessagesPage() {
 
         {/* Empty State */}
         {!isLoading && !error && conversations.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="bg-slate-100 p-6 rounded-full mb-4">
-              <MessageSquare className="h-12 w-12 text-slate-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">
-              {t.messages.noMessages}
-            </h3>
-            <p className="text-slate-500 text-sm max-w-xs">
-              When you contact a landlord or receive messages, they will appear here.
-            </p>
+          <div className="p-4">
+            <GuidedEmptyState
+              icon={<MessageSquare className="h-8 w-8" />}
+              title={t.messages.noMessages}
+              body="When you contact a landlord, share a listing, or get a reply, the conversation will appear here."
+              primaryHref="/search"
+              primaryLabel="Find listings"
+            />
           </div>
         )}
 

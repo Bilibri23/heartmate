@@ -217,9 +217,17 @@ export default function LandlordListingsPage() {
                   : "No listings yet"}
               </p>
               {!searchQuery && statusFilter === "ALL" && (
-                <Link href="/landlord/listings/new">
-                  <Button size="sm" disabled={!canPublish}>Create Your First Listing</Button>
-                </Link>
+                <div className="flex flex-col items-center gap-2">
+                  <p className="max-w-xs text-xs leading-relaxed text-slate-500">
+                    Start with clear photos, exact neighborhood, rent, amenities, availability, and verification status.
+                  </p>
+                  <Link href="/landlord/listings/new">
+                    <Button size="sm" disabled={!canPublish}>Create Your First Listing</Button>
+                  </Link>
+                  <Link href="/help" className="text-sm font-medium text-blue-600">
+                    Get help
+                  </Link>
+                </div>
               )}
             </div>
           ) : (

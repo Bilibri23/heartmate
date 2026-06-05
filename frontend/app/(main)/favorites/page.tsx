@@ -10,6 +10,7 @@ import { useAuth } from "@/context/auth-context"
 import { Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { GuidedEmptyState } from "@/components/workflows/guided-empty-state"
 import Link from "next/link"
 import api from "@/lib/api"
 
@@ -99,20 +100,13 @@ export default function FavoritesPage() {
 
           {/* Empty State */}
           {!isLoading && favorites.length === 0 && (
-            <div className="text-center py-12">
-              <div className="mx-auto mb-4 h-20 w-20 rounded-full bg-red-100 flex items-center justify-center">
-                <Heart className="h-10 w-10 text-red-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                No favorites yet
-              </h3>
-              <p className="text-slate-500 text-sm mb-4">
-                Save listings you like to find them easily later
-              </p>
-              <Link href="/search">
-                <Button>{t.nav.search}</Button>
-              </Link>
-            </div>
+            <GuidedEmptyState
+              icon={<Heart className="h-8 w-8" />}
+              title="No saved homes yet"
+              body="Save listings as you compare price, location, trust signals, and move-in timing. Your shortlist will stay here."
+              primaryHref="/search"
+              primaryLabel={t.nav.search}
+            />
           )}
 
           {/* Favorites Grid */}

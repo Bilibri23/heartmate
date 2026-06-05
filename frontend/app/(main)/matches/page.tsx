@@ -673,6 +673,11 @@ export default function MatchesPage() {
                             Preferences
                           </Button>
                         </Link>
+                        <Link href="/help">
+                          <Button variant="outline" className="rounded-xl">
+                            Get help
+                          </Button>
+                        </Link>
                         <Button 
                           onClick={findNewMatches}
                           disabled={isFinding}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useAuth } from "@/context/auth-context"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { Button } from "@/components/ui/button"
@@ -202,7 +203,18 @@ export default function AdminReportsPage() {
         ) : reports.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl">
             <Flag className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-600">No reports match this filter.</p>
+            <h3 className="font-semibold text-slate-900">No reports match this filter.</h3>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500">
+              New listing, user, payment, or message reports will appear here when users flag something for moderation.
+            </p>
+            <div className="mt-5 flex justify-center gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => fetchReports()}>
+                Refresh
+              </Button>
+              <Link href="/help">
+                <Button variant="outline" className="rounded-xl">Get help</Button>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-2 pb-24">

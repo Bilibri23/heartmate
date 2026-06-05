@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import Link from "next/link"
 import api from "@/lib/api"
 
@@ -186,6 +187,16 @@ export default function LeasesPage() {
         />
 
         <div className="p-4 space-y-3">
+          {!isLoading && leases.length > 0 && (
+            <NextStepCard
+              title="What happens next?"
+              body="Review lease terms first. If payment is required, RoomBay will send you to the payment flow; signed and verified leases become active after the required steps are complete."
+              href="/payments"
+              actionLabel="Open payments"
+              icon={<FileText className="h-5 w-5" />}
+            />
+          )}
+
           {/* Loading */}
           {isLoading && (
             <>
@@ -212,11 +223,16 @@ export default function LeasesPage() {
                 No leases yet
               </h3>
               <p className="text-slate-500 text-sm mb-4">
-                When your application is accepted, your lease will appear here.
+                Accepted applications create lease steps here. Keep checking applications if you are still waiting for landlord review.
               </p>
               <Link href="/applications">
                 <Button>{t.nav.applications}</Button>
               </Link>
+              <div className="mt-3">
+                <Link href="/help" className="text-sm font-medium text-blue-600">
+                  Get help
+                </Link>
+              </div>
             </div>
           )}
 

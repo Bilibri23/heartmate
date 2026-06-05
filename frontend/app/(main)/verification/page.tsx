@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { NextStepCard } from "@/components/workflows/next-step-card"
 import {
   Select,
   SelectContent,
@@ -210,6 +211,15 @@ export default function VerificationPage() {
           <p className="text-slate-500 mb-6">
             Your identity has been verified. You can now access all features.
           </p>
+          <div className="mb-6 text-left">
+            <NextStepCard
+              title="What happens next?"
+              body="You can apply with a verified profile. Keep using RoomBay messaging and lease/payment flows so the process stays trackable."
+              href="/search"
+              actionLabel="Browse listings"
+              icon={<Shield className="h-5 w-5" />}
+            />
+          </div>
           
           <div className="bg-emerald-50 rounded-xl p-6 mb-6 text-left">
             <h3 className="font-semibold text-emerald-800 mb-4 flex items-center justify-center">
@@ -299,13 +309,20 @@ export default function VerificationPage() {
           <Button onClick={refreshStatus} variant="outline" className="rounded-xl mb-4">
             Refresh Status
           </Button>
+          <NextStepCard
+            title="What happens next?"
+            body="RoomBay reviews submitted verification documents before unlocking the full application flow. You can keep browsing and saving listings while you wait."
+            href="/search"
+            actionLabel="Keep browsing"
+            icon={<Clock className="h-5 w-5" />}
+          />
         </div>
       )
     }
 
     if (verification?.status === "REJECTED") {
       return (
-        <div className="p-4">
+      <div className="p-4">
           <div className="mb-6 p-4 bg-red-50 rounded-2xl">
             <div className="flex items-center gap-2 text-red-600 mb-2">
               <XCircle className="h-5 w-5" />
@@ -314,6 +331,13 @@ export default function VerificationPage() {
             <p className="text-sm text-red-600">
               {verification.rejectionReason || "Your verification was rejected. Please resubmit with clearer documents."}
             </p>
+          </div>
+          <div className="mb-6">
+            <NextStepCard
+              title="What happens next?"
+              body="Upload clearer documents and make sure the name, photo, and ID number are readable before resubmitting."
+              icon={<Upload className="h-5 w-5" />}
+            />
           </div>
           {renderForm()}
         </div>

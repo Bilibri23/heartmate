@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
-import { MapPin, Wallet, Home, ArrowRight, ArrowLeft, Check, Sparkles, Users, X } from "lucide-react"
+import { MapPin, Wallet, Home, ArrowRight, ArrowLeft, Check, Sparkles, Users, X, Shield, FileText, MessageCircle, CreditCard, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import api from "@/lib/api"
@@ -26,6 +26,25 @@ const STEPS = [
     { id: "city", title: "Where are you looking?", subtitle: "Pick your city or cities", icon: MapPin },
     { id: "budget", title: "What's your budget?", subtitle: "Monthly rent range in FCFA", icon: Wallet },
     { id: "type", title: "What type of place?", subtitle: "Select one or more", icon: Home },
+]
+
+const TENANT_JOURNEY = [
+    { label: "Search", icon: MapPin },
+    { label: "Save", icon: Home },
+    { label: "Apply", icon: FileText },
+    { label: "Message", icon: MessageCircle },
+    { label: "Lease", icon: Check },
+    { label: "Payment", icon: CreditCard },
+    { label: "Roommates", icon: Users },
+]
+
+const LANDLORD_JOURNEY = [
+    { label: "Verification", icon: Shield },
+    { label: "Create listing", icon: Home },
+    { label: "Applications", icon: FileText },
+    { label: "Lease", icon: Check },
+    { label: "Payments", icon: CreditCard },
+    { label: "Analytics", icon: BarChart3 },
 ]
 
 export default function OnboardingPage() {
@@ -113,6 +132,8 @@ export default function OnboardingPage() {
 
     const step = STEPS[currentStep]
     const StepIcon = step.icon
+    const isLandlord = user?.role === "LANDLORD"
+    const journey = isLandlord ? LANDLORD_JOURNEY : TENANT_JOURNEY
 
     return (
         <div className="flex min-h-screen flex-col bg-gradient-to-b from-blue-50 to-white">
@@ -199,6 +220,25 @@ export default function OnboardingPage() {
 
             {/* Content */}
             <div className="flex-1 flex flex-col px-4 py-8 max-w-lg mx-auto w-full">
+                <div className="mb-6 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm">
+                    <p className="text-sm font-semibold text-slate-900">
+                        {isLandlord ? "Your landlord flow" : "Your RoomBay flow"}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                        {isLandlord
+                            ? "Verify your account, publish a strong listing, review applications, create lease steps, track payments, and watch performance."
+                            : "Search verified homes, save your shortlist, apply, message safely, complete lease and payment steps, and use roommate matching when needed."}
+                    </p>
+                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                        {journey.map(({ label, icon: Icon }) => (
+                            <div key={label} className="flex min-w-fit items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
+                                <Icon className="h-3.5 w-3.5" />
+                                {label}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Step indicator */}
                 <div className="flex items-center gap-2 mb-2">
                     {STEPS.map((_, i) => (
