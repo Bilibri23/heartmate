@@ -82,13 +82,22 @@ public class Report {
         HARASSMENT,
         MISLEADING,
         DUPLICATE,
+        WRONG_PRICE,
+        UNAVAILABLE,
+        UNSAFE_PROPERTY,
+        IMPERSONATION,
+        PAYMENT_ABUSE,
         OTHER
     }
 
     public enum ReportStatus {
+        OPEN,
         PENDING,
+        UNDER_REVIEW,
         REVIEWING,
         RESOLVED,
+        REJECTED,
+        ESCALATED,
         DISMISSED
     }
 

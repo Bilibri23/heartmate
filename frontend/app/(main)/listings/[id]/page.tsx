@@ -95,6 +95,7 @@ interface ListingDetail {
   verified: boolean
   /** HIGH | VERIFIED | REVIEWED | STANDARD from API */
   trustTier?: string | null
+  trustSignals?: Record<string, boolean>
   featured: boolean
   status: string
   viewsCount: number
@@ -417,24 +418,27 @@ export default function ListingDetailPage() {
   }
 
   const handleFlagContent = async (listingId: string) => {
-    if (!user?.id) return
+    if (!user?.id) {
+      router.push("/login")
+      return
+    }
 
-    // Show flag dialog
-    const reason = prompt("Why are you reporting this content? (Inappropriate, Violence, Fraud, Spam, Copyright, Illegal, Other)")
+    const reason = prompt("Why are you reporting this listing? (SCAM, FRAUD, FAKE, MISLEADING, DUPLICATE, WRONG_PRICE, UNAVAILABLE, UNSAFE_PROPERTY, IMPERSONATION, PAYMENT_ABUSE, OTHER)")
     if (!reason) return
 
-    const description = prompt("Please provide more details (optional):")
+    const normalizedReason = reason.trim().toUpperCase().replace(/\s+/g, "_")
+    const description = prompt("Please provide details for the moderation team:")
+    if (!description?.trim()) return
 
     try {
-      await api.post(`/content-moderation/flag/${listingId}`, null, {
-        params: {
-          reporterId: user.id,
-          reason: reason.toUpperCase(),
-          description: description || ""
-        }
+      await api.post("/reports", {
+        entityType: "LISTING",
+        entityId: listingId,
+        reason: normalizedReason,
+        description: description.trim(),
       })
 
-      toast.success("Content reported. Thank you for helping keep our platform safe.")
+      toast.success("Listing reported. Thank you for helping keep RoomBay safe.")
     } catch (error: any) {
       console.error("Failed to flag content:", error)
       toast.error(error.response?.data?.message || "Failed to report content")
@@ -898,6 +902,26 @@ export default function ListingDetailPage() {
             </p>
           </div>
 
+          {/* Trust Signals */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <h2 className="text-lg font-bold text-slate-900 mb-3">
+              {language === "fr" ? "Signaux de confiance" : "Trust signals"}
+            </h2>
+            <div className="grid gap-2">
+              <TrustSignal active={listing.trustSignals?.listingApproved || listing.verified} label={language === "fr" ? "Annonce revue par RoomBay" : "Listing reviewed by RoomBay"} />
+              <TrustSignal active={listing.trustSignals?.landlordVerified} label={language === "fr" ? "Propriétaire vérifié" : "Landlord verified"} />
+              <TrustSignal active={listing.trustSignals?.identityReviewed} label={language === "fr" ? "Identité du propriétaire revue" : "Landlord identity reviewed"} />
+              <TrustSignal active={listing.trustSignals?.propertyReviewed} label={language === "fr" ? "Preuve de propriété revue" : "Property proof reviewed"} />
+              <TrustSignal active={listing.trustSignals?.phoneVerified} label={language === "fr" ? "Téléphone vérifié" : "Phone verified"} />
+              <TrustSignal active={listing.trustSignals?.responsiveLandlord} label={language === "fr" ? "Profil actif récemment" : "Recently active listing"} />
+            </div>
+            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+              {language === "fr"
+                ? "Ces signaux indiquent les contrôles effectués par RoomBay. Ils ne remplacent pas une visite ni une vérification personnelle avant paiement."
+                : "These signals describe RoomBay review checks. They do not replace an in-person viewing or your own final checks before payment."}
+            </p>
+          </div>
+
           <SimilarListingsRail
             seedListingId={String(listing.id)}
             purpose="discover"
@@ -1334,6 +1358,15 @@ export default function ListingDetailPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function TrustSignal({ active, label }: { active?: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+      <CheckCircle className={`h-4 w-4 ${active ? "text-emerald-600" : "text-slate-300"}`} />
+      <span className={`text-sm ${active ? "text-slate-800" : "text-slate-400"}`}>{label}</span>
     </div>
   )
 }

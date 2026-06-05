@@ -48,6 +48,10 @@ public class ListingResponse {
      * HIGH, VERIFIED, REVIEWED, STANDARD.
      */
     private String trustTier;
+    /**
+     * Tenant-facing trust indicators. Values only describe reviewed states, never private verification documents.
+     */
+    private Map<String, Boolean> trustSignals;
     private Boolean featured;
     private Integer viewsCount;
     private Integer favoritesCount;

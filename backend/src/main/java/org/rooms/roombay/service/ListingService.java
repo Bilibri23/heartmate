@@ -751,6 +751,7 @@ public class ListingService {
                 .status(listing.getStatus().name())
                 .verified(listing.getVerified())
                 .trustTier(trustTier)
+                .trustSignals(trustSignals(listing, landlordVerification))
                 .featured(listing.getFeatured())
                 .viewsCount(listing.getViewsCount())
                 .favoritesCount(listing.getFavoritesCount())
@@ -808,6 +809,26 @@ public class ListingService {
         }
         long passed = signals.values().stream().filter(Boolean.TRUE::equals).count();
         return (int) Math.round(passed * 100.0 / signals.size());
+    }
+
+    static Map<String, Boolean> trustSignals(PropertyListing listing, LandlordVerification landlordVerification) {
+        Map<String, Boolean> signals = new java.util.LinkedHashMap<>();
+        boolean listingReviewed = Boolean.TRUE.equals(listing.getVerified()) && listing.getStatus() == PropertyListing.Status.ACTIVE;
+        boolean identityReviewed = landlordVerification != null
+                && landlordVerification.getIdentityStatus() == LandlordVerification.VerificationStatus.VERIFIED;
+        boolean propertyReviewed = landlordVerification != null
+                && landlordVerification.getPropertyStatus() == LandlordVerification.VerificationStatus.VERIFIED;
+        boolean landlordTrusted = landlordVerification != null
+                && (Boolean.TRUE.equals(landlordVerification.getIsTrustedLandlord())
+                || (landlordVerification.getTrustScore() != null && landlordVerification.getTrustScore() >= 70));
+
+        signals.put("phoneVerified", listing.getLandlord() != null && Boolean.TRUE.equals(listing.getLandlord().getPhoneVerified()));
+        signals.put("identityReviewed", identityReviewed);
+        signals.put("landlordVerified", landlordTrusted || identityReviewed);
+        signals.put("propertyReviewed", propertyReviewed);
+        signals.put("listingApproved", listingReviewed);
+        signals.put("responsiveLandlord", listing.getLandlord() != null && listing.getUpdatedAt() != null);
+        return signals;
     }
 
     private static boolean hasText(String value) {

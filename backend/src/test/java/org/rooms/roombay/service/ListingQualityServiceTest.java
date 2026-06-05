@@ -2,11 +2,15 @@ package org.rooms.roombay.service;
 
 import org.junit.jupiter.api.Test;
 import org.rooms.roombay.dto.response.PhotoDTO;
+import org.rooms.roombay.entity.LandlordVerification;
 import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.entity.User;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,6 +48,35 @@ class ListingQualityServiceTest {
         Map<String, Boolean> signals = ListingService.qualitySignals(listing, List.of());
 
         assertThat(ListingService.qualityScore(signals)).isLessThan(50);
+    }
+
+    @Test
+    void trustSignalsExposeReviewedStatesWithoutDocumentDetails() {
+        User landlord = User.builder()
+                .id(UUID.randomUUID())
+                .phoneVerified(true)
+                .build();
+        PropertyListing listing = PropertyListing.builder()
+                .landlord(landlord)
+                .status(PropertyListing.Status.ACTIVE)
+                .verified(true)
+                .updatedAt(LocalDateTime.now())
+                .build();
+        LandlordVerification verification = LandlordVerification.builder()
+                .identityStatus(LandlordVerification.VerificationStatus.VERIFIED)
+                .propertyStatus(LandlordVerification.VerificationStatus.VERIFIED)
+                .trustScore(75)
+                .isTrustedLandlord(true)
+                .build();
+
+        Map<String, Boolean> signals = ListingService.trustSignals(listing, verification);
+
+        assertThat(signals).containsEntry("phoneVerified", true);
+        assertThat(signals).containsEntry("identityReviewed", true);
+        assertThat(signals).containsEntry("landlordVerified", true);
+        assertThat(signals).containsEntry("propertyReviewed", true);
+        assertThat(signals).containsEntry("listingApproved", true);
+        assertThat(signals).doesNotContainKeys("idPhotoUrl", "selfieWithIdUrl", "propertyOwnershipDocUrl");
     }
 
     private static PhotoDTO photo() {
