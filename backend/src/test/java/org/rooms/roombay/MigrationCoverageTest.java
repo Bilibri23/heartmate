@@ -100,6 +100,7 @@ class MigrationCoverageTest {
 
         assertThat(migration).contains("create extension if not exists pgcrypto");
         assertThat(migration).contains(
+                "alter column id drop default",
                 "alter column id type uuid",
                 "add column if not exists user_email",
                 "add column if not exists user_role",
