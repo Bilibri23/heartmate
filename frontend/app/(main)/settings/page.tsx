@@ -197,6 +197,10 @@ export default function SettingsPage() {
                 <p className="font-medium text-slate-900">Privacy Policy</p>
                 <ChevronRight className="h-5 w-5 text-slate-400" />
               </Link>
+              <Link href="/ai-disclaimer" className="flex items-center justify-between p-4">
+                <p className="font-medium text-slate-900">AI Disclaimer</p>
+                <ChevronRight className="h-5 w-5 text-slate-400" />
+              </Link>
             </div>
           </div>
 

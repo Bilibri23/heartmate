@@ -642,6 +642,9 @@ export default function LandingPage() {
             <Link href="/login" className="transition hover:text-white">Login</Link>
             <Link href="/register" className="transition hover:text-white">Create account</Link>
             <Link href="/contact" className="transition hover:text-white">Contact</Link>
+            <Link href="/privacy" className="transition hover:text-white">Privacy</Link>
+            <Link href="/terms" className="transition hover:text-white">Terms</Link>
+            <Link href="/ai-disclaimer" className="transition hover:text-white">AI Disclaimer</Link>
           </div>
           <p className="text-sm">© 2026 RoomBay. All rights reserved.</p>
         </div>
