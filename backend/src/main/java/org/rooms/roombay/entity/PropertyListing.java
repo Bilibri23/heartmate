@@ -83,6 +83,32 @@ public class PropertyListing {
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private List<String> amenities;
+
+    // Room Preview MVP
+    @Column(name = "is_unfurnished")
+    @Builder.Default
+    private Boolean isUnfurnished = false;
+
+    @Column(name = "room_preview_enabled")
+    @Builder.Default
+    private Boolean roomPreviewEnabled = false;
+
+    @Column(name = "room_length_meters", precision = 6, scale = 2)
+    private BigDecimal roomLengthMeters;
+
+    @Column(name = "room_width_meters", precision = 6, scale = 2)
+    private BigDecimal roomWidthMeters;
+
+    @Column(name = "room_height_meters", precision = 6, scale = 2)
+    private BigDecimal roomHeightMeters;
+
+    @Column(name = "room_preview_photo_url", length = 500)
+    private String roomPreviewPhotoUrl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_preview_status")
+    @Builder.Default
+    private RoomPreviewStatus roomPreviewStatus = RoomPreviewStatus.NOT_ENABLED;
     
     // Virtual Tour
     @Column(name = "video_tour_url")
@@ -166,5 +192,8 @@ public class PropertyListing {
     public enum Status {
         DRAFT, PENDING, ACTIVE, RENTED, INACTIVE, DELETED
     }
-}
 
+    public enum RoomPreviewStatus {
+        NOT_ENABLED, PENDING_REVIEW, APPROVED, NEEDS_BETTER_PHOTO
+    }
+}

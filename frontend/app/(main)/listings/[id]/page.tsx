@@ -63,6 +63,7 @@ import { CompletionBanner } from "@/components/profile/completion-banner"
 import { trustTierChipClassName } from "@/lib/listing-trust-tier"
 import { cn } from "@/lib/utils"
 import { SimilarListingsRail } from "@/components/listings/similar-listings-rail"
+import { RoomPreviewCard } from "@/components/room-preview/room-preview-card"
 
 interface ListingDetail {
   id: string
@@ -80,6 +81,13 @@ interface ListingDetail {
   size?: number
   squareMeters?: number
   amenities: string[]
+  isUnfurnished?: boolean
+  roomPreviewEnabled?: boolean
+  roomLengthMeters?: number
+  roomWidthMeters?: number
+  roomHeightMeters?: number
+  roomPreviewPhotoUrl?: string
+  roomPreviewStatus?: string
   photos: { id: string; photoUrl: string; isPrimary: boolean }[]
   videoTour?: {
     id: string
@@ -684,6 +692,12 @@ export default function ListingDetailPage() {
               {language === "fr" ? "Visite virtuelle" : "Virtual Tour"}
             </span>
           )}
+          {listing.roomPreviewEnabled && (
+            <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-sky-600/90 backdrop-blur-sm text-white text-xs font-medium">
+              <Armchair className="h-3.5 w-3.5" />
+              Room Preview Available
+            </span>
+          )}
           {(() => {
             const tier = listing.trustTier
             const chip = trustTierChipClassName(tier, "detail")
@@ -870,6 +884,15 @@ export default function ListingDetailPage() {
               </div>
             )}
           </div>
+
+          <RoomPreviewCard
+            listingId={listing.id}
+            enabled={listing.roomPreviewEnabled}
+            isUnfurnished={listing.isUnfurnished || !listing.amenities?.includes("Furnished")}
+            photoUrl={listing.roomPreviewPhotoUrl || listing.photos?.[0]?.photoUrl}
+            hasDimensions={Boolean(listing.roomLengthMeters && listing.roomWidthMeters)}
+            isAuthenticated={Boolean(user?.id)}
+          />
 
           {/* Living Space Icons */}
           {matchedSpaces.length > 0 && (

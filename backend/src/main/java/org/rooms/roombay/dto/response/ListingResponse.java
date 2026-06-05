@@ -39,6 +39,13 @@ public class ListingResponse {
     private Integer squareMeters;
     private Integer floor;
     private List<String> amenities;
+    private Boolean isUnfurnished;
+    private Boolean roomPreviewEnabled;
+    private BigDecimal roomLengthMeters;
+    private BigDecimal roomWidthMeters;
+    private BigDecimal roomHeightMeters;
+    private String roomPreviewPhotoUrl;
+    private String roomPreviewStatus;
     private LocalDate availableFrom;
     private LocalDate availableTo;
     private String status;

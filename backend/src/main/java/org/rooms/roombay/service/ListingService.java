@@ -110,6 +110,15 @@ public class ListingService {
                 .squareMeters(request.getSquareMeters())
                 .floor(request.getFloor())
                 .amenities(request.getAmenities())
+                .isUnfurnished(Boolean.TRUE.equals(request.getIsUnfurnished()))
+                .roomPreviewEnabled(Boolean.TRUE.equals(request.getRoomPreviewEnabled()))
+                .roomLengthMeters(request.getRoomLengthMeters())
+                .roomWidthMeters(request.getRoomWidthMeters())
+                .roomHeightMeters(request.getRoomHeightMeters())
+                .roomPreviewPhotoUrl(null)
+                .roomPreviewStatus(Boolean.TRUE.equals(request.getRoomPreviewEnabled())
+                        ? PropertyListing.RoomPreviewStatus.PENDING_REVIEW
+                        : PropertyListing.RoomPreviewStatus.NOT_ENABLED)
                 .videoTourUrl(request.getVideoTourUrl())
                 .videoTourEmbedCode(request.getVideoTourEmbedCode())
                 .virtualTourProvider(request.getVirtualTourProvider())
@@ -124,6 +133,10 @@ public class ListingService {
                 .viewsCount(0)
                 .favoritesCount(0)
                 .build();
+
+        if (Boolean.TRUE.equals(listing.getRoomPreviewEnabled())) {
+            throw new BadRequestException("Create the listing photos before enabling Room Preview");
+        }
         
         // If status is PENDING or ACTIVE, set to PENDING for admin approval (unless auto-approve is on)
         if (listing.getStatus() == PropertyListing.Status.PENDING || listing.getStatus() == PropertyListing.Status.ACTIVE) {
@@ -221,6 +234,49 @@ public class ListingService {
         }
         if (request.getAmenities() != null) {
             listing.setAmenities(request.getAmenities());
+        }
+        if (request.getIsUnfurnished() != null) {
+            listing.setIsUnfurnished(request.getIsUnfurnished());
+        }
+        if (request.getRoomLengthMeters() != null) {
+            listing.setRoomLengthMeters(request.getRoomLengthMeters());
+        }
+        if (request.getRoomWidthMeters() != null) {
+            listing.setRoomWidthMeters(request.getRoomWidthMeters());
+        }
+        if (request.getRoomHeightMeters() != null) {
+            listing.setRoomHeightMeters(request.getRoomHeightMeters());
+        }
+        if (request.getRoomPreviewPhotoUrl() != null) {
+            String photoUrl = blankToNull(request.getRoomPreviewPhotoUrl());
+            if (photoUrl != null) {
+                assertListingPhotoUrl(listing.getId(), photoUrl);
+            }
+            listing.setRoomPreviewPhotoUrl(photoUrl);
+        }
+        if (request.getRoomPreviewEnabled() != null) {
+            listing.setRoomPreviewEnabled(request.getRoomPreviewEnabled());
+            if (Boolean.TRUE.equals(request.getRoomPreviewEnabled())) {
+                String previewUrl = blankToNull(request.getRoomPreviewPhotoUrl()) != null
+                        ? blankToNull(request.getRoomPreviewPhotoUrl())
+                        : blankToNull(listing.getRoomPreviewPhotoUrl());
+                if (previewUrl == null) {
+                    throw new BadRequestException("Room Preview requires a listing photo");
+                }
+                assertListingPhotoUrl(listing.getId(), previewUrl);
+                listing.setRoomPreviewPhotoUrl(previewUrl);
+                if (listing.getRoomPreviewStatus() == null
+                        || listing.getRoomPreviewStatus() == PropertyListing.RoomPreviewStatus.NOT_ENABLED) {
+                    listing.setRoomPreviewStatus(PropertyListing.RoomPreviewStatus.PENDING_REVIEW);
+                }
+                analyticsEventService.emit("room_preview_enabled_by_landlord", landlordId, "LANDLORD", listingId,
+                        Map.of("hasDimensions", hasRoomDimensions(listing)));
+            } else {
+                listing.setRoomPreviewStatus(PropertyListing.RoomPreviewStatus.NOT_ENABLED);
+            }
+        }
+        if (request.getRoomPreviewStatus() != null && "ADMIN".equalsIgnoreCase(SecurityUtils.getCurrentUserRole())) {
+            listing.setRoomPreviewStatus(parseRoomPreviewStatus(request.getRoomPreviewStatus()));
         }
         if (request.getVideoTourUrl() != null) {
             listing.setVideoTourUrl(request.getVideoTourUrl());
@@ -597,6 +653,9 @@ public class ListingService {
         if (request.getFeatured() != null) {
             listing.setFeatured(request.getFeatured());
         }
+        if (request.getRoomPreviewStatus() != null) {
+            listing.setRoomPreviewStatus(parseRoomPreviewStatus(request.getRoomPreviewStatus()));
+        }
         
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing {} {} by admin {}", listingId, status, adminId);
@@ -644,6 +703,26 @@ public class ListingService {
         
         return mapToResponse(updated, null);
     }
+
+    public ListingResponse updateRoomPreviewStatus(UUID listingId, UUID adminId, String roomPreviewStatus) {
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found with id: " + adminId));
+        if (admin.getRole() != User.UserRole.ADMIN) {
+            throw new BadRequestException("Only admins can update Room Preview status");
+        }
+        PropertyListing listing = listingRepository.findById(listingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Listing not found with id: " + listingId));
+        listing.setRoomPreviewStatus(parseRoomPreviewStatus(roomPreviewStatus));
+        PropertyListing saved = listingRepository.save(listing);
+        auditLogService.logAdminAction(
+                adminId,
+                "ROOM_PREVIEW_STATUS_UPDATED",
+                "Listing",
+                listingId,
+                "Room Preview status=" + saved.getRoomPreviewStatus()
+        );
+        return mapToResponse(saved, null);
+    }
     
     @Transactional(readOnly = true)
     public List<ListingResponse> getPendingListings() {
@@ -674,6 +753,33 @@ public class ListingService {
         } catch (IllegalArgumentException e) {
             throw new BadRequestException("Invalid status: " + status);
         }
+    }
+
+    private PropertyListing.RoomPreviewStatus parseRoomPreviewStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return PropertyListing.RoomPreviewStatus.NOT_ENABLED;
+        }
+        try {
+            return PropertyListing.RoomPreviewStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid room preview status: " + status);
+        }
+    }
+
+    private void assertListingPhotoUrl(UUID listingId, String photoUrl) {
+        boolean isListingPhoto = photoRepository.findByListingId(listingId).stream()
+                .anyMatch(photo -> photoUrl.equals(photo.getPhotoUrl()));
+        if (!isListingPhoto) {
+            throw new BadRequestException("Room Preview photo must be one of this listing's uploaded photos");
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static boolean hasRoomDimensions(PropertyListing listing) {
+        return listing.getRoomLengthMeters() != null && listing.getRoomWidthMeters() != null;
     }
     
     /** Public method for mapping listing to response (used by ElasticsearchSearchService). */
@@ -746,6 +852,13 @@ public class ListingService {
                 .squareMeters(listing.getSquareMeters())
                 .floor(listing.getFloor())
                 .amenities(listing.getAmenities())
+                .isUnfurnished(Boolean.TRUE.equals(listing.getIsUnfurnished()))
+                .roomPreviewEnabled(Boolean.TRUE.equals(listing.getRoomPreviewEnabled()))
+                .roomLengthMeters(listing.getRoomLengthMeters())
+                .roomWidthMeters(listing.getRoomWidthMeters())
+                .roomHeightMeters(listing.getRoomHeightMeters())
+                .roomPreviewPhotoUrl(listing.getRoomPreviewPhotoUrl())
+                .roomPreviewStatus(listing.getRoomPreviewStatus() != null ? listing.getRoomPreviewStatus().name() : null)
                 .availableFrom(listing.getAvailableFrom())
                 .availableTo(listing.getAvailableTo())
                 .status(listing.getStatus().name())

@@ -52,6 +52,15 @@ public class ListingRequest {
     
     // Amenities
     private List<String> amenities; // WiFi, Water, Electricity, Parking, Security, Furnished
+
+    // Room Preview
+    private Boolean isUnfurnished;
+    private Boolean roomPreviewEnabled;
+    private BigDecimal roomLengthMeters;
+    private BigDecimal roomWidthMeters;
+    private BigDecimal roomHeightMeters;
+    private String roomPreviewPhotoUrl;
+    private String roomPreviewStatus;
     
     // Virtual Tour
     private String videoTourUrl;
@@ -70,4 +79,3 @@ public class ListingRequest {
     // Status (for landlord to set)
     private String status; // DRAFT, PENDING, ACTIVE, RENTED, INACTIVE, DELETED
 }
-

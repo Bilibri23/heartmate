@@ -134,6 +134,17 @@ public class AdminController {
         ListingResponse response = listingService.approveOrRejectListing(listingId, adminId, request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/listings/{listingId}/room-preview-status")
+    @Operation(summary = "Update Room Preview status", description = "Moderate Room Preview assets without changing listing approval")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ListingResponse> updateRoomPreviewStatus(
+            @PathVariable UUID listingId,
+            @RequestBody Map<String, String> request) {
+        UUID adminId = SecurityUtils.getCurrentUserId();
+        ListingResponse response = listingService.updateRoomPreviewStatus(listingId, adminId, request.get("roomPreviewStatus"));
+        return ResponseEntity.ok(response);
+    }
     
     @GetMapping("/search/status")
     @Operation(summary = "Search index status", description = "Check if Elasticsearch is active and how many documents are indexed. Admin only.")
@@ -286,4 +297,3 @@ public class AdminController {
         return ResponseEntity.ok(auditLogs);
     }
 }
-

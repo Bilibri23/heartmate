@@ -18,5 +18,6 @@ public class ListingApprovalRequest {
     private String rejectionReason; // Required if status is REJECTED
     
     private Boolean featured; // Optional: mark as featured
-}
 
+    private String roomPreviewStatus; // Optional: APPROVED or NEEDS_BETTER_PHOTO
+}

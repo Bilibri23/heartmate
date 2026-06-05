@@ -129,4 +129,28 @@ class MigrationCoverageTest {
                 "idx_ai_tool_call_log_tool_created"
         );
     }
+
+    @Test
+    void roomPreviewMvpIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V51__room_preview_mvp.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("create extension if not exists pgcrypto");
+        assertThat(migration).contains(
+                "add column if not exists is_unfurnished",
+                "add column if not exists room_preview_enabled",
+                "add column if not exists room_preview_photo_url",
+                "add column if not exists room_preview_status",
+                "create table if not exists room_preview_layout",
+                "items_json jsonb",
+                "idx_room_preview_layout_user_listing"
+        );
+    }
 }

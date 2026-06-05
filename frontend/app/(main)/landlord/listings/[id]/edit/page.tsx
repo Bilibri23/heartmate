@@ -111,6 +111,12 @@ export default function EditListingPage() {
     bathrooms: "1",
     size: "",
     amenities: [] as string[],
+    isUnfurnished: true,
+    roomPreviewEnabled: false,
+    roomLengthMeters: "",
+    roomWidthMeters: "",
+    roomHeightMeters: "",
+    roomPreviewPhotoUrl: "",
   })
 
   const fetchListing = useCallback(async () => {
@@ -135,6 +141,12 @@ export default function EditListingPage() {
         bathrooms: listing.bathrooms?.toString() || "1",
         size: (listing.squareMeters || listing.size)?.toString() || "",
         amenities: listing.amenities || [],
+        isUnfurnished: listing.isUnfurnished ?? !(listing.amenities || []).includes("Furnished"),
+        roomPreviewEnabled: Boolean(listing.roomPreviewEnabled),
+        roomLengthMeters: listing.roomLengthMeters?.toString() || "",
+        roomWidthMeters: listing.roomWidthMeters?.toString() || "",
+        roomHeightMeters: listing.roomHeightMeters?.toString() || "",
+        roomPreviewPhotoUrl: listing.roomPreviewPhotoUrl || "",
       })
       
       setExistingPhotos(listing.photos || [])
@@ -238,6 +250,12 @@ export default function EditListingPage() {
         bathrooms: parseInt(formData.bathrooms),
         squareMeters: formData.size ? parseInt(formData.size) : null,
         amenities: formData.amenities,
+        isUnfurnished: formData.isUnfurnished,
+        roomPreviewEnabled: formData.roomPreviewEnabled,
+        roomLengthMeters: formData.roomLengthMeters ? parseFloat(formData.roomLengthMeters) : null,
+        roomWidthMeters: formData.roomWidthMeters ? parseFloat(formData.roomWidthMeters) : null,
+        roomHeightMeters: formData.roomHeightMeters ? parseFloat(formData.roomHeightMeters) : null,
+        roomPreviewPhotoUrl: formData.roomPreviewPhotoUrl,
       }
 
       await api.put(`/listings/${listingId}`, listingData, {
@@ -572,6 +590,7 @@ export default function EditListingPage() {
                 type="button"
                 onClick={() => setFormData(prev => ({
                   ...prev,
+                  isUnfurnished: false,
                   amenities: prev.amenities.includes("Furnished") ? prev.amenities : [...prev.amenities, "Furnished"]
                 }))}
                 className={`p-4 rounded-xl border-2 text-center transition-all ${formData.amenities.includes("Furnished") ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-slate-300"}`}
@@ -585,6 +604,7 @@ export default function EditListingPage() {
                 type="button"
                 onClick={() => setFormData(prev => ({
                   ...prev,
+                  isUnfurnished: true,
                   amenities: prev.amenities.filter(a => a !== "Furnished")
                 }))}
                 className={`p-4 rounded-xl border-2 text-center transition-all ${!formData.amenities.includes("Furnished") ? "border-blue-600 bg-blue-50" : "border-slate-200 hover:border-slate-300"}`}
@@ -595,6 +615,61 @@ export default function EditListingPage() {
                 </span>
               </button>
             </div>
+          </div>
+
+          {/* Room Preview */}
+          <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
+            <div>
+              <h3 className="font-semibold text-slate-900">Help tenants imagine this empty room</h3>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                Room Preview works best with a clear photo of the main room taken from a corner or doorway.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({
+                ...prev,
+                roomPreviewEnabled: !prev.roomPreviewEnabled,
+                roomPreviewPhotoUrl: !prev.roomPreviewEnabled && !prev.roomPreviewPhotoUrl && visibleExistingPhotos[0]
+                  ? visibleExistingPhotos[0].photoUrl
+                  : prev.roomPreviewPhotoUrl,
+              }))}
+              className={`w-full rounded-xl border-2 p-3 text-left transition-all ${formData.roomPreviewEnabled ? "border-sky-600 bg-white" : "border-slate-200 bg-white/70"}`}
+            >
+              <span className="block text-sm font-semibold text-slate-900">Enable Room Preview</span>
+              <span className="text-xs text-slate-500">Tenants can preview furniture layouts over your selected room photo.</span>
+            </button>
+            {formData.roomPreviewEnabled && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <Input type="number" min="0" step="0.1" placeholder="Length m" value={formData.roomLengthMeters} onChange={(e) => setFormData(prev => ({ ...prev, roomLengthMeters: e.target.value }))} className="h-11 rounded-xl" />
+                  <Input type="number" min="0" step="0.1" placeholder="Width m" value={formData.roomWidthMeters} onChange={(e) => setFormData(prev => ({ ...prev, roomWidthMeters: e.target.value }))} className="h-11 rounded-xl" />
+                  <Input type="number" min="0" step="0.1" placeholder="Height" value={formData.roomHeightMeters} onChange={(e) => setFormData(prev => ({ ...prev, roomHeightMeters: e.target.value }))} className="h-11 rounded-xl" />
+                </div>
+                <p className="text-xs font-medium text-sky-700">
+                  {formData.roomLengthMeters && formData.roomWidthMeters ? "Uses landlord-provided dimensions" : "Approximate layout only"}
+                </p>
+                {visibleExistingPhotos.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Best room photo for preview</p>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {visibleExistingPhotos.map((photo) => (
+                        <button
+                          key={photo.id}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, roomPreviewPhotoUrl: photo.photoUrl }))}
+                          className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 ${formData.roomPreviewPhotoUrl === photo.photoUrl ? "border-sky-600" : "border-transparent"}`}
+                        >
+                          <img src={photo.photoUrl} alt="" className="h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="rounded-xl bg-white p-3 text-sm text-slate-500">Upload at least one listing photo before enabling Room Preview.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Location */}

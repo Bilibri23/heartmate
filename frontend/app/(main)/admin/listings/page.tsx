@@ -61,6 +61,13 @@ interface Listing {
   bedrooms: number
   bathrooms: number
   amenities: string[]
+  isUnfurnished?: boolean
+  roomPreviewEnabled?: boolean
+  roomLengthMeters?: number
+  roomWidthMeters?: number
+  roomHeightMeters?: number
+  roomPreviewPhotoUrl?: string
+  roomPreviewStatus?: string
   createdAt: string
   featured: boolean
 }
@@ -156,6 +163,16 @@ export default function AdminListingsPage() {
       fetchListings()
     } catch (err) {
       console.error("Failed to update featured status:", err)
+    }
+  }
+
+  const handleRoomPreviewStatus = async (listingId: string, roomPreviewStatus: "APPROVED" | "NEEDS_BETTER_PHOTO") => {
+    try {
+      await api.post(`/admin/listings/${listingId}/room-preview-status`, { roomPreviewStatus })
+      fetchListings()
+      setSelectedListing(prev => prev ? { ...prev, roomPreviewStatus } : prev)
+    } catch (err) {
+      console.error("Failed to update Room Preview status:", err)
     }
   }
 
@@ -397,6 +414,47 @@ export default function AdminListingsPage() {
                     </div>
                   </div>
                 )}
+
+                <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-4">
+                  <p className="text-sm font-semibold text-slate-900">Room Preview</p>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-slate-500">Enabled</p>
+                      <p className="font-semibold">{selectedListing.roomPreviewEnabled ? "Yes" : "No"}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Unfurnished</p>
+                      <p className="font-semibold">{selectedListing.isUnfurnished ? "Yes" : "No"}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Dimensions</p>
+                      <p className="font-semibold">
+                        {selectedListing.roomLengthMeters && selectedListing.roomWidthMeters
+                          ? `${selectedListing.roomLengthMeters}m x ${selectedListing.roomWidthMeters}m`
+                          : "Approximate only"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Status</p>
+                      <p className="font-semibold">{selectedListing.roomPreviewStatus || "NOT_ENABLED"}</p>
+                    </div>
+                  </div>
+                  {selectedListing.roomPreviewPhotoUrl && (
+                    <a href={selectedListing.roomPreviewPhotoUrl} target="_blank" rel="noopener noreferrer" className="mt-3 block overflow-hidden rounded-xl border border-sky-100">
+                      <img src={selectedListing.roomPreviewPhotoUrl} alt="Room Preview asset" className="h-40 w-full object-cover" />
+                    </a>
+                  )}
+                  {selectedListing.roomPreviewEnabled && (
+                    <div className="mt-3 flex gap-2">
+                      <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => handleRoomPreviewStatus(selectedListing.id, "NEEDS_BETTER_PHOTO")}>
+                        Needs better photo
+                      </Button>
+                      <Button type="button" className="flex-1 rounded-xl bg-sky-600 hover:bg-sky-700" onClick={() => handleRoomPreviewStatus(selectedListing.id, "APPROVED")}>
+                        Approve preview
+                      </Button>
+                    </div>
+                  )}
+                </div>
 
                 <div className="bg-slate-50 rounded-xl p-4">
                   <p className="text-sm text-slate-500 mb-2">Landlord</p>
