@@ -7,6 +7,7 @@ import { useLanguage } from "@/context/language-context"
 import { labelDiscoveryReasons } from "@/lib/discovery-reason-labels"
 import { cn } from "@/lib/utils"
 import { trustTierChipClassName } from "@/lib/listing-trust-tier"
+import { createListingSlug } from "@/lib/slug"
 import { useState } from "react"
 
 interface ListingCardProps {
@@ -106,9 +107,10 @@ export function ListingCard({
     reasonLabels.length > 0
       ? `${title}. ${reasonLabels.join(". ")}. ${formatCurrency(price)} per month.`
       : `${title}. ${formatCurrency(price)} per month.`
+  const listingHref = `/listing/${createListingSlug(title, city, id)}`
 
   return (
-    <Link href={`/listings/${id}`} className="group block" aria-label={ariaListing}>
+    <Link href={listingHref} className="group block" aria-label={ariaListing}>
       <div className={cn(
         "relative overflow-hidden rounded-3xl transition-all duration-300",
         "hover:shadow-2xl motion-safe:hover:-translate-y-1 motion-reduce:hover:translate-y-0 active:scale-[0.98] motion-reduce:active:scale-100",

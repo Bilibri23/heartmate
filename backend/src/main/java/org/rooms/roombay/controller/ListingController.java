@@ -73,13 +73,31 @@ public class ListingController {
     }
 
     @GetMapping("/{listingId}")
-    @Operation(summary = "Get listing", description = "Get listing details by ID")
+    @Operation(summary = "Get listing", description = "Get listing details by ID or SEO slug ending in the listing ID")
     public ResponseEntity<ListingResponse> getListing(
-            @PathVariable UUID listingId,
+            @PathVariable String listingId,
             @RequestParam(required = false) UUID userId) {
-        log.info("Fetching listing: {}", listingId);
-        ListingResponse response = listingService.getListing(listingId, userId);
+        UUID resolvedListingId = resolveListingId(listingId);
+        log.info("Fetching listing: {}", resolvedListingId);
+        ListingResponse response = listingService.getListing(resolvedListingId, userId);
         return ResponseEntity.ok(response);
+    }
+
+    static UUID resolveListingId(String listingIdOrSlug) {
+        if (listingIdOrSlug == null) {
+            throw new IllegalArgumentException("Listing ID is required");
+        }
+        String value = listingIdOrSlug.trim();
+        int uuidLength = 36;
+        if (value.length() >= uuidLength) {
+            String suffix = value.substring(value.length() - uuidLength);
+            try {
+                return UUID.fromString(suffix);
+            } catch (IllegalArgumentException ignored) {
+                // Fall through to parsing the whole value for the normal UUID route.
+            }
+        }
+        return UUID.fromString(value);
     }
     
     @PutMapping("/{listingId}")

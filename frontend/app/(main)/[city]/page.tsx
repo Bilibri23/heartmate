@@ -228,12 +228,50 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
     areaServed: data.name,
     priceRange: "$$",
   };
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `${site}/` },
+      { "@type": "ListItem", position: 2, name: data.name, item: `${site}/${city}` },
+    ],
+  };
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `How do I find rentals in ${data.name} on RoomBay?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Open the ${data.name} city page, compare verified listings, review photos and trust signals, then use RoomBay search or messaging to continue.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Are RoomBay listings in ${data.name} reviewed?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "RoomBay shows tenant-facing trust indicators when listings, landlords, identities, or property proofs have been reviewed. These signals do not replace an in-person viewing or final checks before payment.",
+        },
+      },
+    ],
+  };
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
       <div className="relative overflow-hidden">

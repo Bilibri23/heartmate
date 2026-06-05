@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { MapPin, Bed, Bath, Maximize, ShieldCheck, Star, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getApiBaseUrl, getSiteUrl } from "@/lib/site-url";
-import { slugify, createListingSlug } from "@/lib/slug";
+import { slugify, createListingSlug, extractListingIdFromSlug } from "@/lib/slug";
 import type { RealEstateListingSchema, ProductSchema } from "@/lib/schema-markup";
 
 interface ListingDetail {
@@ -36,9 +36,10 @@ async function fetchListingBySlug(slug: string): Promise<ListingDetail | null> {
   try {
     const apiBase = getApiBaseUrl();
 
-    // Attempt 1: try the slug directly as an ID (fallback for future backend slug support)
+    // Attempt 1: resolve UUID-suffixed SEO slugs directly.
     try {
-      const directRes = await fetch(`${apiBase}/listings/${encodeURIComponent(slug)}`, {
+      const listingId = extractListingIdFromSlug(slug);
+      const directRes = await fetch(`${apiBase}/listings/${encodeURIComponent(listingId)}`, {
         next: { revalidate: 60 },
       });
       if (directRes.ok) {
@@ -87,20 +88,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const site = getSiteUrl();
   const price = listing.rentAmount ?? listing.price ?? 0;
+  const canonicalSlug = createListingSlug(listing.title, listing.city, listing.id);
+  const canonicalUrl = `${site}/listing/${canonicalSlug}`;
   const title = `${listing.title} in ${listing.city} — RoomBay`;
   const description = `Rent this ${listing.propertyType || "property"} in ${listing.neighborhood || listing.city} for ${price.toLocaleString()} XAF/month. Verified listing with video tours on RoomBay.`;
 
   return {
     title,
     description,
-    alternates: { canonical: `${site}/listing/${slug}` },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       type: "website",
       locale: "fr_FR",
       siteName: "RoomBay",
       title,
       description,
-      url: `${site}/listing/${slug}`,
+      url: canonicalUrl,
       images: [
         {
           url: listing.primaryPhotoUrl || listing.images?.[0] || `${site}/og-image.jpg`,
@@ -122,13 +125,15 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
   const price = listing.rentAmount ?? listing.price ?? 0;
   const image = listing.primaryPhotoUrl || listing.images?.[0] || `${site}/og-image.jpg`;
   const allImages = listing.images?.length ? listing.images : [image];
+  const canonicalSlug = createListingSlug(listing.title, listing.city, listing.id);
+  const canonicalUrl = `${site}/listing/${canonicalSlug}`;
 
   const realEstateSchema: RealEstateListingSchema = {
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
     name: listing.title,
     description: listing.description || `Rent ${listing.title} in ${listing.city}`,
-    url: `${site}/listing/${slug}`,
+    url: canonicalUrl,
     image: allImages,
     datePosted: listing.createdAt,
     availability: listing.status === "ACTIVE" ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
@@ -159,21 +164,32 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
     name: listing.title,
     description: listing.description || `Rent ${listing.title} in ${listing.city}`,
     image: allImages.slice(0, 3),
-    url: `${site}/listing/${slug}`,
+    url: canonicalUrl,
     brand: { "@type": "Brand", name: "RoomBay" },
     offers: {
       "@type": "Offer",
       price: `${price}`,
       priceCurrency: "XAF",
       availability: listing.status === "ACTIVE" ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      url: `${site}/listing/${slug}`,
+      url: canonicalUrl,
     },
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `${site}/` },
+      { "@type": "ListItem", position: 2, name: listing.city, item: `${site}/${slugify(listing.city)}` },
+      { "@type": "ListItem", position: 3, name: listing.title, item: canonicalUrl },
+    ],
   };
 
   return (
     <div className="min-h-screen bg-[#050816] text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(realEstateSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
 
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.18),transparent_24%),radial-gradient(circle_at_80%_20%,rgba(99,102,241,0.18),transparent_26%),linear-gradient(180deg,#050816_0%,#070b1d_60%,#04060f_100%)]" />
