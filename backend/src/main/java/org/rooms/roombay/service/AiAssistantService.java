@@ -20,6 +20,7 @@ import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.StudentVerificationRepository;
 import org.rooms.roombay.security.SecurityUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -58,6 +59,8 @@ public class AiAssistantService {
     private final AiRetrievalPolicy retrievalPolicy;
     private final AnalyticsEventService analyticsEventService;
     private final AppErrorLogService appErrorLogService;
+    @Autowired(required = false)
+    private AiCopilotToolService aiCopilotToolService;
 
     @Value("${roombay.ai.memory.max-turns:6}")
     private int memoryMaxTurns;
@@ -274,6 +277,7 @@ public class AiAssistantService {
         if (persona == AiChatRequest.Persona.ADMIN) {
             lines.add("adminContext=true");
             lines.add("adminSafety=never expose private user data, verification docs, or internal-only notes in chat");
+            appendToolContext(lines, userId, role);
             return String.join("\n", lines);
         }
 
@@ -297,7 +301,22 @@ public class AiAssistantService {
             lines.add("leasesTotal=" + leaseRepository.countByLandlordId(userId));
         }
 
+        appendToolContext(lines, userId, role);
         return String.join("\n", lines);
+    }
+
+    private void appendToolContext(List<String> lines, UUID userId, String role) {
+        if (aiCopilotToolService == null) {
+            return;
+        }
+        try {
+            String toolContext = aiCopilotToolService.buildToolContext(userId, role);
+            if (toolContext != null && !toolContext.isBlank()) {
+                lines.add(toolContext);
+            }
+        } catch (Exception e) {
+            log.warn("[AI] read-only copilot tool context unavailable: {}", e.getMessage());
+        }
     }
 
     private String buildMemoryContext(List<AiMemoryService.MemoryTurn> turns) {

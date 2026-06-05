@@ -107,4 +107,25 @@ class MigrationCoverageTest {
                 "idx_audit_entity"
         );
     }
+
+    @Test
+    void aiToolCallLogIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V50__ai_tool_call_log.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("create extension if not exists pgcrypto");
+        assertThat(migration).contains(
+                "create table if not exists ai_tool_call_log",
+                "tool_name varchar",
+                "allowed boolean",
+                "idx_ai_tool_call_log_tool_created"
+        );
+    }
 }
