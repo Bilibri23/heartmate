@@ -94,6 +94,7 @@ export default function MessagesPage() {
     if (!searchQuery) return true
     return conv.participantName.toLowerCase().includes(searchQuery.toLowerCase())
   })
+  const isLandlord = user?.role === "LANDLORD"
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -161,9 +162,13 @@ export default function MessagesPage() {
             <GuidedEmptyState
               icon={<MessageSquare className="h-8 w-8" />}
               title={t.messages.noMessages}
-              body="When you contact a landlord, share a listing, or get a reply, the conversation will appear here."
-              primaryHref="/search"
-              primaryLabel="Find listings"
+              body={
+                isLandlord
+                  ? "Messages from tenants and applicants about your listings will appear here."
+                  : "When you contact a landlord, share a listing, or get a reply, the conversation will appear here."
+              }
+              primaryHref={isLandlord ? undefined : "/search"}
+              primaryLabel={isLandlord ? undefined : "Find listings"}
             />
           </div>
         )}

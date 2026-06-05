@@ -147,7 +147,7 @@ export default function LandlordProfilePage() {
 
       <div className="flex-1 overflow-y-auto pb-24">
         {/* Profile Header */}
-        <div data-tour="ll-profile-hero" className="bg-gradient-to-br from-blue-600 to-purple-700 px-4 pt-6 pb-8">
+        <div data-tour="ll-profile-hero" className="bg-gradient-to-br from-sky-500 via-sky-600 to-cyan-600 px-4 pt-6 pb-8">
           {isLoading ? (
             <div className="flex items-center gap-4">
               <Skeleton className="h-20 w-20 rounded-full" />
@@ -197,15 +197,15 @@ export default function LandlordProfilePage() {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 mt-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
+            <div className="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center ring-1 ring-white/20">
               <p className="text-2xl font-bold text-white">{profile?.totalListings || 0}</p>
               <p className="text-xs text-white/70">Listings</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
+            <div className="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center ring-1 ring-white/20">
               <p className="text-2xl font-bold text-white">{profile?.activeListings || 0}</p>
               <p className="text-xs text-white/70">Active</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 text-center">
+            <div className="bg-white/15 backdrop-blur-sm rounded-xl p-3 text-center ring-1 ring-white/20">
               <p className="text-2xl font-bold text-white">{profile?.totalTenants || 0}</p>
               <p className="text-xs text-white/70">Tenants</p>
             </div>

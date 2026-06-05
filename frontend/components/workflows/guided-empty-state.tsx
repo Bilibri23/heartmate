@@ -7,8 +7,8 @@ type GuidedEmptyStateProps = {
   icon: ReactNode
   title: string
   body: string
-  primaryHref: string
-  primaryLabel: string
+  primaryHref?: string
+  primaryLabel?: string
   helpHref?: string
   helpLabel?: string
 }
@@ -30,9 +30,11 @@ export function GuidedEmptyState({
       <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
       <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-slate-500">{body}</p>
       <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-        <Button asChild className="rounded-xl">
-          <Link href={primaryHref}>{primaryLabel}</Link>
-        </Button>
+        {primaryHref && primaryLabel && (
+          <Button asChild className="rounded-xl">
+            <Link href={primaryHref}>{primaryLabel}</Link>
+          </Button>
+        )}
         <Button asChild variant="outline" className="rounded-xl">
           <Link href={helpHref}>
             <HelpCircle className="mr-2 h-4 w-4" />
