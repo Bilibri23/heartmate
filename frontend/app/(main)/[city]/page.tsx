@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import { MapPin, Building2, Search, Star, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getApiBaseUrl, getSiteUrl } from "@/lib/site-url";
-import { createListingSlug } from "@/lib/slug";
 import type { LocalBusinessSchema } from "@/lib/schema-markup";
 
 const CITY_DATA: Record<string, {
@@ -377,9 +376,8 @@ export default async function CityPage({ params }: { params: Promise<{ city: str
               {listings.map((listing: Listing) => {
                 const image = listing.primaryPhotoUrl || listing.images?.[0] || data.image;
                 const price = listing.rentAmount ?? listing.price ?? 0;
-                const slug = createListingSlug(listing.title, listing.city, listing.id);
                 return (
-                  <Link key={listing.id} href={`/listing/${slug}`} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a1023] shadow-[0_24px_80px_rgba(0,0,0,0.38)] sm:rounded-[28px]">
+                  <Link key={listing.id} href={`/listings/${listing.id}`} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a1023] shadow-[0_24px_80px_rgba(0,0,0,0.38)] sm:rounded-[28px]">
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <Image src={image} alt={listing.title} fill className="object-cover transition duration-700 group-hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />

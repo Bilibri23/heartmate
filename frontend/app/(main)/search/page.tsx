@@ -19,7 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ReelsFeed } from "@/components/ui/reels-feed"
 import dynamic from "next/dynamic"
 import api from "@/lib/api"
-import { createListingSlug } from "@/lib/slug"
 
 const ListingsMap = dynamic(
   () => import("@/components/ui/listings-map").then((mod) => mod.ListingsMap),
@@ -824,8 +823,7 @@ export default function SearchPage() {
               }))}
               selectedCity={safeFilters.city || "Douala"}
               onListingClick={id => {
-                const listing = listings.find(item => item.id === id)
-                router.push(listing ? `/listing/${createListingSlug(listing.title, listing.city, listing.id)}` : `/listings/${id}`)
+                router.push(`/listings/${id}`)
               }}
               className="h-[calc(100vh-260px)]"
               formatCurrency={formatCurrency}

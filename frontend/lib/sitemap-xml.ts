@@ -1,5 +1,4 @@
 import { getApiBaseUrl, getSiteUrl } from "@/lib/site-url";
-import { createListingSlug } from "@/lib/slug";
 
 export type SitemapUrl = {
   loc: string;
@@ -89,9 +88,7 @@ export async function collectSitemapUrls(): Promise<SitemapUrl[]> {
         if (!item.id) {
           continue;
         }
-        const listingPath = item.title && item.city
-          ? `/listing/${createListingSlug(item.title, item.city, item.id)}`
-          : `/listings/${item.id}`;
+        const listingPath = `/listings/${item.id}`;
         urls.push({
           loc: `${site}${listingPath}`,
           lastmod: formatLastmod(item.updatedAt ?? item.createdAt) ?? now,

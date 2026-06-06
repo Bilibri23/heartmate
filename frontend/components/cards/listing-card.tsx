@@ -7,7 +7,6 @@ import { useLanguage } from "@/context/language-context"
 import { labelDiscoveryReasons } from "@/lib/discovery-reason-labels"
 import { cn } from "@/lib/utils"
 import { trustTierChipClassName } from "@/lib/listing-trust-tier"
-import { createListingSlug } from "@/lib/slug"
 import { useState } from "react"
 
 interface ListingCardProps {
@@ -107,7 +106,7 @@ export function ListingCard({
     reasonLabels.length > 0
       ? `${title}. ${reasonLabels.join(". ")}. ${formatCurrency(price)} per month.`
       : `${title}. ${formatCurrency(price)} per month.`
-  const listingHref = `/listing/${createListingSlug(title, city, id)}`
+  const listingHref = `/listings/${id}`
 
   return (
     <Link href={listingHref} className="group block" aria-label={ariaListing}>
