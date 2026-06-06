@@ -69,13 +69,34 @@ export const CITY_CENTERS: Record<string, { lat: number; lng: number; zoom: numb
   "Bamenda": { lat: 5.9527, lng: 10.1460, zoom: 13 },
 }
 
+function normalizeLocationKey(value?: string | null): string {
+  return (value ?? "")
+    .trim()
+    .replace(/Ã©/g, "e")
+    .replace(/Ã¨/g, "e")
+    .replace(/Ãª/g, "e")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+export function getCityCenterCoordinates(city?: string | null): { lat: number; lng: number; zoom: number } | null {
+  if (!city) return null
+  if (CITY_CENTERS[city]) return CITY_CENTERS[city]
+
+  const normalizedCity = normalizeLocationKey(city)
+  const match = Object.entries(CITY_CENTERS).find(([name]) => normalizeLocationKey(name) === normalizedCity)
+  return match?.[1] ?? null
+}
+
 // Get coordinates for a neighborhood, with fallback to city center
 export function getNeighborhoodCoordinates(neighborhood: string, city?: string): { lat: number; lng: number } | null {
   // Try exact match
   // Return null if neighborhood is not provided
   if (!neighborhood) {
-    if (city && CITY_CENTERS[city]) {
-      return { lat: CITY_CENTERS[city].lat, lng: CITY_CENTERS[city].lng }
+    const center = getCityCenterCoordinates(city)
+    if (center) {
+      return { lat: center.lat, lng: center.lng }
     }
     return null
   }
@@ -88,16 +109,17 @@ export function getNeighborhoodCoordinates(neighborhood: string, city?: string):
   }
   
   // Try case-insensitive match
-  const normalizedNeighborhood = neighborhood.toLowerCase()
+  const normalizedNeighborhood = normalizeLocationKey(neighborhood)
   for (const [key, value] of Object.entries(NEIGHBORHOOD_COORDINATES)) {
-    if (key.toLowerCase() === normalizedNeighborhood) {
+    if (normalizeLocationKey(key) === normalizedNeighborhood) {
       return { lat: value.lat, lng: value.lng }
     }
   }
   
   // Fallback to city center if city is provided
-  if (city && CITY_CENTERS[city]) {
-    return { lat: CITY_CENTERS[city].lat, lng: CITY_CENTERS[city].lng }
+  const center = getCityCenterCoordinates(city)
+  if (center) {
+    return { lat: center.lat, lng: center.lng }
   }
   
   return null
@@ -105,5 +127,6 @@ export function getNeighborhoodCoordinates(neighborhood: string, city?: string):
 
 // Get all neighborhoods for a city
 export function getNeighborhoodsForCity(city: string): NeighborhoodCoordinates[] {
-  return Object.values(NEIGHBORHOOD_COORDINATES).filter(n => n.city === city)
+  const normalizedCity = normalizeLocationKey(city)
+  return Object.values(NEIGHBORHOOD_COORDINATES).filter(n => normalizeLocationKey(n.city) === normalizedCity)
 }

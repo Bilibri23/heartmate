@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getNeighborhoodCoordinates, CITY_CENTERS } from "@/lib/neighborhoods"
+import { getNeighborhoodCoordinates, getCityCenterCoordinates, CITY_CENTERS } from "@/lib/neighborhoods"
 
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(
@@ -29,6 +29,8 @@ export interface ListingMapItem {
   neighborhood: string
   city: string
   rentAmount: number
+  latitude?: number | string | null
+  longitude?: number | string | null
   photoUrl?: string | null
 }
 
@@ -38,6 +40,23 @@ interface ListingsMapProps {
   onListingClick?: (listingId: string) => void
   className?: string
   formatCurrency: (amount: number) => string
+}
+
+function toCoordinate(value: number | string | null | undefined): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function stableOffset(seed: string, axis: "lat" | "lng"): number {
+  let hash = axis === "lat" ? 17 : 31
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 33 + seed.charCodeAt(i)) % 997
+  }
+  return ((hash / 996) - 0.5) * 0.002
 }
 
 export function ListingsMap({ 
@@ -87,20 +106,24 @@ export function ListingsMap({
   }
 
   // Get city center for initial view
-  const cityCenter = CITY_CENTERS[selectedCity] || CITY_CENTERS["Douala"]
+  const cityCenter = getCityCenterCoordinates(selectedCity) || CITY_CENTERS["Douala"]
 
   // Group listings by coordinates (to handle multiple listings in same neighborhood)
   const listingsWithCoords = listings
     .map((listing) => {
-      const coords = getNeighborhoodCoordinates(listing.neighborhood, listing.city)
-      if (!coords) return null
-      
-      // Add small random offset to prevent exact overlapping
-      const offset = () => (Math.random() - 0.5) * 0.002
+      const explicitLat = toCoordinate(listing.latitude)
+      const explicitLng = toCoordinate(listing.longitude)
+      const coords =
+        explicitLat !== null && explicitLng !== null
+          ? { lat: explicitLat, lng: explicitLng }
+          : getNeighborhoodCoordinates(listing.neighborhood, listing.city) ||
+            getCityCenterCoordinates(listing.city) ||
+            cityCenter
+
       return {
         ...listing,
-        lat: coords.lat + offset(),
-        lng: coords.lng + offset(),
+        lat: coords.lat + stableOffset(listing.id, "lat"),
+        lng: coords.lng + stableOffset(listing.id, "lng"),
       }
     })
     .filter(Boolean) as (ListingMapItem & { lat: number; lng: number })[]

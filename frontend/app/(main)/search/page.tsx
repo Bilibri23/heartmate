@@ -192,6 +192,8 @@ function parseNaturalQuery(raw: string): ParsedQuery {
 interface Listing {
   id: string; title: string; rentAmount: number; city: string
   neighborhood: string; propertyType: string
+  latitude?: number | string | null
+  longitude?: number | string | null
   photos: { photoUrl: string; isPrimary: boolean }[]
   bedrooms: number; bathrooms: number; verified: boolean
   trustTier?: string | null
@@ -227,9 +229,6 @@ const DEFAULT_FILTERS: Filters = {
   sortBy: "createdAt", sortDir: "DESC",
 }
 
-/** Hide reels mode until enough listings include a video tour (server count from /api/feed). */
-const MIN_REELS_INVENTORY = 3
-
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function SearchPage() {
   const { formatCurrency, language, t } = useLanguage()
@@ -258,7 +257,6 @@ export default function SearchPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [viewMode, setViewMode] = useState<"list" | "map" | "reels">("list")
-  const [videoTourListingCount, setVideoTourListingCount] = useState<number | null>(null)
 
   // Saved searches
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
@@ -266,28 +264,6 @@ export default function SearchPage() {
   const [saveSearchName, setSaveSearchName] = useState("")
 
   const safeFilters = filters ?? DEFAULT_FILTERS
-
-  const reelsAvailable =
-    videoTourListingCount !== null && videoTourListingCount >= MIN_REELS_INVENTORY
-
-  useEffect(() => {
-    let cancelled = false
-    api
-      .get("/feed", { params: { sections: "reels", size: 1 } })
-      .then((res) => {
-        if (!cancelled) setVideoTourListingCount(res.data?.videoTourListingCount ?? 0)
-      })
-      .catch(() => {
-        if (!cancelled) setVideoTourListingCount(0)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!reelsAvailable && viewMode === "reels") setViewMode("list")
-  }, [reelsAvailable, viewMode])
 
   // ── Autocomplete ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -778,17 +754,15 @@ export default function SearchPage() {
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "map" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}>
                 <Map className="h-3.5 w-3.5" />
               </button>
-              {reelsAvailable && (
-                <button
-                  type="button"
-                  data-tour="search-reels-btn"
-                  onClick={() => setViewMode("reels")}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"}`}
-                  title="Reels feed"
-                >
-                  <Clapperboard className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                data-tour="search-reels-btn"
+                onClick={() => setViewMode("reels")}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"}`}
+                title="Property tours"
+              >
+                <Clapperboard className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>
@@ -819,6 +793,7 @@ export default function SearchPage() {
               listings={listings.map(l => ({
                 id: l.id, title: l.title, neighborhood: l.neighborhood,
                 city: l.city, rentAmount: l.rentAmount,
+                latitude: l.latitude, longitude: l.longitude,
                 photoUrl: l.photos?.find(p => p.isPrimary)?.photoUrl || l.photos?.[0]?.photoUrl,
               }))}
               selectedCity={safeFilters.city || "Douala"}
