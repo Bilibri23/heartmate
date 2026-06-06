@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -50,7 +51,7 @@ public class ListingController {
     // TODO: Re-enable verification requirement after development
     // @RequiresVerification(role = "LANDLORD", verificationType = "IDENTITY")
     public ResponseEntity<ListingResponse> createListing(
-            @Valid @RequestBody ListingRequest request,
+            @Validated(ListingRequest.Create.class) @RequestBody ListingRequest request,
             @RequestParam(required = false) UUID ignoredLandlordId) {
         UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Creating listing for landlord: {}", landlordId);
@@ -107,7 +108,7 @@ public class ListingController {
     public ResponseEntity<ListingResponse> updateListing(
             @PathVariable UUID listingId,
             @RequestParam(required = false) UUID ignoredLandlordId,
-            @Valid @RequestBody ListingRequest request) {
+            @Validated(ListingRequest.Update.class) @RequestBody ListingRequest request) {
         UUID landlordId = SecurityUtils.getCurrentUserId();
         log.info("Updating listing: {} for landlord: {}", listingId, landlordId);
         ListingResponse response = listingService.updateListing(listingId, landlordId, request);

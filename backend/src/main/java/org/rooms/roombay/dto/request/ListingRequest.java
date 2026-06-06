@@ -17,22 +17,25 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ListingRequest {
+
+    public interface Create {}
+    public interface Update {}
     
-    @NotBlank(message = "Title is required")
+    @NotBlank(message = "Title is required", groups = Create.class)
     private String title;
     
     private String description;
     
     private String propertyType; // APARTMENT, HOUSE, STUDIO, SHARED_ROOM, PRIVATE_ROOM
     
-    @NotNull(message = "Rent amount is required")
-    @Min(value = 0, message = "Rent amount must be positive")
+    @NotNull(message = "Rent amount is required", groups = Create.class)
+    @Min(value = 0, message = "Rent amount must be positive", groups = {Create.class, Update.class})
     private Integer rentAmount;
     
-    @Min(value = 0, message = "Deposit must be positive")
+    @Min(value = 0, message = "Deposit must be positive", groups = {Create.class, Update.class})
     private Integer deposit;
     
-    @Min(value = 0, message = "Agency fees must be positive")
+    @Min(value = 0, message = "Agency fees must be positive", groups = {Create.class, Update.class})
     private Integer agencyFees;
     
     // Location
