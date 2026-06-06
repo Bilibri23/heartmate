@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Send, Loader2, ExternalLink, Copy, Volume2, Square } from "lucide-react"
+import { Send, Loader2, ExternalLink, Copy, Volume2, Square, MapPin, ShieldCheck, Home, Bookmark, FileText, MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { aiAssistantService, type AiCitation, type AiPersona } from "@/services/ai-assistant"
+import { aiAssistantService, type AiCitation, type AiListingResult, type AiPersona, type AiSuggestedAction } from "@/services/ai-assistant"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
+import { useAuth } from "@/context/auth-context"
+import api from "@/lib/api"
 
 type ChatRole = "user" | "assistant"
 
@@ -17,13 +19,8 @@ type ChatMessage = {
   content: string
   ragGrounded?: boolean
   citations?: AiCitation[]
-  suggestedActions?: {
-    id: string
-    label: string
-    type: "NAVIGATE" | "COPY_TEXT"
-    actionUrl?: string
-    copyText?: string
-  }[]
+  suggestedActions?: AiSuggestedAction[]
+  listingResults?: AiListingResult[]
   createdAt: number
 }
 
@@ -33,6 +30,7 @@ function uid() {
 
 export function AssistantChat({ persona }: { persona: AiPersona }) {
   const router = useRouter()
+  const { user } = useAuth()
   const threadStorageKey = `rb.ai.thread.${persona}`
   const messagesStorageKey = `rb.ai.messages.${persona}`
   const initialAssistantMessage = {
@@ -141,6 +139,7 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
         ragGrounded: res.ragGrounded,
         citations: res.citations,
         suggestedActions: res.suggestedActions,
+        listingResults: res.listingResults,
         createdAt: Date.now(),
       }
       setMessages((prev) => [...prev, asstMsg])
@@ -199,6 +198,19 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
               <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-2 py-1.5">
                 No matching help docs were found for this question, so this reply is not doc-grounded. Try rephrasing or run admin doc ingest if the knowledge base is empty.
               </p>
+            )}
+            {m.role === "assistant" && m.listingResults && m.listingResults.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {m.listingResults.slice(0, 4).map((listing) => (
+                  <AiListingCard
+                    key={listing.id}
+                    listing={listing}
+                    isAuthenticated={Boolean(user)}
+                    userId={user?.id}
+                    onNavigate={(url) => router.push(url)}
+                  />
+                ))}
+              </div>
             )}
             {m.role === "assistant" && m.citations && m.citations.length > 0 && (
               <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-1">
@@ -288,3 +300,167 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
   )
 }
 
+function AiListingCard({
+  listing,
+  isAuthenticated,
+  userId,
+  onNavigate,
+}: {
+  listing: AiListingResult
+  isAuthenticated: boolean
+  userId?: string
+  onNavigate: (url: string) => void
+}) {
+  const listingUrl = `/listings/${listing.id}`
+  const location = [listing.neighborhood, listing.city].filter(Boolean).join(", ")
+  const statusLabel = listing.available ? "Available" : friendlyStatus(listing.status)
+  const propertyType = friendlyPropertyType(listing.propertyType)
+
+  const track = (eventType: string) => {
+    aiAssistantService.trackListingEvent(eventType, listing.id).catch(() => {})
+  }
+
+  const requireLogin = (intent: string) => {
+    toast.info(`Please log in to ${intent}.`)
+    onNavigate(`/login?redirect=${encodeURIComponent(listingUrl)}`)
+  }
+
+  const handleView = () => {
+    track("ai_listing_result_clicked")
+    onNavigate(listingUrl)
+  }
+
+  const handleSave = async () => {
+    if (!isAuthenticated) {
+      requireLogin("save this listing")
+      return
+    }
+    try {
+      await api.post(`/listings/${listing.id}/favorite`, null, {
+        params: userId ? { userId } : undefined,
+      })
+      track("ai_listing_save_clicked")
+      toast.success("Listing saved")
+    } catch {
+      toast.error("Could not save this listing right now.")
+    }
+  }
+
+  const handleApply = () => {
+    if (!isAuthenticated) {
+      requireLogin("apply")
+      return
+    }
+    track("ai_listing_apply_clicked")
+    onNavigate(`${listingUrl}?intent=apply`)
+  }
+
+  const handleMessage = () => {
+    if (!listing.landlordId) return
+    if (!isAuthenticated) {
+      requireLogin("message the landlord")
+      return
+    }
+    onNavigate(`/messages/${listing.landlordId}`)
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex gap-3 p-3">
+        <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+          {listing.thumbnailUrl ? (
+            <img
+              src={listing.thumbnailUrl}
+              alt={listing.title || "Listing photo"}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-slate-400">
+              <Home className="h-8 w-8" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-950">{listing.title || "RoomBay listing"}</p>
+              <p className="mt-0.5 text-base font-bold text-slate-950">{formatRent(listing.rentAmount)}</p>
+            </div>
+            {listing.verified && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                <ShieldCheck className="h-3 w-3" />
+                Verified
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-slate-600">
+            {location && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1">
+                <MapPin className="h-3 w-3" />
+                {location}
+              </span>
+            )}
+            {propertyType && <span className="rounded-full bg-slate-100 px-2 py-1">{propertyType}</span>}
+            {statusLabel && <span className="rounded-full bg-blue-50 px-2 py-1 font-medium text-blue-700">{statusLabel}</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 px-3 py-3">
+        <p className="text-xs font-semibold text-slate-700">{listing.matchLabel || "Search match"}</p>
+        <p className="mt-1 text-xs text-slate-600">{listing.matchReason || "This matches your current search."}</p>
+        {listing.whyThisMatches && listing.whyThisMatches.length > 0 && (
+          <div className="mt-2 rounded-xl bg-slate-50 p-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Why this matches</p>
+            <ul className="mt-1 space-y-1 text-xs text-slate-600">
+              {listing.whyThisMatches.slice(0, 4).map((reason) => (
+                <li key={reason} className="flex gap-1.5">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                  <span>{reason}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-3 sm:flex sm:flex-wrap">
+        <Button type="button" size="sm" className="rounded-xl" onClick={handleView}>
+          <ExternalLink className="mr-1 h-3.5 w-3.5" />
+          View listing
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={handleSave}>
+          <Bookmark className="mr-1 h-3.5 w-3.5" />
+          Save
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={handleApply}>
+          <FileText className="mr-1 h-3.5 w-3.5" />
+          Apply now
+        </Button>
+        {listing.landlordId && (
+          <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={handleMessage}>
+            <MessageCircle className="mr-1 h-3.5 w-3.5" />
+            Message
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function formatRent(amount?: number) {
+  if (typeof amount !== "number") return "Rent not shown"
+  return `${new Intl.NumberFormat("fr-CM", { maximumFractionDigits: 0 }).format(amount)} XAF`
+}
+
+function friendlyPropertyType(value?: string) {
+  if (!value) return ""
+  return value.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function friendlyStatus(value?: string) {
+  if (!value) return ""
+  if (value === "ACTIVE") return "Available"
+  return friendlyPropertyType(value)
+}

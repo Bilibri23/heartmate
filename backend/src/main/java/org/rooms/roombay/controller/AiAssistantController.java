@@ -15,6 +15,7 @@ import org.rooms.roombay.ai.rag.AiRagRepository;
 import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.AiAssistantService;
 import org.rooms.roombay.service.AiIngestionService;
+import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,7 @@ public class AiAssistantController {
     private final AiChatLogRepository aiChatLogRepository;
     private final AiRagRepository aiRagRepository;
     private final AuditLogService auditLogService;
+    private final AnalyticsEventService analyticsEventService;
 
     @Value("${roombay.ai.ingest-dev-key:}")
     private String ingestDevKey;
@@ -43,6 +45,34 @@ public class AiAssistantController {
     @Operation(summary = "Chat with assistant", description = "Tenant/Landlord assistant grounded in platform docs")
     public ResponseEntity<AiChatResponse> chat(@Valid @RequestBody AiChatRequest request) {
         return ResponseEntity.ok(aiAssistantService.chat(request));
+    }
+
+    @PostMapping("/listing-events")
+    @Operation(summary = "Track AI listing card event", description = "Authenticated best-effort analytics for RoomBay AI listing result actions")
+    public ResponseEntity<Void> trackListingEvent(@RequestBody java.util.Map<String, Object> body) {
+        String eventType = String.valueOf(body.getOrDefault("eventType", ""));
+        if (!java.util.List.of(
+                "ai_listing_result_clicked",
+                "ai_listing_apply_clicked",
+                "ai_listing_save_clicked").contains(eventType)) {
+            return ResponseEntity.badRequest().build();
+        }
+        java.util.UUID listingId = null;
+        Object rawListingId = body.get("listingId");
+        if (rawListingId != null && !String.valueOf(rawListingId).isBlank()) {
+            try {
+                listingId = java.util.UUID.fromString(String.valueOf(rawListingId));
+            } catch (IllegalArgumentException ignored) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
+        analyticsEventService.emit(
+                eventType,
+                SecurityUtils.getCurrentUserId(),
+                SecurityUtils.getCurrentUserRole(),
+                listingId,
+                java.util.Map.of("source", "roombay_ai_listing_card"));
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/admin/ingest")

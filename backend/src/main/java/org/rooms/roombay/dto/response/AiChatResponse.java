@@ -17,6 +17,7 @@ public class AiChatResponse {
     private String threadId;
     private List<Citation> citations;
     private List<SuggestedAction> suggestedActions;
+    private List<ListingResult> listingResults;
     /** False when no RAG chunks matched (ingest missing, dimension mismatch, or irrelevant query). */
     private Boolean ragGrounded;
 
@@ -41,5 +42,26 @@ public class AiChatResponse {
         private String actionUrl;
         private String copyText;
     }
-}
 
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ListingResult {
+        private String id;
+        private String title;
+        private Integer rentAmount;
+        private String city;
+        private String neighborhood;
+        private String propertyType;
+        private Boolean verified;
+        private String status;
+        private Boolean available;
+        private String thumbnailUrl;
+        private String landlordId;
+        private String matchLabel;
+        private String matchReason;
+        private List<String> whyThisMatches;
+        private List<SuggestedAction> actions;
+    }
+}

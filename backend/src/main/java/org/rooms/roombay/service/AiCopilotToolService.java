@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.entity.LandlordVerification;
+import org.rooms.roombay.entity.ListingPhoto;
 import org.rooms.roombay.entity.Payment;
 import org.rooms.roombay.entity.PropertyListing;
 import org.rooms.roombay.entity.Report;
@@ -13,6 +14,7 @@ import org.rooms.roombay.repository.ListingSpecifications;
 import org.rooms.roombay.repository.LandlordVerificationRepository;
 import org.rooms.roombay.repository.LeaseRepository;
 import org.rooms.roombay.repository.ListingFavoriteRepository;
+import org.rooms.roombay.repository.ListingPhotoRepository;
 import org.rooms.roombay.repository.PaymentRepository;
 import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReportRepository;
@@ -44,6 +46,7 @@ public class AiCopilotToolService {
     private final ListingFavoriteRepository listingFavoriteRepository;
     private final PaymentRepository paymentRepository;
     private final PropertyListingRepository propertyListingRepository;
+    private final ListingPhotoRepository listingPhotoRepository;
     private final LandlordVerificationRepository landlordVerificationRepository;
     private final ReportRepository reportRepository;
     private final AppErrorLogService appErrorLogService;
@@ -91,27 +94,58 @@ public class AiCopilotToolService {
 
         List<PropertyListing> matches = findTenantListingMatches(searchRequest);
         String searchUrl = searchRequest.searchUrl();
-        List<AiChatResponse.SuggestedAction> actions = List.of(
-                AiChatResponse.SuggestedAction.builder()
-                        .id("open_search")
-                        .label("Open matching search")
-                        .type("NAVIGATE")
-                        .actionUrl(searchUrl)
-                        .build()
-        );
+        List<AiChatResponse.ListingResult> listingResults = matches.stream()
+                .map(listing -> toListingResult(listing, searchRequest))
+                .toList();
 
         String answer;
+        List<AiChatResponse.SuggestedAction> actions;
         if (matches.isEmpty()) {
             answer = "I checked active verified RoomBay listings and did not find an exact match for "
                     + searchRequest.describe() + " right now.\n\n"
                     + "Next step: open search to adjust the location, budget, or property type.";
+            actions = List.of(
+                    AiChatResponse.SuggestedAction.builder()
+                            .id("open_search")
+                            .label("Open search")
+                            .type("NAVIGATE")
+                            .actionUrl(searchUrl)
+                            .build()
+            );
+        } else if (matches.size() == 1) {
+            PropertyListing top = matches.get(0);
+            answer = "I found 1 " + verifiedWord(top) + propertyTypeWord(searchRequest, top)
+                    + locationPhrase(searchRequest) + " that matches your request.\n\n"
+                    + listingReason(top, searchRequest) + "\n\n"
+                    + "Would you like to filter by furnished, budget, or distance?";
+            actions = List.of(
+                    AiChatResponse.SuggestedAction.builder()
+                            .id("view_listing")
+                            .label("View listing")
+                            .type("NAVIGATE")
+                            .actionUrl(listingActionUrl(top))
+                            .build()
+            );
         } else {
-            answer = "I found " + matches.size() + " active verified match"
-                    + (matches.size() == 1 ? "" : "es") + " for " + searchRequest.describe() + ". "
-                    + summarizeListings(matches) + "\n\n"
-                    + "Next step: open the matching search and choose a listing to view details or apply.";
+            answer = "I found " + matches.size() + " verified listing matches"
+                    + locationPhrase(searchRequest) + ".\n\n"
+                    + "Would you like to filter by furnished, budget, or distance?";
+            actions = List.of(
+                    AiChatResponse.SuggestedAction.builder()
+                            .id("view_all_matches")
+                            .label("View all matches")
+                            .type("NAVIGATE")
+                            .actionUrl(searchUrl)
+                            .build()
+            );
         }
 
+        analyticsEventService.emit("ai_listing_search_performed", userId, normalizedRole, null,
+                Map.of(
+                        "query", truncate(searchRequest.query(), 100),
+                        "propertyType", searchRequest.propertyType() == null ? "" : searchRequest.propertyType(),
+                        "resultCount", matches.size()
+                ));
         logToolCall(userId, normalizedRole, "tenant_listing_search", true,
                 "matches=%d query=%s propertyType=%s".formatted(matches.size(), searchRequest.query(), searchRequest.propertyType()));
 
@@ -120,6 +154,7 @@ public class AiCopilotToolService {
                 .threadId(threadId)
                 .citations(List.of())
                 .suggestedActions(actions)
+                .listingResults(listingResults)
                 .ragGrounded(true)
                 .build());
     }
@@ -154,7 +189,7 @@ public class AiCopilotToolService {
     private String tenantListingSearchSummary(ListingSearchRequest request) {
         List<PropertyListing> matches = findTenantListingMatches(request);
         return "tenantListingSearch={query=%s, propertyType=%s, matches=%d, top=%s}"
-                .formatted(request.query(), request.propertyType(), matches.size(), summarizeListings(matches));
+                .formatted(request.query(), request.propertyType(), matches.size(), summarizeListingsForTool(matches));
     }
 
     private List<PropertyListing> findTenantListingMatches(ListingSearchRequest request) {
@@ -217,17 +252,178 @@ public class AiCopilotToolService {
                 .trim();
     }
 
-    private static String summarizeListings(List<PropertyListing> listings) {
+    private AiChatResponse.ListingResult toListingResult(PropertyListing listing, ListingSearchRequest request) {
+        String listingId = listing.getId() == null ? null : listing.getId().toString();
+        String landlordId = listing.getLandlord() == null || listing.getLandlord().getId() == null
+                ? null
+                : listing.getLandlord().getId().toString();
+        return AiChatResponse.ListingResult.builder()
+                .id(listingId)
+                .title(cleanValue(listing.getTitle()))
+                .rentAmount(listing.getRentAmount())
+                .city(cleanValue(listing.getCity()))
+                .neighborhood(cleanValue(listing.getNeighborhood()))
+                .propertyType(listing.getPropertyType() == null ? null : listing.getPropertyType().name())
+                .verified(Boolean.TRUE.equals(listing.getVerified()))
+                .status(listing.getStatus() == null ? null : listing.getStatus().name())
+                .available(listing.getStatus() == PropertyListing.Status.ACTIVE)
+                .thumbnailUrl(primaryPhotoUrl(listing.getId()))
+                .landlordId(landlordId)
+                .matchLabel("Search match")
+                .matchReason("This matches your current search.")
+                .whyThisMatches(reasonBullets(listing, request))
+                .actions(listingCardActions(listing, landlordId))
+                .build();
+    }
+
+    private List<AiChatResponse.SuggestedAction> listingCardActions(PropertyListing listing, String landlordId) {
+        List<AiChatResponse.SuggestedAction> actions = new ArrayList<>();
+        actions.add(AiChatResponse.SuggestedAction.builder()
+                .id("view_listing")
+                .label("View listing")
+                .type("NAVIGATE")
+                .actionUrl(listingActionUrl(listing))
+                .build());
+        actions.add(AiChatResponse.SuggestedAction.builder()
+                .id("save_listing")
+                .label("Save listing")
+                .type("NAVIGATE")
+                .actionUrl(listingActionUrl(listing))
+                .build());
+        actions.add(AiChatResponse.SuggestedAction.builder()
+                .id("apply_now")
+                .label("Apply now")
+                .type("NAVIGATE")
+                .actionUrl(listingActionUrl(listing))
+                .build());
+        if (landlordId != null && !landlordId.isBlank()) {
+            actions.add(AiChatResponse.SuggestedAction.builder()
+                    .id("message_landlord")
+                    .label("Message landlord")
+                    .type("NAVIGATE")
+                    .actionUrl("/messages/" + landlordId)
+                    .build());
+        }
+        return actions;
+    }
+
+    private String primaryPhotoUrl(UUID listingId) {
+        if (listingId == null) return null;
+        try {
+            return listingPhotoRepository.findByListingIdAndIsPrimary(listingId, true)
+                    .or(() -> listingPhotoRepository.findFirstByListingIdOrderByDisplayOrderAsc(listingId))
+                    .map(ListingPhoto::getPhotoUrl)
+                    .orElse(null);
+        } catch (Exception ex) {
+            log.debug("[AI] listing thumbnail lookup skipped listingId={} message={}", listingId, ex.getMessage());
+            return null;
+        }
+    }
+
+    private static List<String> reasonBullets(PropertyListing listing, ListingSearchRequest request) {
+        List<String> reasons = new ArrayList<>();
+        if (request.propertyType() != null && listing.getPropertyType() != null
+                && request.propertyType().equals(listing.getPropertyType().name())) {
+            reasons.add("Property type matches: " + propertyTypeWord(listing.getPropertyType()));
+        }
+        if (request.query() != null && !request.query().isBlank()) {
+            List<String> locationParts = new ArrayList<>();
+            Optional.ofNullable(cleanValue(listing.getNeighborhood())).ifPresent(locationParts::add);
+            Optional.ofNullable(cleanValue(listing.getCity())).ifPresent(locationParts::add);
+            String location = String.join(", ", locationParts);
+            if (!location.isBlank()) {
+                reasons.add("Location matches your search near " + displayText(request.query()) + ": " + location);
+            }
+        }
+        if (listing.getStatus() == PropertyListing.Status.ACTIVE) {
+            reasons.add("The listing is active and available to view.");
+        }
+        if (Boolean.TRUE.equals(listing.getVerified())) {
+            reasons.add("RoomBay has marked this listing as verified.");
+        }
+        if (request.maxPrice() != null && listing.getRentAmount() != null && listing.getRentAmount() <= request.maxPrice()) {
+            reasons.add("Rent is within the budget you mentioned.");
+        }
+        if (reasons.isEmpty()) {
+            reasons.add("This matches your current search.");
+        }
+        return reasons;
+    }
+
+    private static String listingReason(PropertyListing listing, ListingSearchRequest request) {
+        List<String> pieces = new ArrayList<>();
+        if (request.propertyType() != null && listing.getPropertyType() != null
+                && request.propertyType().equals(listing.getPropertyType().name())) {
+            pieces.add("it is a " + propertyTypeWord(listing.getPropertyType()));
+        }
+        if (request.query() != null && !request.query().isBlank()) {
+            pieces.add("located near " + displayText(request.query()));
+        }
+        if (listing.getStatus() == PropertyListing.Status.ACTIVE) {
+            pieces.add("active");
+        }
+        if (Boolean.TRUE.equals(listing.getVerified())) {
+            pieces.add("verified");
+        }
+        if (pieces.isEmpty()) {
+            return "This matches your current search.";
+        }
+        return "This matches because " + joinReasonPieces(pieces) + ".";
+    }
+
+    private static String joinReasonPieces(List<String> pieces) {
+        if (pieces.size() == 1) return pieces.get(0);
+        if (pieces.size() == 2) return pieces.get(0) + " and " + pieces.get(1);
+        return String.join(", ", pieces.subList(0, pieces.size() - 1)) + ", and " + pieces.get(pieces.size() - 1);
+    }
+
+    private static String listingActionUrl(PropertyListing listing) {
+        return listing.getId() == null ? "/search" : "/listings/" + listing.getId();
+    }
+
+    private static String verifiedWord(PropertyListing listing) {
+        return Boolean.TRUE.equals(listing.getVerified()) ? "verified " : "";
+    }
+
+    private static String propertyTypeWord(ListingSearchRequest request, PropertyListing listing) {
+        if (request.propertyType() != null) {
+            return request.propertyType().toLowerCase(Locale.ROOT).replace("_", " ");
+        }
+        return listing.getPropertyType() == null ? "listing" : propertyTypeWord(listing.getPropertyType());
+    }
+
+    private static String propertyTypeWord(PropertyListing.PropertyType propertyType) {
+        return propertyType.name().toLowerCase(Locale.ROOT).replace("_", " ");
+    }
+
+    private static String locationPhrase(ListingSearchRequest request) {
+        return request.query() == null || request.query().isBlank() ? "" : " near " + displayText(request.query());
+    }
+
+    private static String displayText(String value) {
+        if (value == null || value.isBlank()) return "";
+        String cleaned = value.trim().replaceAll("\\s+", " ");
+        return java.util.Arrays.stream(cleaned.split(" "))
+                .map(part -> part.isBlank()
+                        ? part
+                        : part.substring(0, 1).toUpperCase(Locale.ROOT) + part.substring(1).toLowerCase(Locale.ROOT))
+                .toList()
+                .stream()
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    private static String summarizeListingsForTool(List<PropertyListing> listings) {
         if (listings == null || listings.isEmpty()) {
             return "[]";
         }
         return listings.stream()
-                .map(l -> "%s (%s XAF, %s%s, /listings/%s)".formatted(
+                .map(l -> "%s (%s XAF, %s%s, status=%s, verified=%s)".formatted(
                         truncate(safeValue(l.getTitle()), 60),
                         l.getRentAmount() == null ? "price not shown" : l.getRentAmount().toString(),
                         safeValue(l.getNeighborhood()),
                         l.getCity() == null || l.getCity().isBlank() ? "" : ", " + safeValue(l.getCity()),
-                        l.getId()
+                        l.getStatus(),
+                        l.getVerified()
                 ))
                 .toList()
                 .toString();
@@ -360,6 +556,12 @@ public class AiCopilotToolService {
     private static String safeValue(Object value) {
         if (value == null) return "NONE";
         return AppErrorLogService.sanitizeForOpsLog(String.valueOf(value));
+    }
+
+    private static String cleanValue(Object value) {
+        if (value == null) return null;
+        String cleaned = AppErrorLogService.sanitizeForOpsLog(String.valueOf(value)).trim();
+        return cleaned.isBlank() ? null : cleaned;
     }
 
     private record ListingSearchRequest(

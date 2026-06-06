@@ -2,12 +2,14 @@ package org.rooms.roombay.service;
 
 import org.junit.jupiter.api.Test;
 import org.rooms.roombay.dto.response.AiChatResponse;
+import org.rooms.roombay.entity.ListingPhoto;
 import org.rooms.roombay.entity.PropertyListing;
 import org.rooms.roombay.entity.RoomApplication;
 import org.rooms.roombay.entity.StudentVerification;
 import org.rooms.roombay.repository.LandlordVerificationRepository;
 import org.rooms.roombay.repository.LeaseRepository;
 import org.rooms.roombay.repository.ListingFavoriteRepository;
+import org.rooms.roombay.repository.ListingPhotoRepository;
 import org.rooms.roombay.repository.PaymentRepository;
 import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReportRepository;
@@ -40,6 +42,7 @@ class AiCopilotToolServiceTest {
     private final ListingFavoriteRepository listingFavoriteRepository = mock(ListingFavoriteRepository.class);
     private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
     private final PropertyListingRepository propertyListingRepository = mock(PropertyListingRepository.class);
+    private final ListingPhotoRepository listingPhotoRepository = mock(ListingPhotoRepository.class);
     private final LandlordVerificationRepository landlordVerificationRepository = mock(LandlordVerificationRepository.class);
     private final ReportRepository reportRepository = mock(ReportRepository.class);
     private final AppErrorLogService appErrorLogService = mock(AppErrorLogService.class);
@@ -53,6 +56,7 @@ class AiCopilotToolServiceTest {
             listingFavoriteRepository,
             paymentRepository,
             propertyListingRepository,
+            listingPhotoRepository,
             landlordVerificationRepository,
             reportRepository,
             appErrorLogService,
@@ -142,14 +146,24 @@ class AiCopilotToolServiceTest {
                 .build();
         when(propertyListingRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(listing)));
+        when(listingPhotoRepository.findByListingIdAndIsPrimary(listingId, true))
+                .thenReturn(Optional.of(ListingPhoto.builder().photoUrl("https://res.cloudinary.com/demo/image/upload/studio.jpg").build()));
 
         var response = service.tryAnswerTenantListingSearch(userId, "STUDENT", "i need a studio at damas", "thread-1");
 
         assertThat(response).isPresent();
         AiChatResponse ai = response.get();
-        assertThat(ai.getAnswer()).contains("I found 1 active verified match", "Modern Studio", "/listings/" + listingId);
+        assertThat(ai.getAnswer()).contains("I found 1 verified studio near Damas", "Would you like to filter by furnished, budget, or distance?");
+        assertThat(ai.getAnswer()).doesNotContain("Modern Studio", "/listings/" + listingId);
         assertThat(ai.getSuggestedActions()).hasSize(1);
-        assertThat(ai.getSuggestedActions().get(0).getActionUrl()).startsWith("/search?query=");
+        assertThat(ai.getSuggestedActions().get(0).getLabel()).isEqualTo("View listing");
+        assertThat(ai.getSuggestedActions().get(0).getActionUrl()).isEqualTo("/listings/" + listingId);
+        assertThat(ai.getListingResults()).hasSize(1);
+        assertThat(ai.getListingResults().get(0).getTitle()).isEqualTo("Modern Studio");
+        assertThat(ai.getListingResults().get(0).getThumbnailUrl()).contains("studio.jpg");
+        assertThat(ai.getListingResults().get(0).getMatchLabel()).isEqualTo("Search match");
+        assertThat(ai.getListingResults().get(0).getMatchReason()).isEqualTo("This matches your current search.");
+        assertThat(ai.getListingResults().get(0).getWhyThisMatches()).anySatisfy(reason -> assertThat(reason).contains("Property type matches"));
         assertThat(ai.getRagGrounded()).isTrue();
         verify(jdbcTemplate).update(anyString(), eq(userId), eq("STUDENT"), eq("tenant_listing_search"), eq(true), any());
     }
