@@ -268,14 +268,14 @@ export default function ChatPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50">
+      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50 lg:h-[calc(100dvh-1.5rem)]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="grid h-[calc(100dvh-4rem)] min-h-0 overflow-hidden bg-slate-100 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="grid h-[calc(100dvh-4rem)] min-h-0 overflow-hidden bg-slate-100 lg:h-screen lg:grid-cols-[360px_minmax(0,1fr)]">
       <aside className="hidden min-h-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
         <div className="border-b border-slate-100 p-5">
           <h1 className="text-2xl font-semibold text-slate-950">Chats</h1>
@@ -332,8 +332,8 @@ export default function ChatPage() {
         </div>
       </aside>
 
-      <main className="min-h-0 bg-white lg:m-3 lg:flex lg:overflow-hidden lg:rounded-3xl lg:border lg:border-slate-200 lg:shadow-sm">
-        <div className="flex min-h-0 flex-1 flex-col bg-white">
+      <main className="flex h-full min-h-0 overflow-hidden bg-white lg:m-3 lg:rounded-3xl lg:border lg:border-slate-200 lg:shadow-sm">
+        <div className="flex h-full min-h-0 flex-1 flex-col bg-white">
       {/* Chat Header */}
       <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-4">
         <Button variant="ghost" size="icon" className="shrink-0 rounded-full md:hidden" onClick={() => router.push("/messages")} aria-label="Back">

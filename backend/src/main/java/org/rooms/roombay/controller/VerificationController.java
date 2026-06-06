@@ -37,6 +37,14 @@ public class VerificationController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
     
+    @GetMapping("/me")
+    @Operation(summary = "Get current user's verification status", description = "Returns status NONE when no verification has been submitted yet")
+    public ResponseEntity<VerificationResponse> getMyVerification() {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        VerificationResponse response = verificationService.getVerificationOrNone(userId);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/{userId}")
     @Operation(summary = "Get verification by user ID", description = "Retrieve verification status for a user")
     public ResponseEntity<VerificationResponse> getVerification(@PathVariable UUID userId) {

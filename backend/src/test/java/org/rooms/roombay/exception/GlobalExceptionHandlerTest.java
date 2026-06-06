@@ -6,6 +6,7 @@ import org.rooms.roombay.security.ProfileCompletionRequiredException;
 import org.rooms.roombay.service.AppErrorLogService;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.multipart.MultipartException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -59,5 +60,18 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getMessage()).isEqualTo(
                 "Please finish the required profile steps before using this feature.");
         assertThat(response.getBody().getMessage()).doesNotContain("operation: MESSAGE");
+    }
+
+    @Test
+    void multipartErrorsReturnClientSafeUploadMessage() {
+        var response = handler.handleMultipartException(
+                new MultipartException("Processing of multipart/form-data request failed. java.io.EOFException"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError()).isEqualTo("Upload Failed");
+        assertThat(response.getBody().getMessage()).isEqualTo(
+                "Upload was interrupted. Please choose the file again and retry.");
+        assertThat(response.getBody().getMessage()).doesNotContain("EOFException", "multipart/form-data");
     }
 }

@@ -57,6 +57,7 @@ export default function VerificationPage() {
   const [verification, setVerification] = useState<VerificationData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     idType: "" as string,
     idNumber: "",
@@ -71,7 +72,7 @@ export default function VerificationPage() {
       if (!user?.id) return
       
       try {
-        const response = await api.get(`/verifications/${user.id}`)
+        const response = await api.get(`/verifications/me`)
         const data = response.data
         setVerification({
           status: data.status || "NONE",
@@ -110,7 +111,7 @@ export default function VerificationPage() {
       if (document.visibilityState === 'visible' && user?.id) {
         const fetchVerification = async () => {
           try {
-            const response = await api.get(`/verifications/${user.id}`)
+            const response = await api.get(`/verifications/me`)
             const data = response.data
             setVerification({
               status: data.status || "NONE",
@@ -159,6 +160,7 @@ export default function VerificationPage() {
     if (!user?.id || !formData.idPhotoFile || !formData.selfieFile) return
 
     setIsSubmitting(true)
+    setSubmitError(null)
     try {
       const uploadFormData = new FormData()
       
@@ -184,6 +186,8 @@ export default function VerificationPage() {
       const errorMessage = err?.response?.data?.message || ""
       if (errorMessage.includes("already exists") || errorMessage.includes("VERIFIED")) {
         setVerification({ status: "VERIFIED" })
+      } else {
+        setSubmitError(errorMessage || "Verification could not be submitted. Please check both photos and try again.")
       }
     } finally {
       setIsSubmitting(false)
@@ -270,7 +274,7 @@ export default function VerificationPage() {
       const refreshStatus = async () => {
         if (!user?.id) return
         try {
-          const response = await api.get(`/verifications/${user.id}`)
+          const response = await api.get(`/verifications/me`)
           const data = response.data
           setVerification({
             status: data.status || "NONE",
@@ -494,6 +498,11 @@ export default function VerificationPage() {
       >
         {isSubmitting ? t.common.loading : t.common.submit}
       </Button>
+      {submitError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {submitError}
+        </div>
+      )}
     </div>
   )
 

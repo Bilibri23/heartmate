@@ -107,6 +107,17 @@ public class VerificationService {
         
         return mapToResponse(verification);
     }
+
+    @Transactional(readOnly = true)
+    public VerificationResponse getVerificationOrNone(UUID userId) {
+        log.info("Fetching verification status for user: {}", userId);
+        return verificationRepository.findByUserId(userId)
+                .map(this::mapToResponse)
+                .orElseGet(() -> VerificationResponse.builder()
+                        .userId(userId)
+                        .status("NONE")
+                        .build());
+    }
     
     @Transactional(readOnly = true)
     public VerificationResponse getVerificationById(UUID verificationId) {
