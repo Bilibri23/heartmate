@@ -11,7 +11,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -39,9 +38,9 @@ public class Profile {
     @Column(name = "profile_photo_url")
     private String profilePhotoUrl;
 
-    @Column(name = "languages", columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private List<String> languages; // English, French, Pidgin
+    @Column(name = "languages", columnDefinition = "TEXT[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    private String[] languages; // English, French, Pidgin
 
     @Column(name = "whatsapp_number")
     private String whatsappNumber;
@@ -71,4 +70,3 @@ public class Profile {
         PUBLIC, VERIFIED_ONLY, PRIVATE
     }
 }
-

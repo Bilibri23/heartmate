@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -40,9 +39,9 @@ public class ProfileService {
         }
 
         // Prepare languages safely
-        List<String> languages = request.getLanguages() != null
-                ? Arrays.asList(request.getLanguages())
-                : Collections.emptyList();
+        String[] languages = request.getLanguages() != null
+                ? request.getLanguages()
+                : new String[0];
 
         // Create profile
         Profile profile = Profile.builder()
@@ -113,7 +112,7 @@ public class ProfileService {
         }
         // Languages: always update if provided (even if empty array)
         if (request.getLanguages() != null) {
-            profile.setLanguages(request.getLanguages().length > 0 ? Arrays.asList(request.getLanguages()) : Collections.emptyList());
+            profile.setLanguages(request.getLanguages().length > 0 ? request.getLanguages() : new String[0]);
         }
         // WhatsApp number: allow empty string to clear, null means don't update
         if (request.getWhatsappNumber() != null) {
@@ -167,7 +166,7 @@ public class ProfileService {
                 .bio(profile.getBio())
                 .city(profile.getCity())
                 .profilePhotoUrl(profile.getProfilePhotoUrl())
-                .languages(profile.getLanguages())
+                .languages(profile.getLanguages() != null ? Arrays.asList(profile.getLanguages()) : Collections.emptyList())
                 .whatsappNumber(profile.getWhatsappNumber())
                 .emergencyContactName(profile.getEmergencyContactName())
                 .emergencyContactPhone(profile.getEmergencyContactPhone())
@@ -189,4 +188,3 @@ public class ProfileService {
         }
     }
 }
-

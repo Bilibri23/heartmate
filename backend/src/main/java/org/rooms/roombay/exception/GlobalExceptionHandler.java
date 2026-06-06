@@ -173,9 +173,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDataAccessException(DataAccessException ex, HttpServletRequest request) {
         log.error("Database error: ", ex);
         appErrorLogService.log("ERROR", "DATABASE", "503 database error: " + ex.getMessage(), path(request), ex);
-        String message = "Could not reach the database. Ensure PostgreSQL is running and DATABASE_URL (or spring.datasource.url) is correct.";
+        String message = "We could not complete this request right now. Please try again shortly.";
         if (apiErrorDetail) {
-            message = message + " [" + ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage()) + "]";
+            message = message + " [" + ex.getClass().getSimpleName() + "]";
         }
         ErrorResponse error = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
@@ -190,9 +190,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handlePersistenceException(PersistenceException ex, HttpServletRequest request) {
         log.error("JPA persistence error: ", ex);
         appErrorLogService.log("ERROR", "DATABASE", "503 persistence error: " + ex.getMessage(), path(request), ex);
-        String message = "Database operation failed. Check PostgreSQL is running and schema is up to date (e.g. refresh_token_sessions table exists).";
+        String message = "We could not complete this request right now. Please try again shortly.";
         if (apiErrorDetail) {
-            message = message + " [" + ex.getClass().getSimpleName() + ": " + String.valueOf(ex.getMessage()) + "]";
+            message = message + " [" + ex.getClass().getSimpleName() + "]";
         }
         ErrorResponse error = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
