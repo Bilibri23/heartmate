@@ -1,6 +1,8 @@
 package org.rooms.roombay.service;
 
 import org.junit.jupiter.api.Test;
+import org.rooms.roombay.dto.response.AiChatResponse;
+import org.rooms.roombay.entity.PropertyListing;
 import org.rooms.roombay.entity.RoomApplication;
 import org.rooms.roombay.entity.StudentVerification;
 import org.rooms.roombay.repository.LandlordVerificationRepository;
@@ -11,6 +13,9 @@ import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReportRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalDateTime;
@@ -119,5 +124,42 @@ class AiCopilotToolServiceTest {
         assertThat(context).contains("adminAiUnansweredQuestions");
         assertThat(context).contains("adminFunnelSummary");
         assertThat(context).doesNotContain("abc123", "Bearer", "password");
+    }
+
+    @Test
+    void tenantListingSearchQuestionReturnsToolGroundedAnswerAndSearchAction() {
+        UUID userId = UUID.randomUUID();
+        UUID listingId = UUID.randomUUID();
+        PropertyListing listing = PropertyListing.builder()
+                .id(listingId)
+                .title("Modern Studio")
+                .propertyType(PropertyListing.PropertyType.STUDIO)
+                .rentAmount(15000)
+                .city("Yaounde")
+                .neighborhood("Damas")
+                .status(PropertyListing.Status.ACTIVE)
+                .verified(true)
+                .build();
+        when(propertyListingRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(listing)));
+
+        var response = service.tryAnswerTenantListingSearch(userId, "STUDENT", "i need a studio at damas", "thread-1");
+
+        assertThat(response).isPresent();
+        AiChatResponse ai = response.get();
+        assertThat(ai.getAnswer()).contains("I found 1 active verified match", "Modern Studio", "/listings/" + listingId);
+        assertThat(ai.getSuggestedActions()).hasSize(1);
+        assertThat(ai.getSuggestedActions().get(0).getActionUrl()).startsWith("/search?query=");
+        assertThat(ai.getRagGrounded()).isTrue();
+        verify(jdbcTemplate).update(anyString(), eq(userId), eq("STUDENT"), eq("tenant_listing_search"), eq(true), any());
+    }
+
+    @Test
+    void landlordCannotUseTenantListingSearchToolAnswer() {
+        UUID userId = UUID.randomUUID();
+
+        var response = service.tryAnswerTenantListingSearch(userId, "LANDLORD", "i need a studio at damas", "thread-1");
+
+        assertThat(response).isEmpty();
     }
 }

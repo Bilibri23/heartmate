@@ -2,12 +2,14 @@ package org.rooms.roombay.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.entity.LandlordVerification;
 import org.rooms.roombay.entity.Payment;
 import org.rooms.roombay.entity.PropertyListing;
 import org.rooms.roombay.entity.Report;
 import org.rooms.roombay.entity.RoomApplication;
 import org.rooms.roombay.entity.StudentVerification;
+import org.rooms.roombay.repository.ListingSpecifications;
 import org.rooms.roombay.repository.LandlordVerificationRepository;
 import org.rooms.roombay.repository.LeaseRepository;
 import org.rooms.roombay.repository.ListingFavoriteRepository;
@@ -16,14 +18,19 @@ import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReportRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -44,6 +51,10 @@ public class AiCopilotToolService {
     private final JdbcTemplate jdbcTemplate;
 
     public String buildToolContext(UUID userId, String role) {
+        return buildToolContext(userId, role, null);
+    }
+
+    public String buildToolContext(UUID userId, String role, String userMessage) {
         String normalizedRole = normalizeRole(role);
         List<String> lines = new ArrayList<>();
         if ("ADMIN".equals(normalizedRole)) {
@@ -56,8 +67,61 @@ public class AiCopilotToolService {
             addTool(lines, userId, normalizedRole, "landlord_listing_performance", () -> landlordListingPerformance(userId));
         } else {
             addTool(lines, userId, normalizedRole, "tenant_status_snapshot", () -> tenantStatusSnapshot(userId));
+            ListingSearchRequest searchRequest = parseListingSearchRequest(userMessage);
+            if (searchRequest.matchesSearchIntent()) {
+                addTool(lines, userId, normalizedRole, "tenant_listing_search", () -> tenantListingSearchSummary(searchRequest));
+            }
         }
         return lines.isEmpty() ? "" : "Read_only_platform_tools:\n" + String.join("\n", lines);
+    }
+
+    public Optional<AiChatResponse> tryAnswerTenantListingSearch(UUID userId, String role, String userMessage, String threadId) {
+        String normalizedRole = normalizeRole(role);
+        if (!"STUDENT".equals(normalizedRole)) {
+            return Optional.empty();
+        }
+        ListingSearchRequest searchRequest = parseListingSearchRequest(userMessage);
+        if (!searchRequest.matchesSearchIntent()) {
+            return Optional.empty();
+        }
+        if (!isToolAllowed(normalizedRole, "tenant_listing_search")) {
+            logToolCall(userId, normalizedRole, "tenant_listing_search", false, "blocked_by_role_policy");
+            return Optional.empty();
+        }
+
+        List<PropertyListing> matches = findTenantListingMatches(searchRequest);
+        String searchUrl = searchRequest.searchUrl();
+        List<AiChatResponse.SuggestedAction> actions = List.of(
+                AiChatResponse.SuggestedAction.builder()
+                        .id("open_search")
+                        .label("Open matching search")
+                        .type("NAVIGATE")
+                        .actionUrl(searchUrl)
+                        .build()
+        );
+
+        String answer;
+        if (matches.isEmpty()) {
+            answer = "I checked active verified RoomBay listings and did not find an exact match for "
+                    + searchRequest.describe() + " right now.\n\n"
+                    + "Next step: open search to adjust the location, budget, or property type.";
+        } else {
+            answer = "I found " + matches.size() + " active verified match"
+                    + (matches.size() == 1 ? "" : "es") + " for " + searchRequest.describe() + ". "
+                    + summarizeListings(matches) + "\n\n"
+                    + "Next step: open the matching search and choose a listing to view details or apply.";
+        }
+
+        logToolCall(userId, normalizedRole, "tenant_listing_search", true,
+                "matches=%d query=%s propertyType=%s".formatted(matches.size(), searchRequest.query(), searchRequest.propertyType()));
+
+        return Optional.of(AiChatResponse.builder()
+                .answer(answer)
+                .threadId(threadId)
+                .citations(List.of())
+                .suggestedActions(actions)
+                .ragGrounded(true)
+                .build());
     }
 
     public boolean isToolAllowed(String role, String toolName) {
@@ -85,6 +149,88 @@ public class AiCopilotToolService {
         long savedListings = listingFavoriteRepository.findByUserId(userId).size();
         return "tenantStatusSnapshot={verificationStatus=%s, applicationsTotal=%d, applicationsPending=%d, applicationsAccepted=%d, leasesTotal=%d, paymentsTotal=%d, paymentsPending=%d, paymentsSubmitted=%d, paymentsVerified=%d, savedListings=%d}"
                 .formatted(verification, applications, pendingApplications, acceptedApplications, leases, payments, pendingPayments, submittedPayments, verifiedPayments, savedListings);
+    }
+
+    private String tenantListingSearchSummary(ListingSearchRequest request) {
+        List<PropertyListing> matches = findTenantListingMatches(request);
+        return "tenantListingSearch={query=%s, propertyType=%s, matches=%d, top=%s}"
+                .formatted(request.query(), request.propertyType(), matches.size(), summarizeListings(matches));
+    }
+
+    private List<PropertyListing> findTenantListingMatches(ListingSearchRequest request) {
+        var spec = ListingSpecifications.buildSearchSpec(
+                request.query(),
+                request.city(),
+                null,
+                request.propertyType(),
+                null,
+                request.maxPrice(),
+                null,
+                null,
+                List.of(),
+                null
+        );
+        return propertyListingRepository.findAll(
+                spec,
+                PageRequest.of(0, 3, Sort.by(Sort.Order.desc("featured"), Sort.Order.desc("verified"), Sort.Order.asc("rentAmount")))
+        ).getContent();
+    }
+
+    private static ListingSearchRequest parseListingSearchRequest(String message) {
+        String raw = message == null ? "" : message.trim();
+        String lower = raw.toLowerCase(Locale.ROOT);
+        boolean searchIntent = lower.matches(".*\\b(need|want|find|looking for|search|show me|studio|apartment|house|room|listing|rent)\\b.*");
+        String propertyType = null;
+        if (lower.matches(".*\\bstudio\\b.*")) propertyType = "STUDIO";
+        else if (lower.matches(".*\\b(apartment|appartement|flat)\\b.*")) propertyType = "APARTMENT";
+        else if (lower.matches(".*\\bhouse\\b.*")) propertyType = "HOUSE";
+        else if (lower.matches(".*\\b(shared room|shared)\\b.*")) propertyType = "SHARED_ROOM";
+        else if (lower.matches(".*\\b(room|private room)\\b.*")) propertyType = "PRIVATE_ROOM";
+
+        Integer maxPrice = null;
+        java.util.regex.Matcher price = java.util.regex.Pattern
+                .compile("(?i)\\b(?:under|max|below|less than)\\s*(\\d+)\\s*k?\\b")
+                .matcher(raw);
+        if (price.find()) {
+            int parsed = Integer.parseInt(price.group(1));
+            maxPrice = parsed <= 999 ? parsed * 1000 : parsed;
+        }
+
+        String location = extractLocation(raw);
+        String query = location != null && !location.isBlank() ? location : raw;
+        return new ListingSearchRequest(searchIntent, query.trim(), null, propertyType, maxPrice);
+    }
+
+    private static String extractLocation(String raw) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("(?i)\\b(?:in|at|around|near)\\s+([\\p{L}0-9\\- ]{2,40})")
+                .matcher(raw);
+        String location = null;
+        while (matcher.find()) {
+            location = matcher.group(1);
+        }
+        if (location == null) return null;
+        return location
+                .replaceAll("(?i)\\b(studio|apartment|appartement|house|room|rent|rental|listing|please)\\b", "")
+                .replaceAll("[^\\p{L}0-9\\- ]", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private static String summarizeListings(List<PropertyListing> listings) {
+        if (listings == null || listings.isEmpty()) {
+            return "[]";
+        }
+        return listings.stream()
+                .map(l -> "%s (%s XAF, %s%s, /listings/%s)".formatted(
+                        truncate(safeValue(l.getTitle()), 60),
+                        l.getRentAmount() == null ? "price not shown" : l.getRentAmount().toString(),
+                        safeValue(l.getNeighborhood()),
+                        l.getCity() == null || l.getCity().isBlank() ? "" : ", " + safeValue(l.getCity()),
+                        l.getId()
+                ))
+                .toList()
+                .toString();
     }
 
     private String landlordPortfolioStatus(UUID userId) {
@@ -188,7 +334,8 @@ public class AiCopilotToolService {
             jdbcTemplate.update("""
                     INSERT INTO ai_tool_call_log (user_id, role, tool_name, allowed, result_summary)
                     VALUES (?, ?, ?, ?, ?)
-                    """, userId, role, toolName, allowed, truncate(resultSummary, 600));
+                    """, userId, role, toolName, allowed,
+                    truncate(AppErrorLogService.sanitizeForOpsLog(resultSummary == null ? "" : resultSummary), 600));
         } catch (Exception e) {
             log.debug("[AI] could not record tool call: {}", e.getMessage());
         }
@@ -213,6 +360,37 @@ public class AiCopilotToolService {
     private static String safeValue(Object value) {
         if (value == null) return "NONE";
         return AppErrorLogService.sanitizeForOpsLog(String.valueOf(value));
+    }
+
+    private record ListingSearchRequest(
+            boolean searchIntent,
+            String query,
+            String city,
+            String propertyType,
+            Integer maxPrice
+    ) {
+        boolean matchesSearchIntent() {
+            return searchIntent && ((query != null && !query.isBlank()) || propertyType != null || maxPrice != null);
+        }
+
+        String describe() {
+            List<String> parts = new ArrayList<>();
+            if (propertyType != null) parts.add(propertyType.toLowerCase(Locale.ROOT).replace("_", " "));
+            if (query != null && !query.isBlank()) parts.add("near " + query);
+            if (maxPrice != null) parts.add("under " + maxPrice + " XAF");
+            return parts.isEmpty() ? "your search" : String.join(" ", parts);
+        }
+
+        String searchUrl() {
+            String q = query == null ? "" : query;
+            if (propertyType != null && !q.toLowerCase(Locale.ROOT).contains(propertyType.toLowerCase(Locale.ROOT))) {
+                q = (propertyType.toLowerCase(Locale.ROOT).replace("_", " ") + " " + q).trim();
+            }
+            if (maxPrice != null) {
+                q = (q + " under " + maxPrice).trim();
+            }
+            return "/search?query=" + URLEncoder.encode(q, StandardCharsets.UTF_8);
+        }
     }
 
     @FunctionalInterface

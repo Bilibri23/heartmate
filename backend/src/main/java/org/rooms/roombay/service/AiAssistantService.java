@@ -97,6 +97,28 @@ public class AiAssistantService {
                     .build();
         }
 
+        if (aiCopilotToolService != null) {
+            try {
+                java.util.Optional<AiChatResponse> toolAnswer = aiCopilotToolService.tryAnswerTenantListingSearch(
+                        userId,
+                        SecurityUtils.getCurrentUserRole(),
+                        request.getMessage(),
+                        threadId
+                );
+                if (toolAnswer.isPresent()) {
+                    AiChatResponse response = toolAnswer.get();
+                    chatLogRepository.insert(userId, persona.name(), request.getMessage(), response.getAnswer(), List.of());
+                    aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
+                    analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null,
+                            Map.of("persona", persona.name(), "toolGrounded", true, "question", safeAnalyticsQuestion(request.getMessage())));
+                    log.info("[AI] chat user={} answeredWith=tenant_listing_search ms={}", userId, System.currentTimeMillis() - started);
+                    return response;
+                }
+            } catch (Exception e) {
+                log.warn("[AI] tenant listing search tool answer unavailable: {}", e.getMessage());
+            }
+        }
+
         // Persona is derived from authenticated role to prevent client spoofing.
         List<Double> qEmb = modelRouter.embed(request.getMessage());
         List<AiRagRepository.ChunkRow> chunks;
@@ -313,7 +335,7 @@ public class AiAssistantService {
             return;
         }
         try {
-            String toolContext = aiCopilotToolService.buildToolContext(userId, role);
+            String toolContext = aiCopilotToolService.buildToolContext(userId, role, "");
             if (toolContext != null && !toolContext.isBlank()) {
                 lines.add(toolContext);
             }
