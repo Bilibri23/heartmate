@@ -357,6 +357,19 @@ export default function ListingDetailPage() {
   const canApply = completionStatus?.operationEligibility?.APPLY !== false
   const canMessage = completionStatus?.operationEligibility?.MESSAGE !== false
 
+  const buildMessageHref = (recipientId?: string | null) => {
+    if (!recipientId) return "/messages"
+    const params = new URLSearchParams()
+    const landlordName = listing?.landlord
+      ? `${listing.landlord.firstName || ""} ${listing.landlord.lastName || ""}`.trim()
+      : listing?.landlordName
+    const avatar = listing?.landlord?.profilePhotoUrl
+    if (landlordName) params.set("recipientName", landlordName)
+    if (avatar) params.set("recipientAvatar", avatar)
+    const query = params.toString()
+    return `/messages/${recipientId}${query ? `?${query}` : ""}`
+  }
+
   const handleApply = async () => {
     if (!user?.id) {
       router.push("/login")
@@ -513,7 +526,7 @@ export default function ListingDetailPage() {
       setViewingMessage("")
 
       // Redirect to messages
-      router.push(`/messages/${landlordId}`)
+      router.push(buildMessageHref(landlordId))
     } catch (err) {
       console.error("Failed to schedule viewing:", err)
     } finally {
@@ -1007,7 +1020,7 @@ export default function ListingDetailPage() {
                     )}
                   </div>
                 </div>
-                <Link href={`/messages/${listing.landlord?.id || listing.landlordId}`}>
+                <Link href={buildMessageHref(listing.landlord?.id || listing.landlordId)}>
                   <Button variant="outline" size="sm" disabled={!canMessage} className="rounded-xl hover:bg-blue-50 transition-colors">
                     <MessageCircle className="h-4 w-4 mr-1.5" />
                     {language === "fr" ? "Message" : "Message"}

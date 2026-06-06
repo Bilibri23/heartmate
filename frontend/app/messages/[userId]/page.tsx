@@ -27,6 +27,8 @@ export default function ChatPage() {
   const { user: currentUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const recipientNameParam = searchParams?.get("recipientName");
+  const recipientAvatarParam = searchParams?.get("recipientAvatar");
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [otherUser, setOtherUser] = useState<{ name: string; avatarUrl?: string | null } | null>(null);
@@ -97,6 +99,15 @@ export default function ChatPage() {
           }
         }
 
+        // Route-level fallback for brand-new conversations opened from a listing.
+        if (!resolved && recipientNameParam) {
+          setOtherUser({
+            name: recipientNameParam,
+            avatarUrl: recipientAvatarParam || null,
+          });
+          resolved = true;
+        }
+
         // Last resort fallback
         if (!resolved) {
           try {
@@ -131,7 +142,7 @@ export default function ChatPage() {
     }, 5000); // Poll every 5s
 
     return () => clearInterval(interval);
-  }, [userId, currentUser]);
+  }, [userId, currentUser, recipientNameParam, recipientAvatarParam]);
 
   useEffect(() => {
     scrollToBottom();
@@ -239,9 +250,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-background">
       {/* Chat Header */}
-      <div className="flex items-center gap-3 p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center gap-3 border-b bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push("/messages")} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -249,7 +260,7 @@ export default function ChatPage() {
           <AvatarImage src={otherUser?.avatarUrl || undefined} />
           <AvatarFallback>{otherUser?.name?.substring(0, 1) || "?"}</AvatarFallback>
         </Avatar>
-        <div>
+        <div className="min-w-0">
           <h2 className="font-semibold">{otherUser?.name || "User"}</h2>
           <p className="text-xs text-muted-foreground">Tap to start a conversation</p>
         </div>
@@ -379,7 +390,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input Area */}
-      <div className="border-t bg-background">
+      <div className="shrink-0 border-t bg-background">
         {/* Selected Listing Preview */}
         {selectedListing && (
           <div className="p-2 border-b bg-slate-50">

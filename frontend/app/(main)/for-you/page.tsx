@@ -235,7 +235,7 @@ export default function ForYouPage() {
       {/* Filter bar */}
       <div
         data-tour="tenant-filter-bar"
-        className="sticky top-14 z-30 bg-white/95 backdrop-blur border-b border-slate-200"
+        className="bg-white/95 backdrop-blur border-b border-slate-200"
       >
         <div className="flex px-4 py-2 gap-2 items-center flex-wrap">
           <Link href="/search" className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm font-medium transition-colors">
