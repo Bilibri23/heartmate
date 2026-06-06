@@ -37,6 +37,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -87,6 +88,20 @@ public class ListingService {
         long currentListings = listingRepository.countByLandlordId(landlordId);
         if (currentListings >= maxListings) {
             throw new BadRequestException("You have reached the maximum allowed listings (" + maxListings + "). Please contact support.");
+        }
+
+        List<PropertyListing> recentDuplicates = listingRepository.findRecentEquivalentDraftOrPending(
+                landlordId,
+                request.getTitle(),
+                request.getRentAmount(),
+                request.getCity(),
+                request.getNeighborhood(),
+                request.getAddress(),
+                LocalDateTime.now().minusMinutes(15));
+        if (!recentDuplicates.isEmpty()) {
+            PropertyListing existing = recentDuplicates.get(0);
+            log.warn("Duplicate listing create suppressed for landlord={} existingListing={}", landlordId, existing.getId());
+            return mapToResponse(existing, landlordId);
         }
         
         // Create listing
@@ -1086,17 +1101,17 @@ public class ListingService {
         return mapToResponse(saved, landlordId);
     }
 
-    // Mark listing as available - if DRAFT, set to PENDING for admin approval
+    // Mark listing as available by sending it through admin review.
     public ListingResponse markAsAvailable(UUID listingId, UUID landlordId) {
         PropertyListing listing = findListingByIdAndLandlord(listingId, landlordId);
-        // If listing is DRAFT or INACTIVE, set to PENDING for admin approval
-        if (listing.getStatus() == PropertyListing.Status.DRAFT || 
-            listing.getStatus() == PropertyListing.Status.INACTIVE) {
-            listing.setStatus(PropertyListing.Status.PENDING);
-            log.info("Listing {} set to PENDING for admin approval", listingId);
+        if (listing.getStatus() == PropertyListing.Status.ACTIVE) {
+            log.info("Listing {} is already ACTIVE; mark available is a no-op", listingId);
         } else {
-            // For RENTED listings being re-listed, set directly to ACTIVE
-            listing.setStatus(PropertyListing.Status.ACTIVE);
+            listing.setStatus(PropertyListing.Status.PENDING);
+            listing.setVerified(false);
+            listing.setVerifiedAt(null);
+            listing.setVerifiedBy(null);
+            log.info("Listing {} set to PENDING for admin approval", listingId);
         }
         PropertyListing saved = listingRepository.save(listing);
         return mapToResponse(saved, landlordId);

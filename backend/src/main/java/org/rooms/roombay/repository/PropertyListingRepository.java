@@ -39,6 +39,27 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
     long countByLandlordId(UUID landlordId);
 
     long countByLandlordIdAndVerifiedTrue(UUID landlordId);
+
+    @Query("""
+            SELECT l FROM PropertyListing l
+            WHERE l.landlord.id = :landlordId
+              AND l.title = :title
+              AND l.rentAmount = :rentAmount
+              AND COALESCE(l.city, '') = COALESCE(:city, '')
+              AND COALESCE(l.neighborhood, '') = COALESCE(:neighborhood, '')
+              AND COALESCE(l.address, '') = COALESCE(:address, '')
+              AND l.status IN ('DRAFT', 'PENDING')
+              AND l.createdAt >= :createdAfter
+            ORDER BY l.createdAt DESC
+            """)
+    List<PropertyListing> findRecentEquivalentDraftOrPending(
+            @Param("landlordId") UUID landlordId,
+            @Param("title") String title,
+            @Param("rentAmount") Integer rentAmount,
+            @Param("city") String city,
+            @Param("neighborhood") String neighborhood,
+            @Param("address") String address,
+            @Param("createdAfter") LocalDateTime createdAfter);
     
     // Analytics methods
     @Query("SELECT COUNT(l) FROM PropertyListing l WHERE l.status != 'DELETED'")

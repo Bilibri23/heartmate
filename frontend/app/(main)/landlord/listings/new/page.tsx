@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useLanguage } from "@/context/language-context"
@@ -142,6 +142,7 @@ export default function NewListingPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submitInFlightRef = useRef(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0)
   const [photos, setPhotos] = useState<PhotoItem[]>([])
@@ -196,6 +197,8 @@ export default function NewListingPage() {
   const handleSubmit = async () => {
     if (!user?.id) return
     if (!canPublish) return
+    if (submitInFlightRef.current) return
+    submitInFlightRef.current = true
     setIsSubmitting(true)
     try {
       // Step 1: Create listing (media-dependent Room Preview is enabled after listing photos upload)
@@ -300,7 +303,9 @@ export default function NewListingPage() {
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Failed to create listing. Please try again."
       setSubmitError(msg)
-    } finally { setIsSubmitting(false) }
+      submitInFlightRef.current = false
+      setIsSubmitting(false)
+    }
   }
 
   const canProceed = () => {
