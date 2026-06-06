@@ -80,8 +80,8 @@ public class PropertyListing {
     private Integer floor;
     
     // Amenities
-    @Column(columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "TEXT[]")
+    @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> amenities;
 
     // Room Preview MVP
