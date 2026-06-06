@@ -107,12 +107,6 @@ export function ListingsMap({
 
   return (
     <div className={`relative ${className}`}>
-      {/* Leaflet CSS - must be loaded */}
-      <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
-      />
-      
       <MapContainer
         center={[cityCenter.lat, cityCenter.lng]}
         zoom={cityCenter.zoom}

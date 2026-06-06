@@ -61,6 +61,7 @@ export default function AdminVerificationsPage() {
   const [rejectionReason, setRejectionReason] = useState("")
   const [authLoading, setAuthLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"tenants" | "landlords">("tenants")
+  const [actionInFlight, setActionInFlight] = useState<string | null>(null)
 
   useEffect(() => {
     if (user === null && authLoading) {
@@ -90,6 +91,8 @@ export default function AdminVerificationsPage() {
   }
 
   const handleTenantAction = async (id: string, approved: boolean) => {
+    if (actionInFlight) return
+    setActionInFlight(`tenant-${id}`)
     try {
       await api.post(`/admin/verifications/${id}/approve`, {
         status: approved ? "VERIFIED" : "REJECTED",
@@ -99,6 +102,7 @@ export default function AdminVerificationsPage() {
       fetchData()
       setIsDetailOpen(false)
     } catch (err) { console.error(err) }
+    finally { setActionInFlight(null) }
   }
 
   const getLandlordPendingType = (v: LandlordVerification): "IDENTITY" | "BUSINESS" | "PROPERTY" | null => {
@@ -124,6 +128,8 @@ export default function AdminVerificationsPage() {
     if (!selectedLandlord) return
     const pendingType = getLandlordPendingType(selectedLandlord)
     if (!pendingType) return
+    if (actionInFlight) return
+    setActionInFlight(`landlord-${id}-${pendingType}`)
     try {
       await api.post(`/admin/landlord-verifications/${id}/approve`, {
         verificationType: pendingType,
@@ -134,6 +140,7 @@ export default function AdminVerificationsPage() {
       fetchData()
       setIsDetailOpen(false)
     } catch (err) { console.error(err) }
+    finally { setActionInFlight(null) }
   }
 
   const filteredTenants = tenantVerifications.filter(v =>
@@ -349,11 +356,11 @@ export default function AdminVerificationsPage() {
                 <div className="space-y-3 pt-4 border-t">
                   <Input placeholder="Rejection reason (if rejecting)" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="rounded-xl" />
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1 rounded-xl border-red-200 text-red-600" onClick={() => handleTenantAction(selectedTenant.id, false)}>
+                    <Button disabled={Boolean(actionInFlight)} variant="outline" className="flex-1 rounded-xl border-red-200 text-red-600" onClick={() => handleTenantAction(selectedTenant.id, false)}>
                       <XCircle className="h-4 w-4 mr-1" /> Reject
                     </Button>
-                    <Button className="flex-1 rounded-xl bg-green-600 hover:bg-green-700" onClick={() => handleTenantAction(selectedTenant.id, true)}>
-                      <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                    <Button disabled={Boolean(actionInFlight)} className="flex-1 rounded-xl bg-green-600 hover:bg-green-700" onClick={() => handleTenantAction(selectedTenant.id, true)}>
+                      <CheckCircle className="h-4 w-4 mr-1" /> {actionInFlight ? "Working..." : "Approve"}
                     </Button>
                   </div>
                 </div>
@@ -468,11 +475,11 @@ export default function AdminVerificationsPage() {
                   </p>
                   <Input placeholder="Rejection reason (if rejecting)" value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} className="rounded-xl" />
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1 rounded-xl border-red-200 text-red-600" onClick={() => handleLandlordAction(selectedLandlord.id, false)}>
+                    <Button disabled={Boolean(actionInFlight)} variant="outline" className="flex-1 rounded-xl border-red-200 text-red-600" onClick={() => handleLandlordAction(selectedLandlord.id, false)}>
                       <XCircle className="h-4 w-4 mr-1" /> Reject
                     </Button>
-                    <Button className="flex-1 rounded-xl bg-green-600 hover:bg-green-700" onClick={() => handleLandlordAction(selectedLandlord.id, true)}>
-                      <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                    <Button disabled={Boolean(actionInFlight)} className="flex-1 rounded-xl bg-green-600 hover:bg-green-700" onClick={() => handleLandlordAction(selectedLandlord.id, true)}>
+                      <CheckCircle className="h-4 w-4 mr-1" /> {actionInFlight ? "Working..." : "Approve"}
                     </Button>
                   </div>
                 </div>

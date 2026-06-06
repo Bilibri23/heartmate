@@ -247,6 +247,12 @@ public class NotificationService {
                               UUID referenceId, String referenceType, String actionUrl) {
         userRepository.findAllByRole(User.UserRole.ADMIN).forEach(admin -> {
             try {
+                if (notificationRepository.existsByUserIdAndTypeAndReferenceIdAndReferenceTypeAndReadFalse(
+                        admin.getId(), type, referenceId, referenceType)) {
+                    log.debug("Skipping duplicate unread admin notification user={} type={} referenceType={} referenceId={}",
+                            admin.getId(), type, referenceType, referenceId);
+                    return;
+                }
                 createNotification(admin.getId(), type, title, message, referenceId, referenceType, actionUrl);
             } catch (Exception e) {
                 log.error("Failed to notify admin {} about {}: {}", admin.getId(), referenceType, e.getMessage());
