@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useAuth } from "@/context/auth-context"
+import { useLanguage } from "@/context/language-context"
 import { useProfileCompletion } from "@/hooks/use-profile-completion"
 import { CompletionBanner } from "@/components/profile/completion-banner"
 import {
@@ -40,6 +41,8 @@ interface VerificationStatus {
 
 export default function LandlordVerificationPage() {
   const { user } = useAuth()
+  const { t } = useLanguage()
+  const lv = t.landlordVerification
   const { status: completionStatus, refresh: refreshCompletion } = useProfileCompletion()
   const [status, setStatus] = useState<VerificationStatus | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -185,7 +188,7 @@ export default function LandlordVerificationPage() {
 
   const submitPropertyOnly = async () => {
     if (!propertyOnlyDoc) {
-      toast.error("Choose a file first")
+      toast.error(lv.chooseFileFirst)
       return
     }
     setIsPropertySubmitting(true)
@@ -194,7 +197,7 @@ export default function LandlordVerificationPage() {
       await api.post("/landlord-verifications/property", {
         propertyOwnershipDocUrl: propertyDocUrl,
       })
-      toast.success("Property documents submitted for review")
+      toast.success(lv.propertySubmitted)
       setPropertyOnlyDoc(null)
       await fetchStatus()
       void refreshCompletion()
@@ -203,7 +206,7 @@ export default function LandlordVerificationPage() {
       const msg =
         ax?.response?.data?.message ||
         ax?.message ||
-        "Could not submit property documents"
+        lv.submitFailed
       toast.error(msg)
     } finally {
       setIsPropertySubmitting(false)
@@ -228,28 +231,28 @@ export default function LandlordVerificationPage() {
         return (
           <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-full">
             <BadgeCheck className="h-5 w-5" />
-            <span className="font-medium">Verified (Score: {status.trustScore}%)</span>
+            <span className="font-medium">{lv.verifiedScore.replace("{score}", String(status.trustScore))}</span>
           </div>
         )
       case "PENDING":
         return (
           <div className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 rounded-full">
             <Clock className="h-5 w-5" />
-            <span className="font-medium">Under Review</span>
+            <span className="font-medium">{lv.underReview}</span>
           </div>
         )
       case "REJECTED":
         return (
           <div className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-full">
             <AlertCircle className="h-5 w-5" />
-            <span className="font-medium">Rejected</span>
+            <span className="font-medium">{lv.rejected}</span>
           </div>
         )
       default:
         return (
           <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-full">
             <Shield className="h-5 w-5" />
-            <span className="font-medium">Not Verified</span>
+            <span className="font-medium">{lv.notVerified}</span>
           </div>
         )
     }
@@ -266,7 +269,7 @@ export default function LandlordVerificationPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-slate-50">
-        <MobileHeader title="Verification" showNotifications={false} showLanguage={false} />
+        <MobileHeader title={lv.title} showNotifications={false} showLanguage={false} />
         <div className="p-4 space-y-4">
           <Skeleton className="h-32 rounded-2xl" />
           <Skeleton className="h-48 rounded-2xl" />
@@ -277,7 +280,7 @@ export default function LandlordVerificationPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <MobileHeader title="Verification" showNotifications={false} showLanguage={false} />
+      <MobileHeader title={lv.title} showNotifications={false} showLanguage={false} />
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-6">
@@ -286,9 +289,9 @@ export default function LandlordVerificationPage() {
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-100 flex items-center justify-center">
               <Shield className="h-8 w-8 text-blue-600" />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Landlord Verification</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-2">{lv.heading}</h2>
             <p className="text-slate-500 text-sm mb-4">
-              Verify your identity to build trust with potential tenants
+              {lv.subtitle}
             </p>
             {getStatusBadge()}
           </div>
@@ -301,7 +304,7 @@ export default function LandlordVerificationPage() {
 
           {/* Verification Checklist */}
           <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <h3 className="font-semibold text-slate-900 mb-4">Verification Checklist</h3>
+            <h3 className="font-semibold text-slate-900 mb-4">{lv.checklist}</h3>
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
                 {status?.identityStatus === "VERIFIED" ? (
@@ -312,7 +315,7 @@ export default function LandlordVerificationPage() {
                   <div className="h-5 w-5 rounded-full border-2 border-slate-300" />
                 )}
                 <span className={status?.identityStatus === "VERIFIED" ? "text-slate-900" : "text-slate-500"}>
-                  Identity Verification
+                  {lv.identity}
                 </span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
@@ -324,7 +327,7 @@ export default function LandlordVerificationPage() {
                   <div className="h-5 w-5 rounded-full border-2 border-slate-300" />
                 )}
                 <span className={status?.businessStatus === "VERIFIED" ? "text-slate-900" : "text-slate-500"}>
-                  Business Registration (Optional)
+                  {lv.businessOptional}
                 </span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
@@ -336,7 +339,7 @@ export default function LandlordVerificationPage() {
                   <div className="h-5 w-5 rounded-full border-2 border-slate-300" />
                 )}
                 <span className={status?.propertyStatus === "VERIFIED" ? "text-slate-900" : "text-slate-500"}>
-                  Property Ownership
+                  {lv.propertyOwnership}
                 </span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50">
@@ -347,10 +350,10 @@ export default function LandlordVerificationPage() {
                 )}
                 <div>
                   <span className={status?.isTrustedLandlord ? "text-slate-900" : "text-slate-500"}>
-                    Trusted Landlord Badge
+                    {lv.trustedBadge}
                   </span>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Awarded when trust score reaches 70+ after verification/history checks.
+                    {lv.trustedBadgeDesc}
                   </p>
                 </div>
               </div>
@@ -362,14 +365,13 @@ export default function LandlordVerificationPage() {
               <div className="flex items-start gap-3">
                 <BadgeCheck className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
                 <div>
-                  <h4 className="font-medium text-emerald-900">Identity verified</h4>
+                  <h4 className="font-medium text-emerald-900">{lv.identityVerified}</h4>
                   <p className="text-sm text-emerald-800 mt-1 leading-relaxed">
-                    Your ID check is complete. Use the checklist below to finish payout and optional proofs when you are
-                    ready to publish.
+                    {lv.identityVerifiedBody}
                   </p>
                   {status?.updatedAt && (
                     <p className="text-xs text-emerald-700 mt-2">
-                      Approved: {new Date(status.updatedAt).toLocaleDateString()}
+                      {lv.approved}: {new Date(status.updatedAt).toLocaleDateString()}
                     </p>
                   )}
                 </div>
@@ -379,11 +381,9 @@ export default function LandlordVerificationPage() {
 
           {(identityVerified || identityPending) && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-              <h3 className="font-semibold text-slate-900">What&apos;s next</h3>
+              <h3 className="font-semibold text-slate-900">{lv.whatsNext}</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                {identityPending
-                  ? "Your ID is with the team for review (usually 1–2 business days). You can still prepare the rest — nothing here is urgent until you want to publish."
-                  : "KYC is only part of onboarding. Finish contact verification, profile, payout, and optional property proof when it suits you — any order is fine."}
+                {identityPending ? lv.pendingNext : lv.verifiedNext}
               </p>
               <ul className="space-y-2 text-sm">
                 {needsContact && (
@@ -405,10 +405,9 @@ export default function LandlordVerificationPage() {
                 <li className="flex gap-2 text-slate-700">
                   <Smartphone className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
                   <span>
-                    <span className="font-medium">Profile basics</span> means your RoomBay profile row exists (photo &
-                    short bio). Editors use{" "}
+                    <span className="font-medium">{lv.profileBasics}</span> {lv.profileBasicsDesc}{" "}
                     <Link href="/landlord/profile/edit" className="text-blue-600 underline font-medium">
-                      Profile edit
+                      {lv.profileEdit}
                     </Link>
                     .
                   </span>
@@ -416,21 +415,20 @@ export default function LandlordVerificationPage() {
                 <li className="flex gap-2 text-slate-700">
                   <Wallet className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
                   <span>
-                    <span className="font-medium">Payout details</span> are optional for now. RoomBay runs on
-                    commissions, and settlement details can be collected later during payout operations.
+                    <span className="font-medium">{lv.payoutDetails}</span> {lv.payoutDetailsDesc}
                   </span>
                 </li>
                 <li className="flex gap-2 text-slate-700">
                   <Building2 className="h-4 w-4 shrink-0 text-slate-500 mt-0.5" />
                   <span>
-                    <span className="font-medium">Property proof</span> is optional for trust;{" "}
-                    {identityVerified ? "upload it in the section below." : "you can add it once identity is approved."}
+                    <span className="font-medium">{lv.propertyProof}</span>{" "}
+                    {identityVerified ? lv.propertyProofDescVerified : lv.propertyProofDescPending}
                   </span>
                 </li>
               </ul>
               <Button variant="outline" className="w-full rounded-xl border-slate-200" asChild>
                 <Link href="/landlord/profile" className="flex items-center justify-center gap-2">
-                  Open landlord profile hub
+                  {lv.openProfileHub}
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -440,7 +438,7 @@ export default function LandlordVerificationPage() {
           {/* Upload Section - identity only when not yet submitted / rejected */}
           {showIdentityForm && (
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <h3 className="font-semibold text-slate-900 mb-4">Submit Documents</h3>
+              <h3 className="font-semibold text-slate-900 mb-4">{lv.submitDocuments}</h3>
               
               {status?.identityStatus === "REJECTED" && status.identityRejectionReason && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
@@ -455,12 +453,12 @@ export default function LandlordVerificationPage() {
                 <div>
                   <Label className="text-slate-700 mb-2 block flex items-center gap-2">
                     <FileText className="h-4 w-4" />
-                    ID Document (CNI/Passport) *
+                    {lv.idDocument}
                   </Label>
                   <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                     <Upload className="h-5 w-5 text-slate-400" />
                     <span className="text-sm text-slate-500">
-                      {idDocument ? idDocument.name : "Upload ID Document"}
+                      {idDocument ? idDocument.name : lv.uploadIdDocument}
                     </span>
                     <input
                       type="file"
@@ -475,12 +473,12 @@ export default function LandlordVerificationPage() {
                 <div>
                   <Label className="text-slate-700 mb-2 block flex items-center gap-2">
                     <Camera className="h-4 w-4" />
-                    Selfie with ID (Optional)
+                    {lv.selfie}
                   </Label>
                   <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                     <Upload className="h-5 w-5 text-slate-400" />
                     <span className="text-sm text-slate-500">
-                      {selfie ? selfie.name : "Upload Selfie"}
+                      {selfie ? selfie.name : lv.uploadSelfie}
                     </span>
                     <input
                       type="file"
@@ -495,12 +493,12 @@ export default function LandlordVerificationPage() {
                 <div>
                   <Label className="text-slate-700 mb-2 block flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
-                    Property Ownership Proof (Optional)
+                    {lv.propertyProofOptional}
                   </Label>
                   <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                     <Upload className="h-5 w-5 text-slate-400" />
                     <span className="text-sm text-slate-500">
-                      {propertyDoc ? propertyDoc.name : "Upload Document"}
+                      {propertyDoc ? propertyDoc.name : lv.uploadDocument}
                     </span>
                     <input
                       type="file"
@@ -516,7 +514,7 @@ export default function LandlordVerificationPage() {
                   onClick={handleSubmit}
                   disabled={isSubmitting || !idDocument}
                 >
-                  {isSubmitting ? "Submitting..." : "Submit for Verification"}
+                  {isSubmitting ? lv.submitting : lv.submitForVerification}
                 </Button>
               </div>
             </div>
@@ -547,15 +545,15 @@ export default function LandlordVerificationPage() {
             status?.propertyStatus !== "VERIFIED" &&
             status?.propertyStatus !== "PENDING" && (
               <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
-                <h3 className="font-semibold text-slate-900 mb-1">Optional: property ownership</h3>
+                <h3 className="font-semibold text-slate-900 mb-1">{lv.optionalProperty}</h3>
                 <p className="text-sm text-slate-600 mb-4">
-                  Upload a title deed, lease, or utility bill to strengthen trust. Admin will review when convenient.
+                  {lv.optionalPropertyBody}
                 </p>
-                <Label className="text-slate-700 mb-2 block">Document</Label>
+                <Label className="text-slate-700 mb-2 block">{lv.uploadDocument}</Label>
                 <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                   <Upload className="h-5 w-5 text-slate-400" />
                   <span className="text-sm text-slate-500">
-                    {propertyOnlyDoc ? propertyOnlyDoc.name : "Choose file (image or PDF)"}
+                    {propertyOnlyDoc ? propertyOnlyDoc.name : lv.chooseFile}
                   </span>
                   <input
                     type="file"
@@ -569,7 +567,7 @@ export default function LandlordVerificationPage() {
                   onClick={() => void submitPropertyOnly()}
                   disabled={isPropertySubmitting || !propertyOnlyDoc}
                 >
-                  {isPropertySubmitting ? "Submitting…" : "Submit property proof"}
+                  {isPropertySubmitting ? lv.submitting : lv.submitPropertyProof}
                 </Button>
               </div>
             )}
@@ -579,8 +577,8 @@ export default function LandlordVerificationPage() {
               <div className="flex items-start gap-3">
                 <Clock className="h-5 w-5 text-amber-600 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-amber-800">Property documents under review</h4>
-                  <p className="text-sm text-amber-700 mt-1">We will update this checklist when an admin has reviewed them.</p>
+                  <h4 className="font-medium text-amber-800">{lv.propertyUnderReview}</h4>
+                  <p className="text-sm text-amber-700 mt-1">{lv.propertyUnderReviewBody}</p>
                 </div>
               </div>
             </div>

@@ -17,6 +17,6 @@ class FileUploadControllerSecurityTest {
                 .getAnnotation(PreAuthorize.class);
 
         assertThat(studentId.value()).isEqualTo("hasAnyRole('STUDENT', 'ADMIN')");
-        assertThat(verificationDocument.value()).isEqualTo("hasAnyRole('STUDENT', 'ADMIN')");
+        assertThat(verificationDocument.value()).isEqualTo("hasAnyRole('STUDENT', 'LANDLORD', 'ADMIN')");
     }
 }

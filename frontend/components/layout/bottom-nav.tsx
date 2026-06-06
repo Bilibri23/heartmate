@@ -45,10 +45,10 @@ function studentNavItems(t: TranslationValues): NavItem[] {
   ]
 }
 
-function landlordNavItems(t: { nav: { home: string; applications: string; messages: string; profile: string } }): NavItem[] {
+function landlordNavItems(t: { nav: { home: string; applications: string; messages: string; profile: string; add: string } }): NavItem[] {
   return [
     { href: "/landlord", icon: Home, label: t.nav.home },
-    { href: "/landlord/listings/new", icon: Plus, label: "Add" },
+    { href: "/landlord/listings/new", icon: Plus, label: t.nav.add },
     { href: "/landlord/applications", icon: FileText, label: t.nav.applications },
     { href: "/messages", icon: MessageCircle, label: t.nav.messages },
     { href: "/landlord/profile", icon: User, label: t.nav.profile },

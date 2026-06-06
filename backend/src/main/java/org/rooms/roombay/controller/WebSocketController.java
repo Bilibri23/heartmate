@@ -116,7 +116,7 @@ public class WebSocketController {
      */
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectedEvent event) {
-        log.info("WebSocket connection established: {}", event.getMessage());
+        log.info("WebSocket connection established: sessionId={}", event.getMessage().getHeaders().get("simpSessionId"));
     }
     
     /**
@@ -124,7 +124,7 @@ public class WebSocketController {
      */
     @EventListener
     public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
-        log.info("WebSocket connection closed: {}", event.getMessage());
+        log.info("WebSocket connection closed: sessionId={}", event.getSessionId());
         // Note: User ID extraction from session would require additional setup
         // For now, we rely on explicit disconnect messages from clients
     }

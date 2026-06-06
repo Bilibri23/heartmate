@@ -105,6 +105,7 @@ class ProfileCompletionServiceTest {
 
         assertThat(status.getCompletedSteps()).contains("PROFILE_BASICS", "IDENTITY_VERIFICATION", "PROPERTY_DOCS");
         assertThat(status.getMissingSteps()).doesNotContain("PROFILE_BASICS", "IDENTITY_VERIFICATION");
+        assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_MESSAGE, true);
         assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_LISTING_PUBLISH, true);
     }
 }

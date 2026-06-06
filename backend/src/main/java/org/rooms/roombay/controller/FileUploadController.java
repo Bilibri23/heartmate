@@ -48,7 +48,7 @@ public class FileUploadController {
 
     @PostMapping("/verification-document")
     @Operation(summary = "Upload verification document", description = "Upload ID or selfie for tenant verification (max 10MB)")
-    @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('STUDENT', 'LANDLORD', 'ADMIN')")
     public ResponseEntity<ApiResponse<String>> uploadVerificationDocument(@RequestParam("file") MultipartFile file) {
         log.info("Uploading verification document");
         String url = fileUploadService.uploadVerificationDocument(file);

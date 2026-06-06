@@ -68,8 +68,18 @@ export default function VerificationPage() {
   const [selfiePreviewUrl, setSelfiePreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
+    if (user?.role === "LANDLORD") {
+      router.replace("/landlord/verification")
+    }
+  }, [router, user?.role])
+
+  useEffect(() => {
     const fetchVerification = async () => {
       if (!user?.id) return
+      if (user.role === "LANDLORD") {
+        setIsLoading(false)
+        return
+      }
       
       try {
         const response = await api.get(`/verifications/me`)
@@ -108,7 +118,7 @@ export default function VerificationPage() {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && user?.id) {
+      if (document.visibilityState === 'visible' && user?.id && user.role !== "LANDLORD") {
         const fetchVerification = async () => {
           try {
             const response = await api.get(`/verifications/me`)
@@ -158,6 +168,10 @@ export default function VerificationPage() {
 
   const handleSubmit = async () => {
     if (!user?.id || !formData.idPhotoFile || !formData.selfieFile) return
+    if (user.role === "LANDLORD") {
+      router.replace("/landlord/verification")
+      return
+    }
 
     setIsSubmitting(true)
     setSubmitError(null)
