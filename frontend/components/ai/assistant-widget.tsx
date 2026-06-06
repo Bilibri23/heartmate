@@ -18,6 +18,7 @@ export function AssistantWidget() {
     if (!pathname) return false
     if (pathname === "/") return false
     if (pathname.startsWith("/login") || pathname.startsWith("/register")) return false
+    if (pathname.startsWith("/messages")) return false
     return true
   }, [pathname, user?.id, user?.role])
 
@@ -35,7 +36,7 @@ export function AssistantWidget() {
           onClick={() => setOpen(true)}
           className="h-12 w-12 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700"
           size="icon"
-          aria-label="Open assistant"
+          aria-label="Open RoomBay AI"
         >
           <MessageCircle className="h-5 w-5" />
         </Button>
@@ -48,7 +49,7 @@ export function AssistantWidget() {
               <div className="flex items-center justify-between gap-3">
                 <SheetTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-blue-600" />
-                  RoomBay Assistant
+                  RoomBay AI
                 </SheetTitle>
                 <Button
                   variant="ghost"
@@ -61,7 +62,7 @@ export function AssistantWidget() {
                 </Button>
               </div>
               <p className="text-sm text-slate-500 mt-1">
-                Ask anything about RoomBay. I’ll answer using our docs and features.
+                Ask anything about RoomBay. I will answer using our docs, features, and role-safe platform context.
               </p>
             </SheetHeader>
 
@@ -74,4 +75,3 @@ export function AssistantWidget() {
     </>
   )
 }
-

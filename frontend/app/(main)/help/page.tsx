@@ -74,7 +74,7 @@ export default function HelpPage() {
             <Button asChild variant="outline" className="rounded-xl justify-start h-auto py-3">
               <Link href="/for-you" className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5 text-blue-600 shrink-0" />
-                <span className="text-left text-sm">Open RoomBay Assistant (chat bubble on most screens)</span>
+                <span className="text-left text-sm">Open RoomBay AI (chat bubble on most screens)</span>
               </Link>
             </Button>
             <Button asChild variant="outline" className="rounded-xl justify-start h-auto py-3">

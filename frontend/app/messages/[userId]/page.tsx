@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { messageService, Message, SharedListingInfo } from "@/services/message.service";
+import { messageService, Message, Conversation } from "@/services/message.service";
 import { profileService } from "@/services/profile.service";
 import { listingService, Listing } from "@/services/listing.service";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Send, Loader2, Home, MapPin, Share2, ExternalLink, X, Pencil, Trash2, Check, MoreVertical } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Home, MapPin, Share2, ExternalLink, X, Pencil, Trash2, Check, MoreVertical, Search, MessageSquare } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,8 @@ export default function ChatPage() {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [otherUser, setOtherUser] = useState<{ name: string; avatarUrl?: string | null } | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -72,6 +74,7 @@ export default function ChatPage() {
         // Try to resolve participant name/avatar from conversation list
         try {
           const conversations = await messageService.getConversations();
+          setConversations(conversations);
           const match = conversations.find((conv) => conv.userId === userId);
           if (match && match.userName && match.userName !== 'Unknown User') {
             setOtherUser({ name: match.userName, avatarUrl: match.userAvatar });
@@ -241,6 +244,18 @@ export default function ChatPage() {
     }).format(amount);
   };
 
+  const formatConversationTime = (dateString?: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleTimeString("fr-CM", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const filteredConversations = conversations.filter((conv) => {
+    if (!searchQuery.trim()) return true;
+    return conv.userName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -250,9 +265,67 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col bg-background">
+    <div className="grid h-[calc(100dvh-4rem)] bg-slate-100 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <aside className="hidden min-h-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
+        <div className="border-b border-slate-100 p-5">
+          <h1 className="text-2xl font-semibold text-slate-950">Chats</h1>
+          <div className="relative mt-4">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search conversations"
+              className="h-11 rounded-full border-slate-100 bg-slate-100 pl-9"
+            />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          {filteredConversations.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-slate-500">
+              <MessageSquare className="mb-3 h-9 w-9 text-slate-300" />
+              Conversations will appear here after you send or receive messages.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {filteredConversations.map((conv) => {
+                const active = conv.userId === userId;
+                return (
+                  <Link key={conv.userId} href={`/messages/${conv.userId}`}>
+                    <div className={cn(
+                      "flex items-center gap-3 rounded-2xl p-3 transition-colors",
+                      active ? "bg-blue-50" : "hover:bg-slate-50"
+                    )}>
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={conv.userAvatar || undefined} />
+                        <AvatarFallback className="bg-slate-100 text-slate-700">
+                          {conv.userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate font-medium text-slate-950">{conv.userName}</p>
+                          <span className="shrink-0 text-xs text-slate-400">{formatConversationTime(conv.lastMessageTime)}</span>
+                        </div>
+                        <p className="truncate text-sm text-slate-500">{conv.lastMessage || "No messages yet"}</p>
+                      </div>
+                      {conv.unreadCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-xs font-semibold text-white">
+                          {conv.unreadCount > 9 ? "9+" : conv.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <main className="min-h-0 bg-white lg:m-3 lg:flex lg:overflow-hidden lg:rounded-3xl lg:border lg:border-slate-200 lg:shadow-sm">
+        <div className="flex min-h-0 flex-1 flex-col bg-white">
       {/* Chat Header */}
-      <div className="flex items-center gap-3 border-b bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex items-center gap-3 border-b bg-white p-4">
         <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push("/messages")} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -262,12 +335,12 @@ export default function ChatPage() {
         </Avatar>
         <div className="min-w-0">
           <h2 className="font-semibold">{otherUser?.name || "User"}</h2>
-          <p className="text-xs text-muted-foreground">Tap to start a conversation</p>
+          <p className="text-xs text-muted-foreground">RoomBay messages</p>
         </div>
       </div>
 
       {/* Messages List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-[#f7f4ed] p-4">
         {messages.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-10">
             No messages yet. Say hello 👋
@@ -307,8 +380,8 @@ export default function ChatPage() {
                 className={cn(
                   "max-w-[80%] rounded-2xl shadow-sm overflow-hidden",
                   isMe
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-muted rounded-bl-md"
+                    ? "bg-[#d9fdd3] text-slate-950 rounded-br-md"
+                    : "bg-white text-slate-950 rounded-bl-md"
                 )}
               >
                 {/* Shared Listing Card */}
@@ -374,7 +447,7 @@ export default function ChatPage() {
                     <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
                   )}
                   <div className="flex items-center gap-1 mt-1">
-                    <span className={cn("block text-[10px]", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                    <span className="block text-[10px] text-slate-500">
                       {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                     {(msg as any).isEdited && (
@@ -390,7 +463,7 @@ export default function ChatPage() {
       </div>
 
       {/* Input Area */}
-      <div className="shrink-0 border-t bg-background">
+      <div className="shrink-0 border-t bg-white">
         {/* Selected Listing Preview */}
         {selectedListing && (
           <div className="p-2 border-b bg-slate-50">
@@ -422,8 +495,8 @@ export default function ChatPage() {
           </div>
         )}
         
-        <div className="p-4">
-          <form onSubmit={handleSendMessage} className="flex gap-2">
+        <div className="bg-slate-50 p-3">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
             {/* Share Listing Button */}
             <Sheet open={showListingPicker} onOpenChange={setShowListingPicker}>
               <SheetTrigger asChild>
@@ -432,7 +505,7 @@ export default function ChatPage() {
                   variant="outline" 
                   size="icon"
                   onClick={handleOpenListingPicker}
-                  className="flex-shrink-0"
+                  className="h-11 w-11 flex-shrink-0 rounded-full bg-white"
                   aria-label="Share a listing"
                 >
                   <Share2 className="h-4 w-4" />
@@ -494,12 +567,13 @@ export default function ChatPage() {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder={selectedListing ? "Add a message about this listing..." : "Type a message..."}
-              className="flex-1"
+              className="h-11 flex-1 rounded-full border-slate-200 bg-white px-4"
               disabled={isSending}
             />
             <Button 
               type="submit" 
               size="icon" 
+              className="h-11 w-11 rounded-full"
               disabled={isSending || (!newMessage.trim() && !selectedListing)} 
               aria-label="Send message"
             >
@@ -508,6 +582,8 @@ export default function ChatPage() {
           </form>
         </div>
       </div>
+        </div>
+      </main>
     </div>
   );
 }

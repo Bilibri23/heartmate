@@ -40,10 +40,10 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
     role: "assistant" as const,
     content:
       persona === "ADMIN"
-        ? "Hi! I’m your RoomBay admin assistant. Ask me about verification queues, listing moderation, disputes, reports, support inquiries, and platform policy."
+        ? "Hi! I am RoomBay AI for admins. Ask me about verification queues, listing moderation, disputes, reports, support inquiries, and platform policy."
         : persona === "LANDLORD"
-        ? "Hi! I’m your RoomBay assistant. Ask me about listing approval, applications, leases, payments, or how to use the landlord dashboard."
-        : "Hi! I’m your RoomBay assistant. Ask me about searching, applying, verification, roommate matching, leases, or payments.",
+        ? "Hi! I am RoomBay AI for landlords. Ask me about listing approval, applications, leases, payments, or how to use the landlord dashboard."
+        : "Hi! I am RoomBay AI. Ask me about searching, applying, verification, roommate matching, leases, or payments.",
     createdAt: Date.now(),
   }
   const [messages, setMessages] = useState<ChatMessage[]>(() => [

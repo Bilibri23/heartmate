@@ -76,7 +76,7 @@ export function PlatformTourProvider({ children }: { children: React.ReactNode }
           {
             element: '[data-tour="roombay-ai-assistant"]',
             popover: {
-              title: "RoomBay Assistant",
+              title: "RoomBay AI",
               description: "Tap the chat button for AI help: listings, applications, verification, and how tenants experience Search.",
               side: "left",
             },
@@ -148,7 +148,7 @@ export function PlatformTourProvider({ children }: { children: React.ReactNode }
         {
           element: '[data-tour="roombay-ai-assistant"]',
           popover: {
-            title: "RoomBay Assistant",
+              title: "RoomBay AI",
             description: "Tap the floating chat button for AI help: how to apply, verification, Search, Reels, and more.",
             side: "left",
           },
