@@ -153,4 +153,25 @@ class MigrationCoverageTest {
                 "idx_room_preview_layout_user_listing"
         );
     }
+
+    @Test
+    void preferencesJsonColumnAlignmentIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V52__align_preferences_json_columns.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains(
+                "alter table roommate_preferences",
+                "alter column preferred_locations type jsonb",
+                "alter table listing_preferences",
+                "alter column property_types type jsonb",
+                "using to_jsonb"
+        );
+    }
 }

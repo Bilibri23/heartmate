@@ -93,7 +93,10 @@ public class ProfileCompletionService {
             return true;
         }
         return switch (operation) {
-            case OP_APPLY, OP_MESSAGE, OP_PAYMENT -> user.getRole() == User.UserRole.STUDENT &&
+            case OP_MESSAGE -> user.getRole() == User.UserRole.STUDENT &&
+                    !missing.contains("CONTACT_VERIFIED") &&
+                    !missing.contains("PROFILE_BASICS");
+            case OP_APPLY, OP_PAYMENT -> user.getRole() == User.UserRole.STUDENT &&
                     !missing.contains("CONTACT_VERIFIED") &&
                     !missing.contains("PROFILE_BASICS") &&
                     !missing.contains("PREFERENCES") &&

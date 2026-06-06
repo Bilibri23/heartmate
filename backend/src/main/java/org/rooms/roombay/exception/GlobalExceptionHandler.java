@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.security.VerificationRequiredException;
+import org.rooms.roombay.security.ProfileCompletionRequiredException;
 import org.rooms.roombay.service.AppErrorLogService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
@@ -149,6 +150,18 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.FORBIDDEN.value())
                 .error("Verification Required")
                 .message(ex.getMessage())
+                .build();
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    @ExceptionHandler(ProfileCompletionRequiredException.class)
+    public ResponseEntity<ErrorResponse> handleProfileCompletionRequiredException(ProfileCompletionRequiredException ex) {
+        log.warn("Profile completion required: {}", ex.getMessage());
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .error("Profile Completion Required")
+                .message("Please finish the required profile steps before using this feature.")
                 .build();
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }

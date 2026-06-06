@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Send, Loader2, Home, MapPin, Share2, ExternalLink, X, Pencil, Trash2, Check, MoreVertical, Search, MessageSquare } from "lucide-react";
+import { ArrowLeft, Send, Loader2, Home, MapPin, Share2, ExternalLink, X, Pencil, Trash2, Check, MoreVertical, Search, MessageSquare, AlertCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,6 +37,7 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [showListingPicker, setShowListingPicker] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
@@ -185,6 +186,7 @@ export default function ChatPage() {
     if ((!newMessage.trim() && !selectedListing) || !userId) return;
 
     setIsSending(true);
+    setSendError(null);
     try {
       const content = selectedListing 
         ? (newMessage.trim() || `Check out this listing: ${selectedListing.title}`)
@@ -200,6 +202,14 @@ export default function ChatPage() {
       setSelectedListing(null);
     } catch (error) {
       console.error("Failed to send message", error);
+      const ax = error as { response?: { status?: number; data?: { message?: string; error?: string } } };
+      if (ax.response?.status === 403 && ax.response.data?.error === "Profile Completion Required") {
+        setSendError("Please complete your basic profile before messaging.");
+      } else if (ax.response?.status && ax.response.status >= 500) {
+        setSendError("Message could not be sent right now. Please try again shortly.");
+      } else {
+        setSendError(ax.response?.data?.message || "Message could not be sent.");
+      }
     } finally {
       setIsSending(false);
     }
@@ -258,14 +268,14 @@ export default function ChatPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-[calc(100dvh-4rem)] items-center justify-center bg-slate-50">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="grid h-[calc(100dvh-4rem)] bg-slate-100 lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="grid h-[calc(100dvh-4rem)] min-h-0 overflow-hidden bg-slate-100 lg:grid-cols-[360px_minmax(0,1fr)]">
       <aside className="hidden min-h-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
         <div className="border-b border-slate-100 p-5">
           <h1 className="text-2xl font-semibold text-slate-950">Chats</h1>
@@ -325,25 +335,31 @@ export default function ChatPage() {
       <main className="min-h-0 bg-white lg:m-3 lg:flex lg:overflow-hidden lg:rounded-3xl lg:border lg:border-slate-200 lg:shadow-sm">
         <div className="flex min-h-0 flex-1 flex-col bg-white">
       {/* Chat Header */}
-      <div className="flex items-center gap-3 border-b bg-white p-4">
-        <Button variant="ghost" size="icon" className="md:hidden" onClick={() => router.push("/messages")} aria-label="Back">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-3 sm:px-4">
+        <Button variant="ghost" size="icon" className="shrink-0 rounded-full md:hidden" onClick={() => router.push("/messages")} aria-label="Back">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <Avatar>
+        <Avatar className="h-11 w-11">
           <AvatarImage src={otherUser?.avatarUrl || undefined} />
-          <AvatarFallback>{otherUser?.name?.substring(0, 1) || "?"}</AvatarFallback>
+          <AvatarFallback className="bg-slate-100 font-semibold text-slate-800">{otherUser?.name?.substring(0, 1) || "?"}</AvatarFallback>
         </Avatar>
-        <div className="min-w-0">
-          <h2 className="font-semibold">{otherUser?.name || "User"}</h2>
-          <p className="text-xs text-muted-foreground">RoomBay messages</p>
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate font-semibold text-slate-950">{otherUser?.name || "User"}</h2>
+          <p className="truncate text-xs text-slate-500">Message safely inside RoomBay</p>
         </div>
       </div>
 
       {/* Messages List */}
-      <div className="flex-1 space-y-4 overflow-y-auto bg-[#f7f4ed] p-4">
+      <div className="flex-1 space-y-3 overflow-y-auto bg-[#f8f5ee] px-3 py-4 sm:p-4">
         {messages.length === 0 && (
-          <div className="text-center text-sm text-muted-foreground py-10">
-            No messages yet. Say hello 👋
+          <div className="flex h-full min-h-[280px] items-center justify-center">
+            <div className="max-w-xs rounded-3xl bg-white/85 px-6 py-5 text-center shadow-sm ring-1 ring-slate-200">
+              <MessageSquare className="mx-auto mb-3 h-9 w-9 text-blue-500" />
+              <p className="text-base font-semibold text-slate-900">Start the conversation</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Ask about availability, viewing time, or listing details.
+              </p>
+            </div>
           </div>
         )}
         {messages.map((msg) => {
@@ -378,7 +394,7 @@ export default function ChatPage() {
               )}
               <div
                 className={cn(
-                  "max-w-[80%] rounded-2xl shadow-sm overflow-hidden",
+                  "max-w-[82%] overflow-hidden rounded-2xl text-[15px] shadow-sm sm:max-w-[70%]",
                   isMe
                     ? "bg-[#d9fdd3] text-slate-950 rounded-br-md"
                     : "bg-white text-slate-950 rounded-bl-md"
@@ -444,7 +460,7 @@ export default function ChatPage() {
                       </Button>
                     </div>
                   ) : (
-                    <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{msg.content}</p>
                   )}
                   <div className="flex items-center gap-1 mt-1">
                     <span className="block text-[10px] text-slate-500">
@@ -463,10 +479,10 @@ export default function ChatPage() {
       </div>
 
       {/* Input Area */}
-      <div className="shrink-0 border-t bg-white">
+      <div className="shrink-0 border-t border-slate-200 bg-white">
         {/* Selected Listing Preview */}
         {selectedListing && (
-          <div className="p-2 border-b bg-slate-50">
+          <div className="border-b border-slate-200 bg-slate-50 p-2">
             <div className="flex items-center gap-3 p-2 bg-white rounded-lg border">
               {(selectedListing.primaryPhotoUrl || selectedListing.images?.[0]) ? (
                 <img 
@@ -495,8 +511,28 @@ export default function ChatPage() {
           </div>
         )}
         
-        <div className="bg-slate-50 p-3">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+        <div className="bg-slate-50 p-2.5 sm:p-3">
+          {sendError && (
+            <div className="mb-2 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p>{sendError}</p>
+                {sendError.includes("profile") && (
+                  <button
+                    type="button"
+                    className="mt-1 font-semibold text-amber-950 underline-offset-2 hover:underline"
+                    onClick={() => router.push("/profile/edit")}
+                  >
+                    Complete profile
+                  </button>
+                )}
+              </div>
+              <button type="button" onClick={() => setSendError(null)} aria-label="Dismiss send error">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          <form onSubmit={handleSendMessage} className="flex items-end gap-2">
             {/* Share Listing Button */}
             <Sheet open={showListingPicker} onOpenChange={setShowListingPicker}>
               <SheetTrigger asChild>
@@ -567,17 +603,17 @@ export default function ChatPage() {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder={selectedListing ? "Add a message about this listing..." : "Type a message..."}
-              className="h-11 flex-1 rounded-full border-slate-200 bg-white px-4"
+              className="h-11 flex-1 rounded-full border-slate-200 bg-white px-4 text-base shadow-sm"
               disabled={isSending}
             />
             <Button 
               type="submit" 
               size="icon" 
-              className="h-11 w-11 rounded-full"
+              className="h-11 w-11 shrink-0 rounded-full bg-slate-950 text-white hover:bg-slate-800"
               disabled={isSending || (!newMessage.trim() && !selectedListing)} 
               aria-label="Send message"
             >
-              <Send className="h-4 w-4" />
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
         </div>
