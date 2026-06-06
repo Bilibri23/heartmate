@@ -1,6 +1,8 @@
 package org.rooms.roombay.service;
 
 import org.junit.jupiter.api.Test;
+import org.rooms.roombay.entity.LandlordVerification;
+import org.rooms.roombay.entity.StudentVerification;
 import org.rooms.roombay.entity.User;
 import org.rooms.roombay.repository.LandlordVerificationRepository;
 import org.rooms.roombay.repository.ProfileRepository;
@@ -51,5 +53,58 @@ class ProfileCompletionServiceTest {
         assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_MESSAGE, true);
         assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_APPLY, false);
         assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_PAYMENT, false);
+    }
+
+    @Test
+    void verifiedStudentLegacyAccountDoesNotNeedToVerifyAgainWhenProfileRowIsMissing() {
+        UUID userId = UUID.randomUUID();
+        User user = User.builder()
+                .id(userId)
+                .role(User.UserRole.STUDENT)
+                .emailVerified(true)
+                .phoneVerified(false)
+                .build();
+        StudentVerification verification = StudentVerification.builder()
+                .user(user)
+                .status(StudentVerification.Status.VERIFIED)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(profileRepository.existsByUserId(userId)).thenReturn(false);
+        when(roommatePreferencesRepository.existsByUserId(userId)).thenReturn(true);
+        when(studentVerificationRepository.findByUserId(userId)).thenReturn(Optional.of(verification));
+
+        var status = service.getCompletionStatus(userId);
+
+        assertThat(status.getCompletedSteps()).contains("PROFILE_BASICS", "IDENTITY_VERIFICATION");
+        assertThat(status.getMissingSteps()).doesNotContain("PROFILE_BASICS", "IDENTITY_VERIFICATION");
+        assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_MESSAGE, true);
+        assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_APPLY, true);
+    }
+
+    @Test
+    void verifiedLandlordLegacyAccountDoesNotNeedToVerifyAgainWhenProfileRowIsMissing() {
+        UUID userId = UUID.randomUUID();
+        User user = User.builder()
+                .id(userId)
+                .role(User.UserRole.LANDLORD)
+                .emailVerified(true)
+                .phoneVerified(false)
+                .build();
+        LandlordVerification verification = LandlordVerification.builder()
+                .user(user)
+                .identityStatus(LandlordVerification.VerificationStatus.VERIFIED)
+                .propertyOwnershipDocUrl("https://res.cloudinary.com/example/image/upload/property-doc.jpg")
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(profileRepository.existsByUserId(userId)).thenReturn(false);
+        when(landlordVerificationRepository.findByUserId(userId)).thenReturn(Optional.of(verification));
+
+        var status = service.getCompletionStatus(userId);
+
+        assertThat(status.getCompletedSteps()).contains("PROFILE_BASICS", "IDENTITY_VERIFICATION", "PROPERTY_DOCS");
+        assertThat(status.getMissingSteps()).doesNotContain("PROFILE_BASICS", "IDENTITY_VERIFICATION");
+        assertThat(status.getOperationEligibility()).containsEntry(ProfileCompletionService.OP_LISTING_PUBLISH, true);
     }
 }

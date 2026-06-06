@@ -44,13 +44,13 @@ public class ProfileCompletionService {
         boolean contactVerified =
                 Boolean.TRUE.equals(user.getEmailVerified()) || Boolean.TRUE.equals(user.getPhoneVerified());
         addStep(contactVerified, "CONTACT_VERIFIED", completed, missing);
-        addStep(profileRepository.existsByUserId(userId), "PROFILE_BASICS", completed, missing);
 
         if (user.getRole() == User.UserRole.STUDENT) {
             boolean hasPreferences = roommatePreferencesRepository.existsByUserId(userId);
             boolean isIdentityVerified = studentVerificationRepository.findByUserId(userId)
                     .map(v -> v.getStatus() == StudentVerification.Status.VERIFIED)
                     .orElse(false);
+            addStep(hasProfileBasics(userId, user, isIdentityVerified), "PROFILE_BASICS", completed, missing);
             addStep(hasPreferences, "PREFERENCES", completed, missing);
             addStep(isIdentityVerified, "IDENTITY_VERIFICATION", completed, missing);
         } else if (user.getRole() == User.UserRole.LANDLORD) {
@@ -60,6 +60,7 @@ public class ProfileCompletionService {
                     (v.getPropertyOwnershipDocUrl() != null && !v.getPropertyOwnershipDocUrl().isBlank()) ||
                     (v.getUtilityBillUrl() != null && !v.getUtilityBillUrl().isBlank())
             ).orElse(false);
+            addStep(hasProfileBasics(userId, user, identityVerified), "PROFILE_BASICS", completed, missing);
             addStep(identityVerified, "IDENTITY_VERIFICATION", completed, missing);
             // Business KYC is optional for landlords — not part of completion % or publish gate.
             addStep(propertyDocs, "PROPERTY_DOCS", completed, missing);
@@ -116,5 +117,16 @@ public class ProfileCompletionService {
         } else {
             missing.add(step);
         }
+    }
+
+    private boolean hasProfileBasics(UUID userId, User user, boolean identityVerified) {
+        if (profileRepository.existsByUserId(userId)) {
+            return true;
+        }
+        if (Boolean.TRUE.equals(user.getProfileCompleted())) {
+            return true;
+        }
+        // Legacy verified accounts may not have a row in profiles yet.
+        return identityVerified;
     }
 }

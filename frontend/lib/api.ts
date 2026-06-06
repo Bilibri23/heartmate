@@ -7,11 +7,9 @@ const API_URL =
     ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082'}/api`
     : '/api';
 
-// Multipart and uploadApi must use the same base as `api` in dev (not localhost:8082 on the phone).
-const BACKEND_URL =
-  process.env.NODE_ENV === 'production'
-    ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082'}/api`
-    : '/api';
+// Uploads go through the same-origin Next proxy. This avoids browser/proxy HTTP2
+// failures on cross-origin multipart requests while still reaching Spring.
+const UPLOAD_API_URL = '/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -20,9 +18,9 @@ const api = axios.create({
   },
 });
 
-// Direct API instance for file uploads (bypasses Next.js proxy)
+// API instance for multipart uploads.
 export const uploadApi = axios.create({
-  baseURL: BACKEND_URL,
+  baseURL: UPLOAD_API_URL,
 });
 
 type RetriableRequest = {
