@@ -9,9 +9,9 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
 import {
-  Search, X, ChevronLeft, ChevronRight, List, Map,
+  Search, X, Map, LayoutGrid, Rows3,
   Navigation, Bookmark, BookmarkPlus, Bell, Sparkles,
-  SlidersHorizontal, ChevronDown, MapPin, BedDouble,
+  ChevronDown, MapPin, BedDouble,
   Home, DollarSign, Check, Loader2, Clapperboard, Armchair,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -211,6 +211,7 @@ interface Filters {
 }
 
 interface UserLocation { lat: number; lon: number }
+type SearchViewMode = "grid" | "compact" | "map" | "reels"
 // API returns flat fields (city, neighborhood, etc.), not nested filters
 interface SavedSearch {
   id: string; name: string
@@ -256,7 +257,7 @@ export default function SearchPage() {
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
-  const [viewMode, setViewMode] = useState<"list" | "map" | "reels">("list")
+  const [viewMode, setViewMode] = useState<SearchViewMode>("grid")
 
   // Saved searches
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
@@ -339,7 +340,10 @@ export default function SearchPage() {
       const res = await api.get("/search", { params })
       const data = res.data
       const content = data?.content || data || []
-      setListings(content)
+      setListings(page === 0 ? content : (prev) => {
+        const seen = new Set(prev.map((listing) => listing.id))
+        return [...prev, ...content.filter((listing: Listing) => !seen.has(listing.id))]
+      })
       setTotalPages(data?.totalPages || 1)
       setTotalElements(data?.totalElements || content.length)
       setCurrentPage(data?.number || 0)
@@ -746,20 +750,28 @@ export default function SearchPage() {
             </div>
             {/* View toggle — List / Map / Reels (reels only when enough video-tour inventory) */}
             <div className="flex bg-slate-100 rounded-full p-0.5">
-              <button type="button" onClick={() => setViewMode("list")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "list" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}>
-                <List className="h-3.5 w-3.5" />
+              <button type="button" onClick={() => setViewMode("grid")}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "grid" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}
+                aria-label="Grid view">
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => setViewMode("compact")}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "compact" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}
+                aria-label="Compact list view">
+                <Rows3 className="h-3.5 w-3.5" />
               </button>
               <button type="button" onClick={() => setViewMode("map")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "map" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}>
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "map" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"}`}
+                aria-label="Map view">
                 <Map className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 data-tour="search-reels-btn"
                 onClick={() => setViewMode("reels")}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"}`}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${viewMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"}`}
                 title="Property tours"
+                aria-label="Video reels view"
               >
                 <Clapperboard className="h-3.5 w-3.5" />
               </button>
@@ -772,7 +784,7 @@ export default function SearchPage() {
           <ReelsFeed
             listings={listings}
             onFavoriteToggle={handleFavoriteToggle}
-            onClose={() => setViewMode("list")}
+            onClose={() => setViewMode("grid")}
           />
         )}
 
@@ -806,8 +818,8 @@ export default function SearchPage() {
           </div>
         )}
 
-        {/* List view */}
-        {viewMode === "list" && (
+        {/* Grid / compact views */}
+        {(viewMode === "grid" || viewMode === "compact") && (
           <div className="px-4 pb-6">
             {/* Loading skeletons */}
             {isLoading && (
@@ -840,15 +852,17 @@ export default function SearchPage() {
             {/* Listings grid */}
             {!isLoading && listings.length > 0 && (
               <>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2" : "space-y-3"}>
                   {listings.map(listing => (
                     <ListingCard
                       key={listing.id}
+                      variant={viewMode === "grid" ? "grid" : "compact"}
                       id={listing.id}
                       title={listing.title}
                       price={listing.rentAmount}
                       city={listing.city}
                       neighborhood={listing.neighborhood}
+                      propertyType={listing.propertyType}
                       bedrooms={listing.bedrooms}
                       bathrooms={listing.bathrooms}
                       imageUrl={listing.photos?.find(p => p.isPrimary)?.photoUrl || listing.photos?.[0]?.photoUrl}
@@ -856,25 +870,40 @@ export default function SearchPage() {
                       trustTier={listing.trustTier}
                       isFeatured={listing.featured}
                       isFavorited={listing.isFavorited}
+                      videoUrl={listing.videoTourUrl}
+                      aiInsight={
+                        listing.propertyType === "SHARED_ROOM" || listing.propertyType === "PRIVATE_ROOM"
+                          ? "Good for shared accommodation"
+                          : listing.verified
+                            ? "Verified owner"
+                            : undefined
+                      }
+                      roommateTags={
+                        listing.propertyType === "SHARED_ROOM" || listing.propertyType === "PRIVATE_ROOM"
+                          ? ["Roommate-ready"]
+                          : []
+                      }
                       onFavoriteToggle={handleFavoriteToggle}
                     />
                   ))}
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-3 py-6">
-                    <Button variant="outline" size="sm" className="rounded-full"
-                      disabled={currentPage === 0} onClick={() => fetchListings(currentPage - 1)}>
-                      <ChevronLeft className="h-4 w-4 mr-1" /> {t.search.prev}
+                {/* Incremental loading */}
+                {totalPages > 1 && currentPage < totalPages - 1 && (
+                  <div className="flex flex-col items-center gap-2 py-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-11 rounded-full px-6"
+                      disabled={isLoading}
+                      onClick={() => fetchListings(currentPage + 1)}
+                    >
+                      {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Load more
                     </Button>
-                    <span className="text-sm text-slate-500 font-medium">
-                      {currentPage + 1} / {totalPages}
+                    <span className="text-xs text-slate-500">
+                      Showing {listings.length} of {totalElements}
                     </span>
-                    <Button variant="outline" size="sm" className="rounded-full"
-                      disabled={currentPage >= totalPages - 1} onClick={() => fetchListings(currentPage + 1)}>
-                      {t.common.next} <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
                   </div>
                 )}
               </>

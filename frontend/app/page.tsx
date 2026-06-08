@@ -206,10 +206,10 @@ export default function LandingPage() {
               </div>
 
               <h1 className="max-w-4xl text-[1.6rem] font-semibold leading-[1.15] tracking-[-0.02em] text-white sm:text-[2.25rem] md:text-[2.75rem] lg:text-[3.25rem]">
-                Swipe Through Verified Rentals in Cameroon
+                Find verified homes in Cameroon with AI.
               </h1>
               <p className="mt-4 max-w-2xl text-[0.95rem] leading-7 text-white/65 sm:mt-5 sm:text-base sm:leading-8 md:text-lg">
-                Discover apartments, studios, and rooms in Douala & Yaoundé through AI-powered search and immersive video tours.
+                Browse apartments like TikTok, match roommates for shared accommodation, and get AI help through every rental step.
               </p>
 
               <div className="mt-6 sm:mt-8">
@@ -247,18 +247,18 @@ export default function LandingPage() {
                 <Link href="/listings">
                   <Button size="lg" className="h-12 w-full rounded-full bg-white px-6 text-sm font-semibold text-slate-950 hover:bg-slate-200 sm:h-14 sm:w-auto sm:text-base">
                     <Search className="mr-2 h-5 w-5" />
-                    Browse Listings
+                    Explore Homes
                   </Button>
                 </Link>
-                <Link href="/register">
+                <Link href="/matches">
                   <Button size="lg" variant="outline" className="h-12 w-full rounded-full border-white/15 bg-white/6 px-6 text-sm text-white hover:bg-white/10 sm:h-14 sm:w-auto sm:text-base">
-                    Create Account
+                    Find Roommates
                   </Button>
                 </Link>
-                <Link href="/register?role=LANDLORD">
+                <Link href="/for-you?assistant=open">
                   <Button size="lg" variant="outline" className="h-12 w-full rounded-full border-white/15 bg-white/6 px-6 text-sm text-white hover:bg-white/10 sm:h-14 sm:w-auto sm:text-base">
-                    <Building2 className="mr-2 h-5 w-5" />
-                    List Your Property
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Try AI Assistant
                   </Button>
                 </Link>
               </div>

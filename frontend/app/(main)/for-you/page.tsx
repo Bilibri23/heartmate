@@ -23,6 +23,8 @@ interface RecommendedListing {
   neighborhood: string
   propertyType: string
   primaryPhotoUrl: string | null
+  videoTourUrl?: string | null
+  virtualTourProvider?: string | null
   bedrooms: number
   bathrooms: number
   matchScore: number
@@ -72,6 +74,8 @@ export default function ForYouPage() {
       neighborhood: String(l.neighborhood ?? ""),
       propertyType: String(l.propertyType ?? ""),
       primaryPhotoUrl: firstPhoto || (l.primaryPhotoUrl as string) || null,
+      videoTourUrl: (l.videoTourUrl as string) || (l.videoTour as { videoUrl?: string } | undefined)?.videoUrl || null,
+      virtualTourProvider: (l.virtualTourProvider as string) || null,
       bedrooms: Number(l.bedrooms ?? 0),
       bathrooms: Number(l.bathrooms ?? 0),
       matchScore: Number(l.matchScore ?? l.totalScore ?? l.compatibilityScore ?? 0),
@@ -165,6 +169,67 @@ export default function ForYouPage() {
     }
   }
 
+  const aiInsightFor = (listing: RecommendedListing) => {
+    if (listing.recommendationReasonCodes?.includes("WITHIN_BUDGET")) return "AI suggests this based on your budget"
+    if (listing.recommendationReasonCodes?.includes("TRENDING_VIEWS")) return `Popular in ${listing.city}`
+    if (listing.recommendationReasonCodes?.includes("NEAR_UNIVERSITY")) return "Good for students"
+    if (listing.propertyType === "SHARED_ROOM" || listing.propertyType === "PRIVATE_ROOM") return "Good for shared accommodation"
+    if (listing.verified || listing.trustTier === "VERIFIED" || listing.trustTier === "HIGH") return "Verified owner"
+    return listing.matchScore >= 70 ? "Strong match based on your preferences" : "AI-picked for your search"
+  }
+
+  const roommateTagsFor = (listing: RecommendedListing) =>
+    listing.propertyType === "SHARED_ROOM" || listing.propertyType === "PRIVATE_ROOM"
+      ? ["Roommate-ready"]
+      : []
+
+  const DiscoverStack = ({ items }: { items: RecommendedListing[] }) => {
+    if (items.length === 0) return null
+    return (
+      <section className="mb-6" aria-labelledby="immersive-discovery-heading">
+        <div className="px-4 pb-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">AI discovery</p>
+          <h2 id="immersive-discovery-heading" className="mt-1 text-2xl font-extrabold text-slate-950">
+            Browse homes like a tour feed
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Swipe through verified picks, videos, and roommate-ready homes.
+          </p>
+        </div>
+        <div className="snap-y snap-mandatory space-y-4 overflow-y-auto px-4 pb-2 motion-reduce:snap-none">
+          {items.slice(0, 6).map((listing) => (
+            <ListingCard
+              key={listing.listingId}
+              variant="discover"
+              id={listing.listingId}
+              title={listing.title}
+              price={listing.rentAmount}
+              city={listing.city}
+              neighborhood={listing.neighborhood}
+              propertyType={listing.propertyType}
+              bedrooms={listing.bedrooms}
+              bathrooms={listing.bathrooms}
+              imageUrl={listing.primaryPhotoUrl || undefined}
+              videoUrl={listing.virtualTourProvider === "video" ? listing.videoTourUrl || undefined : undefined}
+              isVerified={listing.verified}
+              trustTier={listing.trustTier}
+              isFeatured={listing.featured}
+              isFavorited={listing.isFavorited}
+              matchScore={listing.matchScore}
+              rating={listing.averageRating}
+              status={listing.status}
+              isAvailable={listing.isAvailable}
+              reasonCodes={listing.recommendationReasonCodes}
+              aiInsight={aiInsightFor(listing)}
+              roommateTags={roommateTagsFor(listing)}
+              onFavoriteToggle={handleFavoriteToggle}
+            />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
   const ListingRow = ({ title, subtitle, icon: Icon, iconBg, listings, emptyMsg, showRank, sectionId }: {
     title: string; subtitle?: string; icon: React.ElementType; iconBg: string
     listings: RecommendedListing[]; emptyMsg: string; showRank?: boolean
@@ -189,21 +254,24 @@ export default function ForYouPage() {
           aria-label={title}
         >
           {listings.map((listing, index) => (
-            <div key={listing.listingId} className="flex-shrink-0 w-72 snap-start relative">
+            <div key={listing.listingId} className="flex-shrink-0 w-64 snap-start relative">
               {showRank && index < 3 && (
                 <div className="absolute -top-2 -left-2 z-10 w-8 h-8 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg">
                   {index + 1}
                 </div>
               )}
               <ListingCard
+                variant="grid"
                 id={listing.listingId}
                 title={listing.title}
                 price={listing.rentAmount}
                 city={listing.city}
                 neighborhood={listing.neighborhood}
+                propertyType={listing.propertyType}
                 bedrooms={listing.bedrooms}
                 bathrooms={listing.bathrooms}
                 imageUrl={listing.primaryPhotoUrl || undefined}
+                videoUrl={listing.videoTourUrl || undefined}
                 isVerified={listing.verified}
                 trustTier={listing.trustTier}
                 isFeatured={listing.featured}
@@ -213,6 +281,8 @@ export default function ForYouPage() {
                 status={listing.status}
                 isAvailable={listing.isAvailable}
                 reasonCodes={listing.recommendationReasonCodes}
+                aiInsight={aiInsightFor(listing)}
+                roommateTags={roommateTagsFor(listing)}
                 onFavoriteToggle={handleFavoriteToggle}
               />
             </div>
@@ -294,6 +364,8 @@ export default function ForYouPage() {
 
           {!isLoading && (listings.length > 0 || trendingListings.length > 0 || recentListings.length > 0) && (
             <>
+              <DiscoverStack items={listings.length > 0 ? listings : [...trendingListings, ...recentListings]} />
+
               <div className="px-4 pb-4">
                 <NextStepCard
                   title="What happens next?"
@@ -304,18 +376,19 @@ export default function ForYouPage() {
                 />
               </div>
 
-              {/* Row 1: For You */}
-              <div data-tour="tenant-feed">
-                <ListingRow
-                  title={t.nav.discoverHome}
-                  subtitle={user ? t.discovery.forYouPersonalized : t.discovery.forYouGuest}
-                  icon={Star}
-                  iconBg="bg-amber-100 text-amber-600"
-                  listings={listings}
-                  emptyMsg={user ? t.discovery.forYouEmptyPrefs : t.discovery.forYouEmptyList}
-                  sectionId="feed-for-you-heading"
-                />
-              </div>
+              {listings.length > 6 && (
+                <div data-tour="tenant-feed">
+                  <ListingRow
+                    title="More AI picks"
+                    subtitle={user ? t.discovery.forYouPersonalized : t.discovery.forYouGuest}
+                    icon={Star}
+                    iconBg="bg-amber-100 text-amber-600"
+                    listings={listings.slice(6)}
+                    emptyMsg={user ? t.discovery.forYouEmptyPrefs : t.discovery.forYouEmptyList}
+                    sectionId="feed-for-you-heading"
+                  />
+                </div>
+              )}
 
               {/* Row 2: Trending */}
               <ListingRow

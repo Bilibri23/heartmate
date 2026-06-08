@@ -1087,15 +1087,16 @@ export default function ListingDetailPage() {
                 <CalendarDays className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="h-[70vh] rounded-t-3xl">
-              <SheetHeader>
+            <SheetContent side="bottom" className="max-h-[85dvh] overflow-hidden rounded-t-3xl p-0">
+              <SheetHeader className="px-6 pb-3 pt-6">
                 <SheetTitle className="flex items-center gap-2">
                   <CalendarDays className="h-5 w-5 text-blue-600" />
                   {t.listingDetail.scheduleViewing}
                 </SheetTitle>
               </SheetHeader>
 
-              <div className="mt-6 space-y-4">
+              <div className="max-h-[calc(85dvh-5.5rem)] overflow-y-auto px-6 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
+                <div className="space-y-4 pb-4">
                 {completionStatus && !canApply && <CompletionBanner status={completionStatus} />}
                 <div className="bg-blue-50 rounded-xl p-4">
                   <p className="text-sm text-blue-800">
@@ -1139,9 +1140,10 @@ export default function ListingDetailPage() {
                     className="min-h-[80px] rounded-xl"
                   />
                 </div>
+                </div>
 
                 <Button
-                  className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700"
+                  className="sticky bottom-0 w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 shadow-[0_-12px_24px_rgba(255,255,255,0.95)]"
                   onClick={handleScheduleViewing}
                   disabled={isScheduling || !viewingDate || !viewingTime || Boolean(existingApplication) || listing?.status !== "ACTIVE"}
                 >
