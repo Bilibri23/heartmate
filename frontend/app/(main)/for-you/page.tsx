@@ -183,53 +183,6 @@ export default function ForYouPage() {
       ? ["Roommate-ready"]
       : []
 
-  const DiscoverStack = ({ items }: { items: RecommendedListing[] }) => {
-    if (items.length === 0) return null
-    return (
-      <section className="mb-6" aria-labelledby="immersive-discovery-heading">
-        <div className="px-4 pb-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">AI discovery</p>
-          <h2 id="immersive-discovery-heading" className="mt-1 text-2xl font-extrabold text-slate-950">
-            Browse homes like a tour feed
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Swipe through verified picks, videos, and roommate-ready homes.
-          </p>
-        </div>
-        <div className="snap-y snap-mandatory space-y-4 overflow-y-auto px-4 pb-2 motion-reduce:snap-none">
-          {items.slice(0, 6).map((listing) => (
-            <ListingCard
-              key={listing.listingId}
-              variant="discover"
-              id={listing.listingId}
-              title={listing.title}
-              price={listing.rentAmount}
-              city={listing.city}
-              neighborhood={listing.neighborhood}
-              propertyType={listing.propertyType}
-              bedrooms={listing.bedrooms}
-              bathrooms={listing.bathrooms}
-              imageUrl={listing.primaryPhotoUrl || undefined}
-              videoUrl={listing.virtualTourProvider === "video" ? listing.videoTourUrl || undefined : undefined}
-              isVerified={listing.verified}
-              trustTier={listing.trustTier}
-              isFeatured={listing.featured}
-              isFavorited={listing.isFavorited}
-              matchScore={listing.matchScore}
-              rating={listing.averageRating}
-              status={listing.status}
-              isAvailable={listing.isAvailable}
-              reasonCodes={listing.recommendationReasonCodes}
-              aiInsight={aiInsightFor(listing)}
-              roommateTags={roommateTagsFor(listing)}
-              onFavoriteToggle={handleFavoriteToggle}
-            />
-          ))}
-        </div>
-      </section>
-    )
-  }
-
   const ListingRow = ({ title, subtitle, icon: Icon, iconBg, listings, emptyMsg, showRank, sectionId }: {
     title: string; subtitle?: string; icon: React.ElementType; iconBg: string
     listings: RecommendedListing[]; emptyMsg: string; showRank?: boolean
@@ -364,8 +317,6 @@ export default function ForYouPage() {
 
           {!isLoading && (listings.length > 0 || trendingListings.length > 0 || recentListings.length > 0) && (
             <>
-              <DiscoverStack items={listings.length > 0 ? listings : [...trendingListings, ...recentListings]} />
-
               <div className="px-4 pb-4">
                 <NextStepCard
                   title="What happens next?"
@@ -376,19 +327,17 @@ export default function ForYouPage() {
                 />
               </div>
 
-              {listings.length > 6 && (
-                <div data-tour="tenant-feed">
-                  <ListingRow
-                    title="More AI picks"
-                    subtitle={user ? t.discovery.forYouPersonalized : t.discovery.forYouGuest}
-                    icon={Star}
-                    iconBg="bg-amber-100 text-amber-600"
-                    listings={listings.slice(6)}
-                    emptyMsg={user ? t.discovery.forYouEmptyPrefs : t.discovery.forYouEmptyList}
-                    sectionId="feed-for-you-heading"
-                  />
-                </div>
-              )}
+              <div data-tour="tenant-feed">
+                <ListingRow
+                  title={t.nav.discoverHome}
+                  subtitle={user ? t.discovery.forYouPersonalized : t.discovery.forYouGuest}
+                  icon={Star}
+                  iconBg="bg-amber-100 text-amber-600"
+                  listings={listings}
+                  emptyMsg={user ? t.discovery.forYouEmptyPrefs : t.discovery.forYouEmptyList}
+                  sectionId="feed-for-you-heading"
+                />
+              </div>
 
               {/* Row 2: Trending */}
               <ListingRow
