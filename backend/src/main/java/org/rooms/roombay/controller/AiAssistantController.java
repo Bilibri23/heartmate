@@ -19,9 +19,17 @@ import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -45,6 +53,62 @@ public class AiAssistantController {
     @Operation(summary = "Chat with assistant", description = "Tenant/Landlord assistant grounded in platform docs")
     public ResponseEntity<AiChatResponse> chat(@Valid @RequestBody AiChatRequest request) {
         return ResponseEntity.ok(aiAssistantService.chat(request));
+    }
+
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Stream assistant progress", description = "SSE progress events with the same final payload as /api/ai/chat")
+    public SseEmitter chatStream(@Valid @RequestBody AiChatRequest request) {
+        SseEmitter emitter = new SseEmitter(90_000L);
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        java.util.UUID userId = SecurityUtils.getCurrentUserId();
+        String role = SecurityUtils.getCurrentUserRole();
+
+        analyticsEventService.emit("ai_stream_started", userId, role, null,
+                Map.of("persona", request.getPersona() == null ? "" : request.getPersona().name()));
+
+        CompletableFuture.runAsync(() -> {
+            SecurityContextHolder.setContext(securityContext);
+            try {
+                sendEvent(emitter, "retrieval_started", Map.of(
+                        "label", "Searching RoomBay knowledge base..."
+                ));
+                sendEvent(emitter, "sources_found", Map.of(
+                        "label", "Checking role-safe sources..."
+                ));
+                sendEvent(emitter, "generation_started", Map.of(
+                        "label", "Generating grounded response..."
+                ));
+
+                AiChatResponse response = aiAssistantService.chat(request);
+                sendEvent(emitter, "completed", response);
+                analyticsEventService.emit("ai_stream_completed", userId, role, null,
+                        Map.of(
+                                "persona", request.getPersona() == null ? "" : request.getPersona().name(),
+                                "ragGrounded", Boolean.TRUE.equals(response.getRagGrounded()),
+                                "listingResultCount", response.getListingResults() == null ? 0 : response.getListingResults().size()
+                        ));
+                emitter.complete();
+            } catch (Exception ex) {
+                log.warn("[AI] stream failed: {}", ex.getMessage());
+                try {
+                    sendEvent(emitter, "error", Map.of(
+                            "message", "Assistant streaming is unavailable. Falling back to the standard response."
+                    ));
+                } catch (Exception ignored) {
+                    // The client may already have disconnected.
+                }
+                analyticsEventService.emit("ai_stream_failed", userId, role, null,
+                        Map.of(
+                                "persona", request.getPersona() == null ? "" : request.getPersona().name(),
+                                "reason", ex.getClass().getSimpleName()
+                        ));
+                emitter.completeWithError(ex);
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
+        });
+
+        return emitter;
     }
 
     @PostMapping("/listing-events")
@@ -73,6 +137,12 @@ public class AiAssistantController {
                 listingId,
                 java.util.Map.of("source", "roombay_ai_listing_card"));
         return ResponseEntity.noContent().build();
+    }
+
+    private static void sendEvent(SseEmitter emitter, String eventName, Object data) throws IOException {
+        emitter.send(SseEmitter.event()
+                .name(eventName)
+                .data(data));
     }
 
     @PostMapping("/admin/ingest")

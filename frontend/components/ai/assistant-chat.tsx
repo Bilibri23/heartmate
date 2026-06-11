@@ -5,7 +5,7 @@ import { Send, Loader2, ExternalLink, Copy, Volume2, Square, MapPin, ShieldCheck
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { aiAssistantService, type AiCitation, type AiListingResult, type AiPersona, type AiSuggestedAction } from "@/services/ai-assistant"
+import { aiAssistantService, type AiCitation, type AiListingResult, type AiPersona, type AiStreamEvent, type AiSuggestedAction } from "@/services/ai-assistant"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "@/context/auth-context"
@@ -17,6 +17,8 @@ type ChatMessage = {
   id: string
   role: ChatRole
   content: string
+  statusLabel?: string
+  isPending?: boolean
   ragGrounded?: boolean
   citations?: AiCitation[]
   suggestedActions?: AiSuggestedAction[]
@@ -24,9 +26,26 @@ type ChatMessage = {
   createdAt: number
 }
 
+type ApiError = {
+  response?: {
+    status?: number
+    data?: {
+      message?: string
+    }
+  }
+}
+
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16)
 }
+
+const PROGRESS_LABELS = [
+  "Searching RoomBay knowledge base...",
+  "Checking role-safe sources...",
+  "Reading relevant documents...",
+  "Generating grounded response...",
+  "Preparing sources and actions...",
+]
 
 export function AssistantChat({ persona }: { persona: AiPersona }) {
   const router = useRouter()
@@ -51,6 +70,7 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
   const [input, setInput] = useState("")
   const [isSending, setIsSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
 
@@ -115,39 +135,81 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages.length])
+  }, [messages])
 
-  const send = async () => {
-    const text = input.trim()
+  const send = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim()
     if (!text || isSending) return
-    setInput("")
+    if (!overrideText) setInput("")
     setError(null)
+    setLastFailedMessage(null)
 
     const userMsg: ChatMessage = { id: uid(), role: "user", content: text, createdAt: Date.now() }
-    setMessages((prev) => [...prev, userMsg])
+    const assistantId = uid()
+    const pendingAssistantMsg: ChatMessage = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      statusLabel: PROGRESS_LABELS[0],
+      isPending: true,
+      createdAt: Date.now(),
+    }
+    setMessages((prev) => [...prev, userMsg, pendingAssistantMsg])
     setIsSending(true)
 
-    try {
-      const res = await aiAssistantService.chat({ message: text, persona, threadId: threadId ?? undefined })
+    const request = { message: text, persona, threadId: threadId ?? undefined }
+    const updateAssistant = (patch: Partial<ChatMessage>) => {
+      setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, ...patch } : m)))
+    }
+    const applyResponse = (res: Awaited<ReturnType<typeof aiAssistantService.chat>>) => {
       if (res.threadId) {
         setThreadId(res.threadId)
       }
-      const asstMsg: ChatMessage = {
-        id: uid(),
-        role: "assistant",
+      updateAssistant({
         content: res.answer,
+        statusLabel: undefined,
+        isPending: false,
         ragGrounded: res.ragGrounded,
         citations: res.citations,
         suggestedActions: res.suggestedActions,
         listingResults: res.listingResults,
-        createdAt: Date.now(),
+      })
+    }
+    const handleStreamEvent = (event: AiStreamEvent) => {
+      if (event.type === "retrieval_started" || event.type === "sources_found" || event.type === "generation_started") {
+        updateAssistant({ statusLabel: event.label || PROGRESS_LABELS[0] })
+        return
       }
-      setMessages((prev) => [...prev, asstMsg])
-    } catch (e: any) {
-      if (e?.response?.status === 429) {
-        setError(e?.response?.data?.message || "Too many assistant requests. Please wait a minute and try again.")
-      } else {
-        setError(e?.response?.data?.message || "Assistant is unavailable. Please try again.")
+      if (event.type === "token" && event.token) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantId ? { ...m, content: `${m.content}${event.token}` } : m))
+        )
+        return
+      }
+      if (event.type === "completed") {
+        applyResponse(event.response)
+      }
+      if (event.type === "error") {
+        updateAssistant({ statusLabel: event.message || "Preparing the standard response..." })
+      }
+    }
+
+    try {
+      await aiAssistantService.chatStream(request, { onEvent: handleStreamEvent })
+    } catch {
+      try {
+        updateAssistant({ statusLabel: PROGRESS_LABELS[4] })
+        const fallback = await aiAssistantService.chat(request)
+        applyResponse(fallback)
+      } catch (fallbackError: unknown) {
+        const apiError = fallbackError as ApiError
+        setLastFailedMessage(text)
+        setMessages((prev) => prev.filter((m) => m.id !== assistantId))
+        if (apiError.response?.status === 429) {
+          setError(apiError.response?.data?.message || "Too many assistant requests. Please wait a minute and try again.")
+        } else {
+          setError(apiError.response?.data?.message || "Assistant is unavailable. Please try again.")
+        }
       }
     } finally {
       setIsSending(false)
@@ -167,7 +229,13 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
                 : "mr-auto bg-white text-slate-800 border border-slate-200"
             )}
           >
-            <div className="whitespace-pre-wrap">{m.content}</div>
+            {m.content.trim().length > 0 && <div className="whitespace-pre-wrap">{m.content}</div>}
+            {m.role === "assistant" && m.isPending && m.statusLabel && (
+              <div className={cn("flex items-center gap-2 text-slate-600", m.content.trim().length > 0 ? "mt-2" : "")}>
+                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                <span>{m.statusLabel}</span>
+              </div>
+            )}
             {m.role === "assistant" && m.content.trim().length > 0 && (
               <div className="mt-2 flex justify-end">
                 <Button
@@ -262,15 +330,21 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
             )}
           </div>
         ))}
-        {isSending && (
-          <div className="mr-auto bg-white border border-slate-200 text-slate-700 max-w-[92%] rounded-2xl px-4 py-3 text-sm shadow-sm inline-flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Thinking…
-          </div>
-        )}
         {error && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-3">
-            {error}
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+            <p>{error}</p>
+            {lastFailedMessage && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-xl border-red-200 text-red-700 hover:bg-red-100"
+                disabled={isSending}
+                onClick={() => send(lastFailedMessage)}
+              >
+                Retry
+              </Button>
+            )}
           </div>
         )}
         <div ref={bottomRef} />

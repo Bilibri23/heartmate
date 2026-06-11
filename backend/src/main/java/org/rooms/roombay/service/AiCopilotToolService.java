@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.entity.LandlordVerification;
+import org.rooms.roombay.entity.ListingPreferences;
 import org.rooms.roombay.entity.ListingPhoto;
 import org.rooms.roombay.entity.Payment;
 import org.rooms.roombay.entity.PropertyListing;
@@ -15,6 +16,7 @@ import org.rooms.roombay.repository.LandlordVerificationRepository;
 import org.rooms.roombay.repository.LeaseRepository;
 import org.rooms.roombay.repository.ListingFavoriteRepository;
 import org.rooms.roombay.repository.ListingPhotoRepository;
+import org.rooms.roombay.repository.ListingPreferencesRepository;
 import org.rooms.roombay.repository.PaymentRepository;
 import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReportRepository;
@@ -47,6 +49,7 @@ public class AiCopilotToolService {
     private final PaymentRepository paymentRepository;
     private final PropertyListingRepository propertyListingRepository;
     private final ListingPhotoRepository listingPhotoRepository;
+    private final ListingPreferencesRepository listingPreferencesRepository;
     private final LandlordVerificationRepository landlordVerificationRepository;
     private final ReportRepository reportRepository;
     private final AppErrorLogService appErrorLogService;
@@ -93,9 +96,10 @@ public class AiCopilotToolService {
         }
 
         List<PropertyListing> matches = findTenantListingMatches(searchRequest);
+        Optional<ListingPreferences> savedPreferences = listingPreferencesRepository.findByUserId(userId);
         String searchUrl = searchRequest.searchUrl();
         List<AiChatResponse.ListingResult> listingResults = matches.stream()
-                .map(listing -> toListingResult(listing, searchRequest))
+                .map(listing -> toListingResult(listing, searchRequest, savedPreferences))
                 .toList();
 
         String answer;
@@ -116,8 +120,8 @@ public class AiCopilotToolService {
             PropertyListing top = matches.get(0);
             answer = "I found 1 " + verifiedWord(top) + propertyTypeWord(searchRequest, top)
                     + locationPhrase(searchRequest) + " that matches your request.\n\n"
-                    + listingReason(top, searchRequest) + "\n\n"
-                    + "Would you like to filter by furnished, budget, or distance?";
+                    + listingReason(top, searchRequest, savedPreferences) + "\n\n"
+                    + "Primary action: View listing.";
             actions = List.of(
                     AiChatResponse.SuggestedAction.builder()
                             .id("view_listing")
@@ -129,7 +133,10 @@ public class AiCopilotToolService {
         } else {
             answer = "I found " + matches.size() + " verified listing matches"
                     + locationPhrase(searchRequest) + ".\n\n"
-                    + "Would you like to filter by furnished, budget, or distance?";
+                    + (savedPreferences.isPresent()
+                    ? "These match your search and saved preferences."
+                    : "These match your current search.") + "\n\n"
+                    + "Primary action: View all matches.";
             actions = List.of(
                     AiChatResponse.SuggestedAction.builder()
                             .id("view_all_matches")
@@ -252,7 +259,8 @@ public class AiCopilotToolService {
                 .trim();
     }
 
-    private AiChatResponse.ListingResult toListingResult(PropertyListing listing, ListingSearchRequest request) {
+    private AiChatResponse.ListingResult toListingResult(PropertyListing listing, ListingSearchRequest request,
+                                                         Optional<ListingPreferences> savedPreferences) {
         String listingId = listing.getId() == null ? null : listing.getId().toString();
         String landlordId = listing.getLandlord() == null || listing.getLandlord().getId() == null
                 ? null
@@ -269,9 +277,11 @@ public class AiCopilotToolService {
                 .available(listing.getStatus() == PropertyListing.Status.ACTIVE)
                 .thumbnailUrl(primaryPhotoUrl(listing.getId()))
                 .landlordId(landlordId)
-                .matchLabel("Search match")
-                .matchReason("This matches your current search.")
-                .whyThisMatches(reasonBullets(listing, request))
+                .matchLabel(savedPreferences.isPresent() ? "Preference match" : "Search match")
+                .matchReason(savedPreferences.isPresent()
+                        ? "This matches your search and saved preferences."
+                        : "This matches your current search.")
+                .whyThisMatches(reasonBullets(listing, request, savedPreferences))
                 .actions(listingCardActions(listing, landlordId))
                 .build();
     }
@@ -320,11 +330,12 @@ public class AiCopilotToolService {
         }
     }
 
-    private static List<String> reasonBullets(PropertyListing listing, ListingSearchRequest request) {
+    private static List<String> reasonBullets(PropertyListing listing, ListingSearchRequest request,
+                                              Optional<ListingPreferences> savedPreferences) {
         List<String> reasons = new ArrayList<>();
         if (request.propertyType() != null && listing.getPropertyType() != null
                 && request.propertyType().equals(listing.getPropertyType().name())) {
-            reasons.add("Property type matches: " + propertyTypeWord(listing.getPropertyType()));
+            reasons.add("Property type requested: " + propertyTypeWord(listing.getPropertyType()));
         }
         if (request.query() != null && !request.query().isBlank()) {
             List<String> locationParts = new ArrayList<>();
@@ -332,8 +343,17 @@ public class AiCopilotToolService {
             Optional.ofNullable(cleanValue(listing.getCity())).ifPresent(locationParts::add);
             String location = String.join(", ", locationParts);
             if (!location.isBlank()) {
-                reasons.add("Location matches your search near " + displayText(request.query()) + ": " + location);
+                reasons.add("Location requested near " + displayText(request.query()) + ": " + location);
             }
+        }
+        if (request.maxPrice() != null && listing.getRentAmount() != null && listing.getRentAmount() <= request.maxPrice()) {
+            reasons.add("Rent is within the budget you mentioned.");
+        }
+        savedPreferences.ifPresent(prefs -> addSavedPreferenceReasons(reasons, listing, prefs));
+        if (listing.getIsUnfurnished() != null) {
+            reasons.add(Boolean.TRUE.equals(listing.getIsUnfurnished())
+                    ? "The listing is marked as unfurnished."
+                    : "The listing is marked as furnished.");
         }
         if (listing.getStatus() == PropertyListing.Status.ACTIVE) {
             reasons.add("The listing is active and available to view.");
@@ -341,16 +361,40 @@ public class AiCopilotToolService {
         if (Boolean.TRUE.equals(listing.getVerified())) {
             reasons.add("RoomBay has marked this listing as verified.");
         }
-        if (request.maxPrice() != null && listing.getRentAmount() != null && listing.getRentAmount() <= request.maxPrice()) {
-            reasons.add("Rent is within the budget you mentioned.");
-        }
         if (reasons.isEmpty()) {
             reasons.add("This matches your current search.");
         }
         return reasons;
     }
 
-    private static String listingReason(PropertyListing listing, ListingSearchRequest request) {
+    private static void addSavedPreferenceReasons(List<String> reasons, PropertyListing listing, ListingPreferences prefs) {
+        if (prefs.getMinBudget() != null || prefs.getMaxBudget() != null) {
+            Integer rent = listing.getRentAmount();
+            boolean minOk = prefs.getMinBudget() == null || (rent != null && rent >= prefs.getMinBudget());
+            boolean maxOk = prefs.getMaxBudget() == null || (rent != null && rent <= prefs.getMaxBudget());
+            if (minOk && maxOk) {
+                reasons.add("Rent fits your saved budget range.");
+            }
+        }
+        if (prefs.getPropertyTypes() != null && listing.getPropertyType() != null
+                && prefs.getPropertyTypes().stream().anyMatch(t -> listing.getPropertyType().name().equalsIgnoreCase(t))) {
+            reasons.add("Property type is in your saved preferences.");
+        }
+        if (prefs.getPreferredLocations() != null && !prefs.getPreferredLocations().isEmpty()) {
+            String city = safeValue(listing.getCity()).toLowerCase(Locale.ROOT);
+            String neighborhood = safeValue(listing.getNeighborhood()).toLowerCase(Locale.ROOT);
+            boolean locationMatch = prefs.getPreferredLocations().stream()
+                    .filter(v -> v != null && !v.isBlank())
+                    .map(v -> v.toLowerCase(Locale.ROOT))
+                    .anyMatch(v -> city.contains(v) || neighborhood.contains(v) || v.contains(city) || v.contains(neighborhood));
+            if (locationMatch) {
+                reasons.add("Location aligns with your saved preferred areas.");
+            }
+        }
+    }
+
+    private static String listingReason(PropertyListing listing, ListingSearchRequest request,
+                                        Optional<ListingPreferences> savedPreferences) {
         List<String> pieces = new ArrayList<>();
         if (request.propertyType() != null && listing.getPropertyType() != null
                 && request.propertyType().equals(listing.getPropertyType().name())) {
@@ -366,9 +410,12 @@ public class AiCopilotToolService {
             pieces.add("verified");
         }
         if (pieces.isEmpty()) {
-            return "This matches your current search.";
+            return savedPreferences.isPresent()
+                    ? "This matches your search and saved preferences."
+                    : "This matches your current search.";
         }
-        return "This matches because " + joinReasonPieces(pieces) + ".";
+        String preferenceTail = savedPreferences.isPresent() ? " It is also a good fit based on your saved preferences." : "";
+        return "This matches because " + joinReasonPieces(pieces) + "." + preferenceTail;
     }
 
     private static String joinReasonPieces(List<String> pieces) {

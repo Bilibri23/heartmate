@@ -11,8 +11,9 @@ async function handler(request: NextRequest) {
     console.info('[api proxy] POST /api/auth/login → Spring at', url, '(set BACKEND_INTERNAL_URL=http://127.0.0.1:8082 in frontend/.env.local if this is wrong)');
   }
 
+  const requestAccept = request.headers.get('Accept');
   const headers: Record<string, string> = {
-    Accept: 'application/json',
+    Accept: requestAccept || 'application/json',
   };
 
   // Forward authorization header if present
@@ -57,6 +58,19 @@ async function handler(request: NextRequest) {
       body,
     });
 
+    const responseContentType = response.headers.get('Content-Type') || 'application/json';
+    if (responseContentType.includes('text/event-stream')) {
+      return new NextResponse(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: {
+          'Content-Type': responseContentType,
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        },
+      });
+    }
+
     const data = await response.text();
 
     if (process.env.NODE_ENV === 'development' && response.status >= 400) {
@@ -68,7 +82,7 @@ async function handler(request: NextRequest) {
       status: response.status,
       statusText: response.statusText,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
+        'Content-Type': responseContentType,
       },
     });
   } catch (error) {
