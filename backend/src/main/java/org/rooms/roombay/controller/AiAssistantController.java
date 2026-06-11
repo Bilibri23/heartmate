@@ -14,6 +14,7 @@ import org.rooms.roombay.repository.AiChatLogRepository;
 import org.rooms.roombay.ai.rag.AiRagRepository;
 import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.AiAssistantService;
+import org.rooms.roombay.service.AiChatProgressListener;
 import org.rooms.roombay.service.AiIngestionService;
 import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.AuditLogService;
@@ -69,17 +70,54 @@ public class AiAssistantController {
         CompletableFuture.runAsync(() -> {
             SecurityContextHolder.setContext(securityContext);
             try {
-                sendEvent(emitter, "retrieval_started", Map.of(
-                        "label", "Searching RoomBay knowledge base..."
-                ));
-                sendEvent(emitter, "sources_found", Map.of(
-                        "label", "Checking role-safe sources..."
-                ));
-                sendEvent(emitter, "generation_started", Map.of(
-                        "label", "Generating grounded response..."
-                ));
+                AiChatResponse response = aiAssistantService.chat(request, new AiChatProgressListener() {
+                    @Override
+                    public void onRetrievalStarted() {
+                        try {
+                            sendEvent(emitter, "retrieval_started", Map.of(
+                                    "label", "Searching RoomBay knowledge base..."
+                            ));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
 
-                AiChatResponse response = aiAssistantService.chat(request);
+                    @Override
+                    public void onSourcesFound(int chunkCount) {
+                        try {
+                            sendEvent(emitter, "sources_found", Map.of(
+                                    "label", chunkCount > 0
+                                            ? "Found " + chunkCount + " relevant documents..."
+                                            : "Checking role-safe sources..."
+                            ));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    @Override
+                    public void onGenerationStarted() {
+                        try {
+                            sendEvent(emitter, "generation_started", Map.of(
+                                    "label", "Generating grounded response..."
+                            ));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    @Override
+                    public void onToken(String token) {
+                        if (token == null || token.isEmpty()) {
+                            return;
+                        }
+                        try {
+                            sendEvent(emitter, "token", Map.of("token", token));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
                 sendEvent(emitter, "completed", response);
                 analyticsEventService.emit("ai_stream_completed", userId, role, null,
                         Map.of(

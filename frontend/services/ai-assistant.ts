@@ -2,10 +2,8 @@ import api from "@/lib/api"
 
 export type AiPersona = "TENANT" | "LANDLORD" | "ADMIN"
 
-const API_URL =
-  process.env.NODE_ENV === "production"
-    ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082"}/api`
-    : "/api"
+// Same-origin proxy keeps SSE auth and CORS consistent in dev and on Vercel.
+const STREAM_API_URL = "/api"
 
 export type AiCitation = {
   chunkId: string
@@ -78,7 +76,7 @@ export const aiAssistantService = {
   },
   chatStream: async (request: AiChatRequest, options: ChatStreamOptions): Promise<AiChatResponse> => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
-    const response = await fetch(`${API_URL}/ai/chat/stream`, {
+    const response = await fetch(`${STREAM_API_URL}/ai/chat/stream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

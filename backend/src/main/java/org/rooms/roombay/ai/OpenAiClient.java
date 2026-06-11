@@ -9,9 +9,17 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Minimal OpenAI HTTP client (embeddings + chat completions).
@@ -90,14 +98,7 @@ public class OpenAiClient {
 
         String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
 
-        String contextJson = toJson(contextChunks);
-
-        String userPrompt = user + "\n\n" +
-                (userContext != null && !userContext.isBlank()
-                        ? ("User_context (private, for personalization; do not expose sensitive info):\n" + userContext + "\n\n")
-                        : "") +
-                "Retrieved_context_chunks (for grounding, cite by chunkId):\n" +
-                contextJson;
+        String userPrompt = buildUserPrompt(user, userContext, contextChunks);
 
         Map<String, Object> payload = Map.of(
                 "model", m,
@@ -131,6 +132,79 @@ public class OpenAiClient {
         String content = message != null ? (String) message.get("content") : null;
         if (content == null) throw new BadRequestException("Chat response missing content");
         return content.trim();
+    }
+
+    public String chatStream(String system, String user, List<Map<String, Object>> contextChunks, String userContext,
+                             String modelOverride, Consumer<String> onToken) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new BadRequestException("OPENAI_API_KEY is not configured");
+        }
+
+        String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
+        String userPrompt = buildUserPrompt(user, userContext, contextChunks);
+        Map<String, Object> payload = Map.of(
+                "model", m,
+                "temperature", 0.2,
+                "stream", true,
+                "messages", List.of(
+                        Map.of("role", "system", "content", system),
+                        Map.of("role", "user", "content", userPrompt)
+                )
+        );
+
+        try {
+            String body = JSON.writeValueAsString(payload);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/chat/completions"))
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<java.io.InputStream> response = HttpClient.newHttpClient()
+                    .send(request, HttpResponse.BodyHandlers.ofInputStream());
+
+            if (response.statusCode() >= 400) {
+                throw new BadRequestException("OpenAI streaming request failed with status " + response.statusCode());
+            }
+
+            StringBuilder full = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (!line.startsWith("data:")) continue;
+                    String data = line.substring("data:".length()).trim();
+                    if (data.isEmpty() || "[DONE]".equals(data)) continue;
+                    var root = JSON.readTree(data);
+                    var choices = root.path("choices");
+                    if (!choices.isArray() || choices.isEmpty()) continue;
+                    String token = choices.get(0).path("delta").path("content").asText("");
+                    if (token.isEmpty()) continue;
+                    full.append(token);
+                    if (onToken != null) {
+                        onToken.accept(token);
+                    }
+                }
+            }
+            if (full.isEmpty()) {
+                throw new BadRequestException("OpenAI streaming response was empty");
+            }
+            return full.toString().trim();
+        } catch (BadRequestException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BadRequestException("OpenAI streaming failed: " + ex.getMessage());
+        }
+    }
+
+    private static String buildUserPrompt(String user, String userContext, List<Map<String, Object>> contextChunks) {
+        String contextJson = toJson(contextChunks);
+        return user + "\n\n" +
+                (userContext != null && !userContext.isBlank()
+                        ? ("User_context (private, for personalization; do not expose sensitive info):\n" + userContext + "\n\n")
+                        : "") +
+                "Retrieved_context_chunks (for grounding, cite by chunkId):\n" +
+                contextJson;
     }
 
     private static String toJson(Object value) {

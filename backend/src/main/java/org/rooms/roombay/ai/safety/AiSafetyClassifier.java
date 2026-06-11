@@ -30,6 +30,9 @@ public class AiSafetyClassifier {
 
     private static final List<Rule> RULES = List.of(
             new Rule(compile(
+                    "(give|share|send|tell|provide|reveal|list|export|dump)\\s+me\\s+(the\\s+)?(all\\s+)?(users?|accounts?|tenants?|landlords?|emails?|phone\\s*numbers?)"
+            ), Decision.REFUSE_PRIVATE_USER_DATA),
+            new Rule(compile(
                     "(give|share|send|tell|provide|reveal)\\s+me\\s+(the\\s+)?(landlord|tenant|user|other\\s+user|someone|owner)['’s]*\\s+(phone|email|whatsapp|number|address|contact)"
             ), Decision.REFUSE_PRIVATE_USER_DATA),
             new Rule(compile(

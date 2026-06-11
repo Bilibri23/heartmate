@@ -69,6 +69,10 @@ public class AiAssistantService {
     private boolean debugSynthesisLogging;
 
     public AiChatResponse chat(AiChatRequest request) {
+        return chat(request, null);
+    }
+
+    public AiChatResponse chat(AiChatRequest request, AiChatProgressListener progress) {
         long started = System.currentTimeMillis();
         UUID userId = SecurityUtils.getCurrentUserId(); // ensure authenticated
         aiChatRateLimiter.checkAllowed(userId);
@@ -99,6 +103,22 @@ public class AiAssistantService {
 
         if (aiCopilotToolService != null) {
             try {
+                java.util.Optional<AiChatResponse> adminStatsAnswer = aiCopilotToolService.tryAnswerAdminPlatformStats(
+                        userId,
+                        SecurityUtils.getCurrentUserRole(),
+                        request.getMessage(),
+                        threadId
+                );
+                if (adminStatsAnswer.isPresent()) {
+                    AiChatResponse response = adminStatsAnswer.get();
+                    chatLogRepository.insert(userId, persona.name(), request.getMessage(), response.getAnswer(), List.of());
+                    aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
+                    analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null,
+                            Map.of("persona", persona.name(), "toolGrounded", true, "question", safeAnalyticsQuestion(request.getMessage())));
+                    log.info("[AI] chat user={} answeredWith=admin_platform_stats ms={}", userId, System.currentTimeMillis() - started);
+                    return response;
+                }
+
                 java.util.Optional<AiChatResponse> toolAnswer = aiCopilotToolService.tryAnswerTenantListingSearch(
                         userId,
                         SecurityUtils.getCurrentUserRole(),
@@ -119,6 +139,10 @@ public class AiAssistantService {
             }
         }
 
+        if (progress != null) {
+            progress.onRetrievalStarted();
+        }
+
         // Persona is derived from authenticated role to prevent client spoofing.
         List<Double> qEmb = modelRouter.embed(request.getMessage());
         List<AiRagRepository.ChunkRow> chunks;
@@ -132,6 +156,9 @@ public class AiAssistantService {
 
         // Layer 1: drop chunks the caller's role isn't authorized to see.
         chunks = retrievalPolicy.filter(chunks, SecurityUtils.getCurrentUserRole());
+        if (progress != null) {
+            progress.onSourcesFound(chunks.size());
+        }
         logRetrievedChunks(userId, chunks);
         boolean ragGrounded = !chunks.isEmpty();
         if (!ragGrounded) {
@@ -168,7 +195,12 @@ public class AiAssistantService {
         logPromptAssembly(userId, system, request.getMessage(), contextChunks, fullUserContext);
         ParsedAssistant parsed;
         try {
-            String raw = modelRouter.chat(system, request.getMessage(), contextChunks, fullUserContext);
+            if (progress != null) {
+                progress.onGenerationStarted();
+            }
+            String raw = progress == null
+                    ? modelRouter.chat(system, request.getMessage(), contextChunks, fullUserContext)
+                    : modelRouter.chatStream(system, request.getMessage(), contextChunks, fullUserContext, progress::onToken);
             logRawModelResponse(userId, raw);
             parsed = parseAssistantOutput(raw);
             logParsedResponse(userId, parsed);
@@ -187,7 +219,7 @@ public class AiAssistantService {
         // Layer 3: post-generation guard. Replaces leaked PII or unsupported internal claims
         // with the canonical RoomBay fallback before the answer ever reaches the user.
         String styledAnswer = enforceExpectedChatStyle(
-                ensureNonEmptyAnswer(parsed.answer, ragGrounded),
+                ensureNonEmptyAnswer(parsed.answer, ragGrounded, chunks, request.getMessage()),
                 persona,
                 ragGrounded,
                 request.getMessage()
@@ -286,10 +318,11 @@ public class AiAssistantService {
                 "- Do not repeat internal labels like SUGGESTIONS_JSON or JSON ACTION in the user-facing answer.",
                 "",
                 "Output format (strict):",
-                "1) Write only the human-readable answer in plain language (no markdown headings required).",
-                "2) Immediately on the next line, exactly: SUGGESTED_ACTIONS_JSON: followed by a single JSON array (no other text after the array).",
+                "1) Write 2-5 sentences of human-readable answer first. The answer must never be empty.",
+                "2) On the next line, exactly: SUGGESTED_ACTIONS_JSON: followed by a single JSON array (use [] if no action fits).",
                 "Each action: { \"id\": \"string\", \"label\": \"string\", \"type\": \"NAVIGATE|COPY_TEXT\", \"actionUrl\": \"string?\", \"copyText\": \"string?\" }",
-                "Example last line: SUGGESTED_ACTIONS_JSON: [{\"id\":\"search\",\"label\":\"Open search\",\"type\":\"NAVIGATE\",\"actionUrl\":\"/search\"}]"
+                "Example last line: SUGGESTED_ACTIONS_JSON: [{\"id\":\"search\",\"label\":\"Open search\",\"type\":\"NAVIGATE\",\"actionUrl\":\"/search\"}]",
+                "3) Never reply with only JSON or only suggested actions — always include plain-language sentences before the JSON line."
         );
     }
 
@@ -389,15 +422,42 @@ public class AiAssistantService {
         return safe.length() <= 180 ? safe : safe.substring(0, 180);
     }
 
-    private String ensureNonEmptyAnswer(String answer, boolean ragGrounded) {
+    private String ensureNonEmptyAnswer(String answer, boolean ragGrounded, List<AiRagRepository.ChunkRow> chunks,
+                                        String userMessage) {
         if (answer != null && !answer.isBlank()) {
             return answer.trim();
         }
         if (ragGrounded) {
+            String chunkFallback = buildChunkGroundedFallback(chunks, userMessage);
+            if (!chunkFallback.isBlank()) {
+                log.warn("[AI] Grounded retrieval produced blank parsed answer; using chunk-grounded fallback.");
+                return chunkFallback;
+            }
             log.warn("[AI] Grounded retrieval produced blank parsed answer; using formatting fallback.");
             return "I found related RoomBay information, but I could not format a full answer this time. Please ask again in one sentence, and I will answer clearly with the same sources.";
         }
         return NO_DOC_FALLBACK_ANSWER;
+    }
+
+    private String buildChunkGroundedFallback(List<AiRagRepository.ChunkRow> chunks, String userMessage) {
+        if (chunks == null || chunks.isEmpty()) {
+            return "";
+        }
+        AiRagRepository.ChunkRow top = chunks.get(0);
+        String title = top.getTitle() == null || top.getTitle().isBlank() ? "RoomBay documentation" : top.getTitle().trim();
+        String excerpt = sanitizeAnswerText(top.getChunkText());
+        if (excerpt.isBlank() && chunks.size() > 1) {
+            excerpt = sanitizeAnswerText(chunks.get(1).getChunkText());
+        }
+        if (excerpt.isBlank()) {
+            return "";
+        }
+        if (excerpt.length() > 320) {
+            excerpt = trimToSentenceBoundary(excerpt, 320);
+        }
+        String question = userMessage == null || userMessage.isBlank() ? "your question" : userMessage.trim();
+        return "Here is what RoomBay documentation says about " + question + ":\n\n"
+                + title + " — " + excerpt;
     }
 
     @lombok.Value
@@ -424,9 +484,16 @@ public class AiAssistantService {
             }
         }
         if (bestIdx < 0 || bestMarker == null) {
-            return new ParsedAssistant(sanitizeAnswerText(trimmed), List.of());
+            String plain = sanitizeAnswerText(trimmed);
+            if (!plain.isBlank()) {
+                return new ParsedAssistant(plain, List.of());
+            }
+            return new ParsedAssistant(extractLeadingProse(trimmed), List.of());
         }
         String answerPart = sanitizeAnswerText(trimmed.substring(0, bestIdx));
+        if (answerPart.isBlank()) {
+            answerPart = extractLeadingProse(trimmed.substring(0, bestIdx));
+        }
         String json = trimmed.substring(bestIdx + bestMarker.length()).trim();
         int lb = json.indexOf('[');
         int rb = json.lastIndexOf(']');
@@ -497,6 +564,32 @@ public class AiAssistantService {
             if (node != null && !node.isNull()) return node;
         }
         return null;
+    }
+
+    private static String extractLeadingProse(String text) {
+        if (text == null || text.isBlank()) {
+            return "";
+        }
+        String[] lines = text.split("\\R");
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            String t = line.trim();
+            if (t.isEmpty()) {
+                if (!sb.isEmpty()) {
+                    sb.append("\n");
+                }
+                continue;
+            }
+            if (t.startsWith("{") || t.startsWith("[") || t.startsWith("```")) {
+                break;
+            }
+            String upper = t.toUpperCase();
+            if (upper.contains("SUGGESTED_ACTIONS_JSON") || upper.startsWith("SUGGESTIONS_JSON")) {
+                break;
+            }
+            sb.append(line).append("\n");
+        }
+        return sanitizeAnswerText(sb.toString());
     }
 
     /** Remove model junk lines and internal chunk references from the visible answer. */

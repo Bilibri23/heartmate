@@ -11,9 +11,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Minimal Ollama HTTP client for local, free dev.
@@ -91,15 +99,7 @@ public class OllamaClient {
     public String chat(String system, String user, String userContext, List<Map<String, Object>> contextChunks,
                        String modelOverride) {
         String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
-        String contextJson = toJson(contextChunks);
-
-        String prompt = system + "\n\n" +
-                "User_question:\n" + user + "\n\n" +
-                (userContext != null && !userContext.isBlank()
-                        ? ("User_context (private):\n" + userContext + "\n\n")
-                        : "") +
-                "Retrieved_context_chunks:\n" + contextJson + "\n\n" +
-                "Answer:";
+        String prompt = buildPrompt(system, user, userContext, contextChunks);
 
         Map<String, Object> payload = Map.of("model", m, "prompt", prompt, "stream", false);
         if (debugSynthesisLogging) {
@@ -135,6 +135,88 @@ public class OllamaClient {
         String response = (String) res.get("response");
         if (response == null) throw new BadRequestException("Ollama chat response missing 'response'");
         return response.trim();
+    }
+
+    public String chatStream(String system, String user, String userContext, List<Map<String, Object>> contextChunks,
+                             String modelOverride, Consumer<String> onToken) {
+        String m = (modelOverride != null && !modelOverride.isBlank()) ? modelOverride : chatModel;
+        String prompt = buildPrompt(system, user, userContext, contextChunks);
+        try {
+            return streamGenerate(m, prompt, onToken);
+        } catch (BadRequestException ex) {
+            if (ex.getMessage() == null || !ex.getMessage().contains("not found")) {
+                throw ex;
+            }
+            var client = restClientBuilder
+                    .baseUrl(baseUrl)
+                    .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .build();
+            String fallbackModel = chooseFallbackChatModel(client, m);
+            if (fallbackModel == null || fallbackModel.equals(m)) {
+                throw ex;
+            }
+            log.warn("[AI] Ollama model '{}' missing for stream. Falling back to '{}'.", m, fallbackModel);
+            return streamGenerate(fallbackModel, prompt, onToken);
+        }
+    }
+
+    private String streamGenerate(String model, String prompt, Consumer<String> onToken) {
+        try {
+            String body = JSON.writeValueAsString(Map.of("model", model, "prompt", prompt, "stream", true));
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/api/generate"))
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<java.io.InputStream> response = HttpClient.newHttpClient()
+                    .send(request, HttpResponse.BodyHandlers.ofInputStream());
+
+            if (response.statusCode() == 404) {
+                throw new BadRequestException("Ollama chat model not found: '" + model + "'.");
+            }
+            if (response.statusCode() >= 400) {
+                throw new BadRequestException("Ollama streaming request failed with status " + response.statusCode());
+            }
+
+            StringBuilder full = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.isBlank()) continue;
+                    var node = JSON.readTree(line);
+                    String token = node.path("response").asText("");
+                    if (!token.isEmpty()) {
+                        full.append(token);
+                        if (onToken != null) {
+                            onToken.accept(token);
+                        }
+                    }
+                    if (node.path("done").asBoolean(false)) {
+                        break;
+                    }
+                }
+            }
+            if (full.isEmpty()) {
+                throw new BadRequestException("Ollama streaming response was empty");
+            }
+            return full.toString().trim();
+        } catch (BadRequestException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BadRequestException("Ollama streaming failed: " + ex.getMessage());
+        }
+    }
+
+    private static String buildPrompt(String system, String user, String userContext, List<Map<String, Object>> contextChunks) {
+        String contextJson = toJson(contextChunks);
+        return system + "\n\n" +
+                "User_question:\n" + user + "\n\n" +
+                (userContext != null && !userContext.isBlank()
+                        ? ("User_context (private):\n" + userContext + "\n\n")
+                        : "") +
+                "Retrieved_context_chunks:\n" + contextJson + "\n\n" +
+                "Answer:";
     }
 
     private static String toJson(Object value) {

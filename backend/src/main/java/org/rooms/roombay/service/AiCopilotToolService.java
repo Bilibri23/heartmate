@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.entity.LandlordVerification;
 import org.rooms.roombay.entity.ListingPreferences;
+import org.rooms.roombay.entity.User;
 import org.rooms.roombay.entity.ListingPhoto;
 import org.rooms.roombay.entity.Payment;
 import org.rooms.roombay.entity.PropertyListing;
@@ -22,6 +23,7 @@ import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReportRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.StudentVerificationRepository;
+import org.rooms.roombay.repository.UserRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,11 +38,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AiCopilotToolService {
+
+    private static final Pattern ADMIN_STATS_INTENT = Pattern.compile(
+            "(?i)\\b(how\\s+many|number\\s+of|count\\s+of|total)\\b.*\\b(users?|accounts?|tenants?|landlords?|signups?|registrations?)\\b"
+                    + "|\\b(users?|accounts?)\\s+on\\s+the\\s+platform\\b"
+                    + "|\\bplatform\\s+(stats?|statistics|metrics|overview)\\b");
 
     private final StudentVerificationRepository studentVerificationRepository;
     private final RoomApplicationRepository roomApplicationRepository;
@@ -52,6 +60,7 @@ public class AiCopilotToolService {
     private final ListingPreferencesRepository listingPreferencesRepository;
     private final LandlordVerificationRepository landlordVerificationRepository;
     private final ReportRepository reportRepository;
+    private final UserRepository userRepository;
     private final AppErrorLogService appErrorLogService;
     private final AnalyticsEventService analyticsEventService;
     private final JdbcTemplate jdbcTemplate;
@@ -64,6 +73,7 @@ public class AiCopilotToolService {
         String normalizedRole = normalizeRole(role);
         List<String> lines = new ArrayList<>();
         if ("ADMIN".equals(normalizedRole)) {
+            addTool(lines, userId, normalizedRole, "admin_platform_stats", this::adminPlatformStats);
             addTool(lines, userId, normalizedRole, "admin_ops_snapshot", this::adminOpsSnapshot);
             addTool(lines, userId, normalizedRole, "admin_recent_errors", this::adminRecentErrors);
             addTool(lines, userId, normalizedRole, "admin_ai_unanswered_questions", this::adminAiUnansweredQuestions);
@@ -79,6 +89,50 @@ public class AiCopilotToolService {
             }
         }
         return lines.isEmpty() ? "" : "Read_only_platform_tools:\n" + String.join("\n", lines);
+    }
+
+    public Optional<AiChatResponse> tryAnswerAdminPlatformStats(UUID userId, String role, String userMessage, String threadId) {
+        if (!"ADMIN".equals(normalizeRole(role))) {
+            return Optional.empty();
+        }
+        if (userMessage == null || !ADMIN_STATS_INTENT.matcher(userMessage).find()) {
+            return Optional.empty();
+        }
+        if (!isToolAllowed("ADMIN", "admin_platform_stats")) {
+            logToolCall(userId, "ADMIN", "admin_platform_stats", false, "blocked_by_role_policy");
+            return Optional.empty();
+        }
+
+        long total = userRepository.count();
+        long tenants = userRepository.countByRole(User.UserRole.STUDENT);
+        long landlords = userRepository.countByRole(User.UserRole.LANDLORD);
+        long admins = userRepository.countByRole(User.UserRole.ADMIN);
+        long active = userRepository.countByAccountStatus(User.AccountStatus.ACTIVE);
+        long pending = userRepository.countByAccountStatus(User.AccountStatus.PENDING);
+        long suspended = userRepository.countByAccountStatus(User.AccountStatus.SUSPENDED);
+
+        String answer = "RoomBay currently has %d registered accounts: %d tenants, %d landlords, and %d admins. "
+                .formatted(total, tenants, landlords, admins)
+                + "%d accounts are active, %d are pending, and %d are suspended. "
+                .formatted(active, pending, suspended)
+                + "I can share aggregate counts only, not individual contact details.\n\n"
+                + "Next step: open Admin Users for filters, search, and account management.";
+
+        logToolCall(userId, "ADMIN", "admin_platform_stats", true, "answered_aggregate_counts");
+        return Optional.of(AiChatResponse.builder()
+                .answer(answer)
+                .threadId(threadId)
+                .citations(List.of())
+                .suggestedActions(List.of(
+                        AiChatResponse.SuggestedAction.builder()
+                                .id("admin_users")
+                                .label("Open user management")
+                                .type("NAVIGATE")
+                                .actionUrl("/admin/users")
+                                .build()
+                ))
+                .ragGrounded(false)
+                .build());
     }
 
     public Optional<AiChatResponse> tryAnswerTenantListingSearch(UUID userId, String role, String userMessage, String threadId) {
@@ -500,6 +554,18 @@ public class AiCopilotToolService {
         long totalFavorites = listings.stream().mapToLong(l -> l.getFavoritesCount() == null ? 0 : l.getFavoritesCount()).sum();
         return "landlordListingPerformance={activeListings=%d, pendingReviewListings=%d, totalViews=%d, totalFavorites=%d}"
                 .formatted(active, pending, totalViews, totalFavorites);
+    }
+
+    private String adminPlatformStats() {
+        long total = userRepository.count();
+        long tenants = userRepository.countByRole(User.UserRole.STUDENT);
+        long landlords = userRepository.countByRole(User.UserRole.LANDLORD);
+        long admins = userRepository.countByRole(User.UserRole.ADMIN);
+        long active = userRepository.countByAccountStatus(User.AccountStatus.ACTIVE);
+        long pending = userRepository.countByAccountStatus(User.AccountStatus.PENDING);
+        long suspended = userRepository.countByAccountStatus(User.AccountStatus.SUSPENDED);
+        return "adminPlatformStats={totalUsers=%d, tenants=%d, landlords=%d, admins=%d, active=%d, pending=%d, suspended=%d}"
+                .formatted(total, tenants, landlords, admins, active, pending, suspended);
     }
 
     private String adminOpsSnapshot() {

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Routes AI calls to OpenAI (if configured) or Ollama (free local dev).
@@ -58,6 +59,18 @@ public class AiModelRouter {
      * {@link #ollamaStructuredModel} when set, so a fine-tuned head can serve structured tasks
      * while the main assistant keeps the base chat model.
      */
+    public String chatStream(String system, String user, List<Map<String, Object>> contextChunks, String userContext,
+                             Consumer<String> onToken) {
+        if (useOpenAi()) {
+            String override = (openAiFinetuneChatModel != null && !openAiFinetuneChatModel.isBlank())
+                    ? openAiFinetuneChatModel : null;
+            return openAiClient.chatStream(system, user, contextChunks, userContext, override, onToken);
+        }
+        String override = (ollamaFinetuneChatModel != null && !ollamaFinetuneChatModel.isBlank())
+                ? ollamaFinetuneChatModel : null;
+        return ollamaClient.chatStream(system, user, userContext, contextChunks, override, onToken);
+    }
+
     public String chatStructuredJson(String system, String userJson) {
         if (useOpenAi()) {
             String override = openAiStructuredModel != null && !openAiStructuredModel.isBlank()

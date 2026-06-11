@@ -63,6 +63,36 @@ class AiAssistantServiceTest {
         assertThat(actions(parsed)).isEqualTo(0);
     }
 
+    @Test
+    void chunkFallbackBuildsReadableAnswerWhenModelReturnsBlank() {
+        var chunk = org.rooms.roombay.ai.rag.AiRagRepository.ChunkRow.builder()
+                .title("Admin Incident Triage")
+                .chunkText("Admins should start with queue counts, then inspect recent errors.")
+                .build();
+
+        String fallback = (String) ReflectionTestUtils.invokeMethod(service, "buildChunkGroundedFallback",
+                java.util.List.of(chunk), "incident triage");
+
+        assertThat(fallback).contains("Admin Incident Triage");
+        assertThat(fallback).contains("queue counts");
+    }
+
+    @Test
+    void parserExtractsLeadingProseBeforeJsonMarker() {
+        Object parsed = ReflectionTestUtils.invokeMethod(service, "parseAssistantOutput",
+                "Open the Admin dashboard to review the queue.\nSUGGESTED_ACTIONS_JSON: []");
+
+        assertThat(answer(parsed)).isEqualTo("Open the Admin dashboard to review the queue.");
+    }
+
+    @Test
+    void extractLeadingProseSkipsJsonLines() {
+        String prose = (String) ReflectionTestUtils.invokeMethod(service, "extractLeadingProse",
+                "Use the documented checklist.\n{\"answer\":\"ignored\"}");
+
+        assertThat(prose).isEqualTo("Use the documented checklist.");
+    }
+
     private static String answer(Object parsed) {
         return (String) ReflectionTestUtils.invokeGetterMethod(parsed, "answer");
     }

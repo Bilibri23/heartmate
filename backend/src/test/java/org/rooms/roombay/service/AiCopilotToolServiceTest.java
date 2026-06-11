@@ -10,7 +10,10 @@ import org.rooms.roombay.repository.LandlordVerificationRepository;
 import org.rooms.roombay.repository.LeaseRepository;
 import org.rooms.roombay.repository.ListingFavoriteRepository;
 import org.rooms.roombay.repository.ListingPhotoRepository;
+import org.rooms.roombay.repository.ListingPreferencesRepository;
 import org.rooms.roombay.repository.PaymentRepository;
+import org.rooms.roombay.repository.UserRepository;
+import org.rooms.roombay.entity.User;
 import org.rooms.roombay.repository.PropertyListingRepository;
 import org.rooms.roombay.repository.ReportRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
@@ -43,8 +46,10 @@ class AiCopilotToolServiceTest {
     private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
     private final PropertyListingRepository propertyListingRepository = mock(PropertyListingRepository.class);
     private final ListingPhotoRepository listingPhotoRepository = mock(ListingPhotoRepository.class);
+    private final ListingPreferencesRepository listingPreferencesRepository = mock(ListingPreferencesRepository.class);
     private final LandlordVerificationRepository landlordVerificationRepository = mock(LandlordVerificationRepository.class);
     private final ReportRepository reportRepository = mock(ReportRepository.class);
+    private final UserRepository userRepository = mock(UserRepository.class);
     private final AppErrorLogService appErrorLogService = mock(AppErrorLogService.class);
     private final AnalyticsEventService analyticsEventService = mock(AnalyticsEventService.class);
     private final JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
@@ -57,8 +62,10 @@ class AiCopilotToolServiceTest {
             paymentRepository,
             propertyListingRepository,
             listingPhotoRepository,
+            listingPreferencesRepository,
             landlordVerificationRepository,
             reportRepository,
+            userRepository,
             appErrorLogService,
             analyticsEventService,
             jdbcTemplate
@@ -123,6 +130,7 @@ class AiCopilotToolServiceTest {
 
         String context = service.buildToolContext(adminId, "ADMIN");
 
+        assertThat(context).contains("adminPlatformStats");
         assertThat(context).contains("adminOpsSnapshot");
         assertThat(context).contains("adminRecentErrors");
         assertThat(context).contains("adminAiUnansweredQuestions");
@@ -153,7 +161,7 @@ class AiCopilotToolServiceTest {
 
         assertThat(response).isPresent();
         AiChatResponse ai = response.get();
-        assertThat(ai.getAnswer()).contains("I found 1 verified studio near Damas", "Would you like to filter by furnished, budget, or distance?");
+        assertThat(ai.getAnswer()).contains("I found 1 verified studio near Damas", "Primary action: View listing.");
         assertThat(ai.getAnswer()).doesNotContain("Modern Studio", "/listings/" + listingId);
         assertThat(ai.getSuggestedActions()).hasSize(1);
         assertThat(ai.getSuggestedActions().get(0).getLabel()).isEqualTo("View listing");
@@ -163,9 +171,28 @@ class AiCopilotToolServiceTest {
         assertThat(ai.getListingResults().get(0).getThumbnailUrl()).contains("studio.jpg");
         assertThat(ai.getListingResults().get(0).getMatchLabel()).isEqualTo("Search match");
         assertThat(ai.getListingResults().get(0).getMatchReason()).isEqualTo("This matches your current search.");
-        assertThat(ai.getListingResults().get(0).getWhyThisMatches()).anySatisfy(reason -> assertThat(reason).contains("Property type matches"));
+        assertThat(ai.getListingResults().get(0).getWhyThisMatches()).anySatisfy(reason -> assertThat(reason).contains("studio"));
         assertThat(ai.getRagGrounded()).isTrue();
         verify(jdbcTemplate).update(anyString(), eq(userId), eq("STUDENT"), eq("tenant_listing_search"), eq(true), any());
+    }
+
+    @Test
+    void adminPlatformStatsQuestionReturnsAggregateCountsWithoutEmails() {
+        UUID adminId = UUID.randomUUID();
+        when(userRepository.count()).thenReturn(120L);
+        when(userRepository.countByRole(User.UserRole.STUDENT)).thenReturn(80L);
+        when(userRepository.countByRole(User.UserRole.LANDLORD)).thenReturn(35L);
+        when(userRepository.countByRole(User.UserRole.ADMIN)).thenReturn(5L);
+        when(userRepository.countByAccountStatus(User.AccountStatus.ACTIVE)).thenReturn(100L);
+        when(userRepository.countByAccountStatus(User.AccountStatus.PENDING)).thenReturn(12L);
+        when(userRepository.countByAccountStatus(User.AccountStatus.SUSPENDED)).thenReturn(8L);
+
+        var response = service.tryAnswerAdminPlatformStats(adminId, "ADMIN", "how many users are on the platform", "thread-2");
+
+        assertThat(response).isPresent();
+        assertThat(response.get().getAnswer()).contains("120 registered accounts", "80 tenants", "35 landlords", "5 admins");
+        assertThat(response.get().getAnswer()).doesNotContain("@");
+        assertThat(response.get().getSuggestedActions().get(0).getActionUrl()).isEqualTo("/admin/users");
     }
 
     @Test

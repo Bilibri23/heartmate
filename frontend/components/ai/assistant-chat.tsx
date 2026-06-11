@@ -182,7 +182,11 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
       }
       if (event.type === "token" && event.token) {
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantId ? { ...m, content: `${m.content}${event.token}` } : m))
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: `${m.content}${event.token}`, statusLabel: undefined }
+              : m
+          )
         )
         return
       }
@@ -230,11 +234,14 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
             )}
           >
             {m.content.trim().length > 0 && <div className="whitespace-pre-wrap">{m.content}</div>}
-            {m.role === "assistant" && m.isPending && m.statusLabel && (
-              <div className={cn("flex items-center gap-2 text-slate-600", m.content.trim().length > 0 ? "mt-2" : "")}>
+            {m.role === "assistant" && m.isPending && m.statusLabel && m.content.trim().length === 0 && (
+              <div className="flex items-center gap-2 text-slate-600">
                 <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                 <span>{m.statusLabel}</span>
               </div>
+            )}
+            {m.role === "assistant" && m.isPending && m.content.trim().length > 0 && (
+              <span className="inline-block w-2 h-4 ml-0.5 bg-blue-600/70 animate-pulse align-text-bottom" aria-hidden />
             )}
             {m.role === "assistant" && m.content.trim().length > 0 && (
               <div className="mt-2 flex justify-end">
