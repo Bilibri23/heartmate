@@ -109,6 +109,56 @@ public class PropertyListing {
     @Column(name = "room_preview_status")
     @Builder.Default
     private RoomPreviewStatus roomPreviewStatus = RoomPreviewStatus.NOT_ENABLED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "listing_purpose")
+    @Builder.Default
+    private ListingPurpose listingPurpose = ListingPurpose.RENT;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "stay_type")
+    @Builder.Default
+    private StayType stayType = StayType.LONG_TERM;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "price_period")
+    @Builder.Default
+    private PricePeriod pricePeriod = PricePeriod.MONTH;
+
+    @Column(name = "sale_price")
+    private Integer salePrice;
+
+    @Column(name = "min_stay_days")
+    private Integer minStayDays;
+
+    @Column(name = "max_stay_days")
+    private Integer maxStayDays;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "furnishing_status")
+    @Builder.Default
+    private FurnishingStatus furnishingStatus = FurnishingStatus.UNFURNISHED;
+
+    @Column(name = "is_shared_accommodation")
+    @Builder.Default
+    private Boolean isSharedAccommodation = false;
+
+    @Column(name = "roommates_wanted")
+    @Builder.Default
+    private Boolean roommatesWanted = false;
+
+    @Column(name = "available_roommate_slots")
+    private Integer availableRoommateSlots;
+
+    @Column(name = "shared_space_notes", columnDefinition = "TEXT")
+    private String sharedSpaceNotes;
+
+    @Column(name = "roommate_compatibility_enabled")
+    @Builder.Default
+    private Boolean roommateCompatibilityEnabled = false;
+
+    @Column(name = "preferred_roommate_gender")
+    private String preferredRoommateGender;
     
     // Virtual Tour
     @Column(name = "video_tour_url")
@@ -186,7 +236,23 @@ public class PropertyListing {
     private LocalDateTime updatedAt;
     
     public enum PropertyType {
-        APARTMENT, HOUSE, STUDIO, SHARED_ROOM, PRIVATE_ROOM
+        APARTMENT, HOUSE, STUDIO, ROOM, SHARED_ROOM, PRIVATE_ROOM
+    }
+
+    public enum ListingPurpose {
+        RENT, SALE
+    }
+
+    public enum StayType {
+        SHORT_TERM, LONG_TERM, FLEXIBLE
+    }
+
+    public enum PricePeriod {
+        NIGHT, WEEK, MONTH, TOTAL
+    }
+
+    public enum FurnishingStatus {
+        FURNISHED, SEMI_FURNISHED, UNFURNISHED
     }
     
     public enum Status {

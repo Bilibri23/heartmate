@@ -54,6 +54,16 @@ public class AiChatResponse {
         private String city;
         private String neighborhood;
         private String propertyType;
+        private String listingPurpose;
+        private String stayType;
+        private String pricePeriod;
+        private Integer salePrice;
+        private String furnishingStatus;
+        private Boolean isSharedAccommodation;
+        private Boolean roommatesWanted;
+        private Integer availableRoommateSlots;
+        private Boolean roomPreviewEnabled;
+        private String roomPreviewStatus;
         private Boolean verified;
         private String status;
         private Boolean available;

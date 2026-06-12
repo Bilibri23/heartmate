@@ -11,6 +11,10 @@ import { useLanguage } from "@/context/language-context"
 interface Filters {
   city: string
   propertyType: string
+  listingPurpose: string
+  stayType: string
+  furnishingStatus: string
+  sharedAccommodation: boolean
   minPrice: number
   maxPrice: number
   bedrooms: number
@@ -38,6 +42,7 @@ const PROPERTY_TYPES = [
   { value: "STUDIO", label: "Studio" },
   { value: "APARTMENT", label: "Apartment" },
   { value: "HOUSE", label: "House" },
+  { value: "ROOM", label: "Room / Chambre" },
   { value: "PRIVATE_ROOM", label: "Private Room" },
   { value: "SHARED_ROOM", label: "Shared Room" },
 ]
@@ -145,6 +150,47 @@ export function EnhancedFilters({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm font-medium text-slate-700 mb-2 block">
+            {language === "fr" ? "Objectif" : "Purpose"}
+          </label>
+          <Select value={filters.listingPurpose || "all"} onValueChange={(value) => setFilters({ ...filters, listingPurpose: value === "all" ? "" : value })}>
+            <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common.any}</SelectItem>
+              <SelectItem value="RENT">{language === "fr" ? "À louer" : "Rent"}</SelectItem>
+              <SelectItem value="SALE">{language === "fr" ? "À vendre" : "Sale"}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-slate-700 mb-2 block">
+            {language === "fr" ? "Meublé" : "Furnishing"}
+          </label>
+          <Select value={filters.furnishingStatus || "all"} onValueChange={(value) => setFilters({ ...filters, furnishingStatus: value === "all" ? "" : value })}>
+            <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t.common.any}</SelectItem>
+              <SelectItem value="FURNISHED">{language === "fr" ? "Meublé" : "Furnished"}</SelectItem>
+              <SelectItem value="SEMI_FURNISHED">{language === "fr" ? "Semi-meublé" : "Semi-furnished"}</SelectItem>
+              <SelectItem value="UNFURNISHED">{language === "fr" ? "Non meublé" : "Unfurnished"}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="shared-accommodation"
+          checked={filters.sharedAccommodation}
+          onCheckedChange={(checked) => setFilters({ ...filters, sharedAccommodation: Boolean(checked) })}
+        />
+        <label htmlFor="shared-accommodation" className="text-sm text-slate-700">
+          {language === "fr" ? "Colocation uniquement" : "Shared accommodation only"}
+        </label>
       </div>
 
       {/* Bedrooms */}

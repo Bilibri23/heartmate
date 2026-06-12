@@ -146,7 +146,7 @@ public class InputSanitizer {
         }
         
         // Only allow valid property types
-        String[] validTypes = {"STUDIO", "APARTMENT", "HOUSE", "PRIVATE_ROOM", "SHARED_ROOM"};
+        String[] validTypes = {"STUDIO", "APARTMENT", "HOUSE", "ROOM", "PRIVATE_ROOM", "SHARED_ROOM"};
         String upperType = propertyType.toUpperCase().trim();
         
         for (String validType : validTypes) {
@@ -156,6 +156,31 @@ public class InputSanitizer {
         }
         
         throw new SecurityException("Invalid property type: " + propertyType);
+    }
+
+    public String sanitizeListingPurpose(String value) {
+        return sanitizeEnum(value, "RENT", "SALE");
+    }
+
+    public String sanitizeStayType(String value) {
+        return sanitizeEnum(value, "SHORT_TERM", "LONG_TERM", "FLEXIBLE");
+    }
+
+    public String sanitizeFurnishingStatus(String value) {
+        return sanitizeEnum(value, "FURNISHED", "SEMI_FURNISHED", "UNFURNISHED");
+    }
+
+    private String sanitizeEnum(String value, String... allowed) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        String upper = value.toUpperCase().trim();
+        for (String candidate : allowed) {
+            if (candidate.equals(upper)) {
+                return upper;
+            }
+        }
+        throw new SecurityException("Invalid value: " + value);
     }
     
     /**

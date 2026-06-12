@@ -15,6 +15,7 @@ import { RoomPreviewStudio } from "./room-preview-studio"
 type RoomPreviewCardProps = {
   listingId: string
   enabled?: boolean | null
+  roomPreviewStatus?: string | null
   isUnfurnished?: boolean | null
   photoUrl?: string | null
   hasDimensions: boolean
@@ -24,11 +25,13 @@ type RoomPreviewCardProps = {
 export function RoomPreviewCard({
   listingId,
   enabled,
+  roomPreviewStatus,
   isUnfurnished,
   photoUrl,
   hasDimensions,
   isAuthenticated,
 }: RoomPreviewCardProps) {
+  const isLive = Boolean(enabled && (roomPreviewStatus === "APPROVED" || !roomPreviewStatus))
   if (!enabled && !isUnfurnished) return null
 
   return (
@@ -40,9 +43,14 @@ export function RoomPreviewCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-bold text-slate-900">Preview this room</h2>
-            {enabled && (
+            {isLive && (
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-700">
-                Room Preview Available
+                Room Preview live
+              </span>
+            )}
+            {enabled && roomPreviewStatus === "PENDING_REVIEW" && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                Preview under review
               </span>
             )}
           </div>
@@ -54,7 +62,6 @@ export function RoomPreviewCard({
               This listing is unfurnished. Room Preview helps you imagine how your furniture could fit.
             </p>
           )}
-          <p className="mt-2 text-xs font-medium text-sky-700">AR-ready experience coming soon</p>
         </div>
       </div>
 
@@ -63,9 +70,9 @@ export function RoomPreviewCard({
           <Button
             type="button"
             className="mt-4 w-full rounded-xl bg-sky-600 hover:bg-sky-700"
-            disabled={!enabled}
+            disabled={!isLive}
             onClick={() => {
-              if (enabled) api.post(`/listings/${listingId}/room-preview/opened`).catch(() => {})
+              if (isLive) api.post(`/listings/${listingId}/room-preview/opened`).catch(() => {})
             }}
           >
             Try Room Preview

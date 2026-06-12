@@ -123,7 +123,7 @@ export function RoomPreviewStudio({ listingId, photoUrl, hasDimensions, isAuthen
           </p>
         </div>
         <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-          AR-ready experience coming soon
+          Drag furniture to plan your room
         </span>
       </div>
 

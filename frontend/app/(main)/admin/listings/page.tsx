@@ -305,7 +305,17 @@ export default function AdminListingsPage() {
                       </div>
                       {getStatusBadge(listing.status)}
                     </div>
-                    <p className="text-blue-600 font-semibold mt-1">{formatCurrency(listing.rentAmount)}/mo</p>
+                    <p className="text-blue-600 font-semibold mt-1">
+                      {listing.listingPurpose === "SALE"
+                        ? formatCurrency(listing.salePrice ?? listing.rentAmount)
+                        : `${formatCurrency(listing.rentAmount)}/mo`}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-semibold text-slate-600">
+                      {listing.listingPurpose && <span className="rounded-full bg-slate-100 px-2 py-0.5">{listing.listingPurpose}</span>}
+                      {listing.propertyType && <span className="rounded-full bg-slate-100 px-2 py-0.5">{listing.propertyType.replace(/_/g, " ")}</span>}
+                      {listing.furnishingStatus && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">{listing.furnishingStatus.replace(/_/g, " ")}</span>}
+                      {listing.isSharedAccommodation && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-violet-700">Shared</span>}
+                    </div>
                     <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
                       <User className="h-3 w-3" />
                       <span>{listing.landlordName || "Unknown"}</span>

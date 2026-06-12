@@ -64,6 +64,8 @@ import { trustTierChipClassName } from "@/lib/listing-trust-tier"
 import { cn } from "@/lib/utils"
 import { SimilarListingsRail } from "@/components/listings/similar-listings-rail"
 import { RoomPreviewCard } from "@/components/room-preview/room-preview-card"
+import { ListingAttributeBadges } from "@/components/listings/listing-attribute-badges"
+import { displayListingPrice, isSaleListing } from "@/lib/listing-taxonomy"
 
 interface ListingDetail {
   id: string
@@ -76,6 +78,17 @@ interface ListingDetail {
   neighborhood: string
   address: string
   propertyType: string
+  listingPurpose?: string
+  stayType?: string
+  pricePeriod?: string
+  salePrice?: number
+  furnishingStatus?: string
+  isSharedAccommodation?: boolean
+  roommatesWanted?: boolean
+  availableRoommateSlots?: number
+  sharedSpaceNotes?: string
+  roommateCompatibilityEnabled?: boolean
+  preferredRoommateGender?: string
   bedrooms: number
   bathrooms: number
   size?: number
@@ -639,8 +652,7 @@ export default function ListingDetailPage() {
 
             <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-5 pt-12 text-white pointer-events-none bg-gradient-to-t from-black/80 via-black/45 to-transparent">
               <p className="text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-md">
-                {formatCurrency(listing.rentAmount)}
-                <span className="text-base sm:text-lg font-semibold text-white/90"> {t.listings.perMonth}</span>
+                {displayListingPrice(listing, formatCurrency, language === "fr" ? "fr" : "en")}
               </p>
               <h1 className="text-lg sm:text-xl font-semibold leading-snug mt-1 drop-shadow-md line-clamp-2">
                 {listing.title}
@@ -898,9 +910,33 @@ export default function ListingDetailPage() {
             )}
           </div>
 
+          <ListingAttributeBadges
+            listing={listing}
+            language={language === "fr" ? "fr" : "en"}
+            size="md"
+            className="mb-2"
+          />
+
+          {(listing.isSharedAccommodation || listing.roommatesWanted) && (
+            <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-4">
+              <h2 className="text-lg font-bold text-slate-900">
+                {language === "fr" ? "Colocation" : "Shared accommodation"}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {listing.availableRoommateSlots
+                  ? `${listing.availableRoommateSlots} ${language === "fr" ? "place(s) disponible(s)" : "roommate slot(s) available"}`
+                  : language === "fr" ? "Colocation possible" : "Roommates welcome"}
+              </p>
+              {listing.sharedSpaceNotes && (
+                <p className="mt-2 text-sm text-slate-700">{listing.sharedSpaceNotes}</p>
+              )}
+            </div>
+          )}
+
           <RoomPreviewCard
             listingId={listing.id}
             enabled={listing.roomPreviewEnabled}
+            roomPreviewStatus={listing.roomPreviewStatus}
             isUnfurnished={listing.isUnfurnished || !listing.amenities?.includes("Furnished")}
             photoUrl={listing.roomPreviewPhotoUrl || listing.photos?.[0]?.photoUrl}
             hasDimensions={Boolean(listing.roomLengthMeters && listing.roomWidthMeters)}
@@ -1210,7 +1246,16 @@ export default function ListingDetailPage() {
             </SheetContent>
           </Sheet>
 
-          {/* Apply Now Button */}
+          {/* Apply or contact (sale listings) */}
+          {isSaleListing(listing) ? (
+            <Button
+              className="flex-1 h-12 rounded-xl text-base"
+              disabled={listing?.status !== "ACTIVE"}
+              onClick={() => listing.landlordId && router.push(`/messages/${listing.landlordId}`)}
+            >
+              {language === "fr" ? "Contacter le vendeur" : "Contact seller"}
+            </Button>
+          ) : (
           <Sheet
             open={isApplyOpen}
             onOpenChange={(open) => setIsApplyOpen(open && !existingApplication && listing?.status === "ACTIVE")}
@@ -1353,6 +1398,7 @@ export default function ListingDetailPage() {
               </div>
             </SheetContent>
           </Sheet>
+          )}
         </div>
       </div>
 

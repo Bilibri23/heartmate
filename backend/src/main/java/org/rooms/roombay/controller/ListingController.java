@@ -142,6 +142,10 @@ public class ListingController {
             @RequestParam(required = false) Double userLat,
             @RequestParam(required = false) Double userLon,
             @RequestParam(required = false) String availableFrom,
+            @RequestParam(required = false) String listingPurpose,
+            @RequestParam(required = false) String stayType,
+            @RequestParam(required = false) String furnishingStatus,
+            @RequestParam(required = false) Boolean sharedAccommodation,
             @RequestParam(required = false) UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -164,6 +168,9 @@ public class ListingController {
             userLat = inputSanitizer.sanitizeLatitude(userLat);
             userLon = inputSanitizer.sanitizeLongitude(userLon);
             availableFrom = inputSanitizer.sanitizeDate(availableFrom);
+            listingPurpose = inputSanitizer.sanitizeListingPurpose(listingPurpose);
+            stayType = inputSanitizer.sanitizeStayType(stayType);
+            furnishingStatus = inputSanitizer.sanitizeFurnishingStatus(furnishingStatus);
         } catch (SecurityException e) {
             log.warn("Security violation detected in search: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
@@ -176,7 +183,8 @@ public class ListingController {
         Page<ListingResponse> listings = listingService.searchListingsAdvanced(
                 query, city, neighborhood, propertyType, minPrice, maxPrice, 
                 bedrooms, bathrooms, amenities, maxDistance, userLat, userLon, 
-                availableFrom, userId, pageable);
+                availableFrom, listingPurpose, stayType, furnishingStatus, sharedAccommodation,
+                userId, pageable);
         analyticsEventService.emit("search_performed", userId, null, null,
                 Map.of("source", "listings", "query", query != null ? query : "", "city", city != null ? city : ""));
         return ResponseEntity.ok(listings);

@@ -20,9 +20,11 @@ const PROPERTY_TYPES = [
   { value: "STUDIO", label: "Studio" },
   { value: "APARTMENT", label: "Apartment" },
   { value: "HOUSE", label: "House" },
+  { value: "ROOM", label: "Room / Chambre" },
   { value: "PRIVATE_ROOM", label: "Private Room" },
   { value: "SHARED_ROOM", label: "Shared Room" },
 ]
+const MAX_PHOTOS = 15
 const AMENITIES_BY_CATEGORY: Record<string, string[]> = {
   "Essentials": ["WiFi", "Furnished", "Air Conditioning", "Ceiling Fan", "Hot Water", "Water Tank", "Generator"],
   "Rooms & Spaces": ["Kitchen", "Living Room", "Dining Room", "Balcony", "Terrace", "Garden", "Storage Room", "Wardrobe"],
@@ -163,6 +165,16 @@ export default function NewListingPage() {
     size: "",
     amenities: [] as string[],
     isUnfurnished: true,
+    listingPurpose: "RENT",
+    stayType: "LONG_TERM",
+    pricePeriod: "MONTH",
+    salePrice: "",
+    furnishingStatus: "UNFURNISHED",
+    isSharedAccommodation: false,
+    roommatesWanted: false,
+    availableRoommateSlots: "",
+    sharedSpaceNotes: "",
+    roommateCompatibilityEnabled: false,
     roomPreviewEnabled: false,
     roomLengthMeters: "",
     roomWidthMeters: "",
@@ -176,7 +188,7 @@ export default function NewListingPage() {
     const files = e.target.files
     if (!files) return
     const newPhotos = Array.from(files).map(file => ({ file, preview: URL.createObjectURL(file) }))
-    setPhotos(prev => [...prev, ...newPhotos].slice(0, 10))
+    setPhotos(prev => [...prev, ...newPhotos].slice(0, MAX_PHOTOS))
   }
 
   const handlePhotoRemove = (index: number) => setPhotos(prev => prev.filter((_, i) => i !== index))
@@ -202,20 +214,31 @@ export default function NewListingPage() {
     setIsSubmitting(true)
     try {
       // Step 1: Create listing (media-dependent Room Preview is enabled after listing photos upload)
+      const isSale = formData.listingPurpose === "SALE"
       const listingData = {
         title: formData.title,
         description: formData.description,
         propertyType: formData.propertyType,
+        listingPurpose: formData.listingPurpose,
+        stayType: isSale ? undefined : formData.stayType,
+        pricePeriod: isSale ? "TOTAL" : formData.pricePeriod,
+        salePrice: isSale ? parseInt(formData.salePrice || formData.rentAmount) : undefined,
         city: formData.city,
         neighborhood: formData.neighborhood,
         address: formData.address,
-        rentAmount: parseInt(formData.rentAmount),
-        deposit: parseInt(formData.depositAmount) || parseInt(formData.rentAmount),
+        rentAmount: isSale ? undefined : parseInt(formData.rentAmount),
+        deposit: isSale ? undefined : (parseInt(formData.depositAmount) || parseInt(formData.rentAmount)),
         bedrooms: parseInt(formData.bedrooms),
         bathrooms: parseInt(formData.bathrooms),
         squareMeters: formData.size ? parseInt(formData.size) : null,
         amenities: formData.amenities,
+        furnishingStatus: formData.furnishingStatus,
         isUnfurnished: formData.isUnfurnished,
+        isSharedAccommodation: formData.isSharedAccommodation,
+        roommatesWanted: formData.roommatesWanted,
+        availableRoommateSlots: formData.availableRoommateSlots ? parseInt(formData.availableRoommateSlots) : null,
+        sharedSpaceNotes: formData.sharedSpaceNotes || undefined,
+        roommateCompatibilityEnabled: formData.roommateCompatibilityEnabled,
         roomPreviewEnabled: false,
         roomLengthMeters: formData.roomLengthMeters ? parseFloat(formData.roomLengthMeters) : null,
         roomWidthMeters: formData.roomWidthMeters ? parseFloat(formData.roomWidthMeters) : null,
@@ -312,7 +335,9 @@ export default function NewListingPage() {
     switch (currentStep) {
       case 1: return photos.length > 0
       case 2: return formData.title && formData.propertyType && formData.city && formData.neighborhood
-      case 3: return formData.rentAmount
+      case 3: return formData.listingPurpose === "SALE"
+        ? Boolean(formData.salePrice || formData.rentAmount)
+        : Boolean(formData.rentAmount)
       case 4: return true
       case 5: return true // Virtual tour is optional
       default: return false
@@ -392,7 +417,7 @@ export default function NewListingPage() {
                         {index === 0 && <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-blue-600 text-white text-xs">Cover</span>}
                       </div>
                     ))}
-                    {photos.length < 10 && (
+                    {photos.length < MAX_PHOTOS && (
                       <label className="aspect-square rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                         <Camera className="h-6 w-6 text-slate-400" /><span className="text-xs text-slate-500 mt-1">Add</span>
                         <input type="file" accept="image/*" multiple onChange={handlePhotoAdd} className="hidden" />
@@ -406,8 +431,36 @@ export default function NewListingPage() {
                   <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.propertyDetails}</h2><p className="text-sm text-slate-500">{t.landlordForm.tellUsAbout}</p></div>
                   <div className="space-y-4">
                     <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.titleLabel} *</Label><Input placeholder={t.landlordForm.titlePlaceholder} value={formData.title} onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))} className="h-12 rounded-xl" /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label className="text-slate-700 mb-2 block">{language === "fr" ? "Objectif" : "Listing purpose"} *</Label>
+                        <Select value={formData.listingPurpose} onValueChange={(value) => setFormData(prev => ({ ...prev, listingPurpose: value, pricePeriod: value === "SALE" ? "TOTAL" : "MONTH" }))}>
+                          <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="RENT">{language === "fr" ? "À louer" : "For rent"}</SelectItem>
+                            <SelectItem value="SALE">{language === "fr" ? "À vendre" : "For sale"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {formData.listingPurpose !== "SALE" && (
+                        <div><Label className="text-slate-700 mb-2 block">{language === "fr" ? "Durée" : "Stay type"}</Label>
+                          <Select value={formData.stayType} onValueChange={(value) => setFormData(prev => ({ ...prev, stayType: value, pricePeriod: value === "SHORT_TERM" ? "NIGHT" : "MONTH" }))}>
+                            <SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="LONG_TERM">{language === "fr" ? "Long terme" : "Long term"}</SelectItem>
+                              <SelectItem value="SHORT_TERM">{language === "fr" ? "Court séjour" : "Short stay"}</SelectItem>
+                              <SelectItem value="FLEXIBLE">{language === "fr" ? "Flexible" : "Flexible"}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
                     <div><Label className="text-slate-700 mb-2 block">{t.listings.propertyType} *</Label>
-                      <Select value={formData.propertyType} onValueChange={(value) => setFormData(prev => ({ ...prev, propertyType: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger><SelectContent>{PROPERTY_TYPES.map((type) => (<SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>))}</SelectContent></Select>
+                      <Select value={formData.propertyType} onValueChange={(value) => setFormData(prev => ({
+                        ...prev,
+                        propertyType: value,
+                        isSharedAccommodation: value === "SHARED_ROOM" ? true : prev.isSharedAccommodation,
+                        roommatesWanted: value === "SHARED_ROOM" ? true : prev.roommatesWanted,
+                      }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger><SelectContent>{PROPERTY_TYPES.map((type) => (<SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>))}</SelectContent></Select>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div><Label className="text-slate-700 mb-2 block">{t.search.city} *</Label><Select value={formData.city} onValueChange={(value) => setFormData(prev => ({ ...prev, city: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select city" /></SelectTrigger><SelectContent>{CAMEROON_CITIES.map((city) => (<SelectItem key={city} value={city}>{city}</SelectItem>))}</SelectContent></Select></div>
@@ -424,6 +477,7 @@ export default function NewListingPage() {
                             setFormData(prev => ({
                               ...prev,
                               isUnfurnished: false,
+                              furnishingStatus: "FURNISHED",
                               amenities: prev.amenities.includes("Furnished")
                                 ? prev.amenities
                                 : [...prev.amenities, "Furnished"]
@@ -442,6 +496,7 @@ export default function NewListingPage() {
                             setFormData(prev => ({
                               ...prev,
                               isUnfurnished: true,
+                              furnishingStatus: "UNFURNISHED",
                               amenities: prev.amenities.filter(a => a !== "Furnished")
                             }))
                           }}
@@ -453,6 +508,31 @@ export default function NewListingPage() {
                           </span>
                         </button>
                       </div>
+                    </div>
+                    <div className="space-y-3 rounded-2xl border border-violet-100 bg-violet-50/60 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-slate-900">{language === "fr" ? "Colocation" : "Shared accommodation"}</h3>
+                          <p className="mt-1 text-sm text-slate-600">{language === "fr" ? "Pour les chercheurs de colocataires." : "For roommate seekers sharing a home."}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({
+                            ...prev,
+                            isSharedAccommodation: !prev.isSharedAccommodation,
+                            roommatesWanted: !prev.isSharedAccommodation,
+                          }))}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${formData.isSharedAccommodation ? "bg-violet-600 text-white" : "bg-white text-slate-600 border border-slate-200"}`}
+                        >
+                          {formData.isSharedAccommodation ? (language === "fr" ? "Activé" : "Enabled") : (language === "fr" ? "Désactivé" : "Off")}
+                        </button>
+                      </div>
+                      {formData.isSharedAccommodation && (
+                        <div className="grid grid-cols-2 gap-3">
+                          <Input type="number" min="1" placeholder={language === "fr" ? "Places dispo." : "Open slots"} value={formData.availableRoommateSlots} onChange={(e) => setFormData(prev => ({ ...prev, availableRoommateSlots: e.target.value }))} className="h-11 rounded-xl" />
+                          <Textarea placeholder={language === "fr" ? "Espaces partagés" : "Shared spaces"} value={formData.sharedSpaceNotes} onChange={(e) => setFormData(prev => ({ ...prev, sharedSpaceNotes: e.target.value }))} className="min-h-[44px] rounded-xl resize-none col-span-2" />
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
                       <div>
@@ -506,18 +586,29 @@ export default function NewListingPage() {
                 <div className="space-y-4">
                   <div><h2 className="text-lg font-semibold text-slate-900">{t.landlordForm.pricing}</h2><p className="text-sm text-slate-500">{t.landlordForm.setYourRent}</p></div>
                   <div className="space-y-4">
-                    <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.monthlyRent} *</Label><Input type="number" placeholder={t.landlordForm.rentPlaceholder} value={formData.rentAmount} onChange={(e) => {
+                    {formData.listingPurpose === "SALE" ? (
+                      <div><Label className="text-slate-700 mb-2 block">{language === "fr" ? "Prix de vente" : "Sale price"} *</Label><Input type="number" placeholder="45000000" value={formData.salePrice || formData.rentAmount} onChange={(e) => {
+                      const value = e.target.value
+                      if (value === '' || parseFloat(value) >= 0) {
+                        setFormData(prev => ({ ...prev, salePrice: value, rentAmount: value }))
+                      }
+                    }} className="h-12 rounded-xl text-lg font-semibold" /></div>
+                    ) : (
+                    <div><Label className="text-slate-700 mb-2 block">{formData.stayType === "SHORT_TERM" ? (language === "fr" ? "Prix par nuit" : "Nightly rate") : t.landlordForm.monthlyRent} *</Label><Input type="number" placeholder={t.landlordForm.rentPlaceholder} value={formData.rentAmount} onChange={(e) => {
                       const value = e.target.value
                       if (value === '' || parseFloat(value) >= 0) {
                         setFormData(prev => ({ ...prev, rentAmount: value }))
                       }
                     }} className="h-12 rounded-xl text-lg font-semibold" /></div>
+                    )}
+                    {formData.listingPurpose !== "SALE" && (
                     <div><Label className="text-slate-700 mb-2 block">{t.landlordForm.depositLabel}</Label><Input type="number" placeholder={t.landlordForm.depositPlaceholder} value={formData.depositAmount} onChange={(e) => {
                       const value = e.target.value
                       if (value === '' || parseFloat(value) >= 0) {
                         setFormData(prev => ({ ...prev, depositAmount: value }))
                       }
                     }} className="h-12 rounded-xl" /></div>
+                    )}
                     <div className="grid grid-cols-3 gap-3">
                       <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bed className="h-4 w-4" /> {t.landlordForm.beds}</Label><Select value={formData.bedrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bedrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4, 5, 6].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>
                       <div><Label className="text-slate-700 mb-2 block flex items-center gap-1"><Bath className="h-4 w-4" /> {t.landlordForm.baths}</Label><Select value={formData.bathrooms} onValueChange={(value) => setFormData(prev => ({ ...prev, bathrooms: value }))}><SelectTrigger className="h-12 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{[1, 2, 3, 4].map((num) => (<SelectItem key={num} value={num.toString()}>{num}</SelectItem>))}</SelectContent></Select></div>

@@ -48,8 +48,20 @@ const PROPERTY_TYPES = [
   { value: "STUDIO", label: "Studio" },
   { value: "APARTMENT", label: "Apartment" },
   { value: "HOUSE", label: "House" },
-  { value: "PRIVATE_ROOM", label: "Room" },
+  { value: "ROOM", label: "Room / Chambre" },
+  { value: "PRIVATE_ROOM", label: "Private Room" },
   { value: "SHARED_ROOM", label: "Shared" },
+]
+
+const LISTING_PURPOSES = [
+  { value: "RENT", labelEn: "For rent", labelFr: "À louer" },
+  { value: "SALE", labelEn: "For sale", labelFr: "À vendre" },
+]
+
+const STAY_TYPES = [
+  { value: "SHORT_TERM", labelEn: "Short stay", labelFr: "Court séjour" },
+  { value: "LONG_TERM", labelEn: "Long term", labelFr: "Long terme" },
+  { value: "FLEXIBLE", labelEn: "Flexible", labelFr: "Flexible" },
 ]
 
 const AMENITY_KEYWORDS: Record<string, string> = {
@@ -190,8 +202,12 @@ function parseNaturalQuery(raw: string): ParsedQuery {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Listing {
-  id: string; title: string; rentAmount: number; city: string
+  id: string; title: string; rentAmount: number; salePrice?: number; city: string
   neighborhood: string; propertyType: string
+  listingPurpose?: string; stayType?: string; pricePeriod?: string
+  furnishingStatus?: string; isSharedAccommodation?: boolean
+  roommatesWanted?: boolean; availableRoommateSlots?: number
+  roomPreviewEnabled?: boolean; roomPreviewStatus?: string
   latitude?: number | string | null
   longitude?: number | string | null
   photos: { photoUrl: string; isPrimary: boolean }[]
@@ -204,6 +220,8 @@ interface Listing {
 
 interface Filters {
   city: string; neighborhood: string; propertyType: string
+  listingPurpose: string; stayType: string; furnishingStatus: string
+  sharedAccommodation: boolean
   minPrice: number; maxPrice: number
   bedrooms: number; bathrooms: number
   amenities: string[]; maxDistance: number; availableFrom: string
@@ -224,6 +242,8 @@ interface SavedSearch {
 
 const DEFAULT_FILTERS: Filters = {
   city: "", neighborhood: "", propertyType: "",
+  listingPurpose: "", stayType: "", furnishingStatus: "",
+  sharedAccommodation: false,
   minPrice: 0, maxPrice: 500000,
   bedrooms: 0, bathrooms: 0, amenities: [],
   maxDistance: 0, availableFrom: "",
@@ -323,6 +343,10 @@ export default function SearchPage() {
       if (f.city && f.city !== "all") params.city = f.city
       if (f.neighborhood) params.neighborhood = f.neighborhood
       if (f.propertyType && f.propertyType !== "all") params.propertyType = f.propertyType
+      if (f.listingPurpose) params.listingPurpose = f.listingPurpose
+      if (f.stayType) params.stayType = f.stayType
+      if (f.furnishingStatus) params.furnishingStatus = f.furnishingStatus
+      if (f.sharedAccommodation) params.sharedAccommodation = true
       if (f.minPrice > 0) params.minPrice = f.minPrice
       if (f.maxPrice < 500000) params.maxPrice = f.maxPrice
       if (f.bedrooms > 0) params.bedrooms = f.bedrooms
@@ -519,6 +543,50 @@ export default function SearchPage() {
                 </button>
               )
             })}
+          </div>
+          <div className="mt-6 space-y-4 border-t border-slate-100 pt-6">
+            <div>
+              <p className="mb-2 text-sm font-semibold text-slate-800">{language === "fr" ? "Objectif" : "Listing purpose"}</p>
+              <div className="flex flex-wrap gap-2">
+                {[{ value: "", label: t.common.any }, ...LISTING_PURPOSES.map((p) => ({
+                  value: p.value,
+                  label: language === "fr" ? p.labelFr : p.labelEn,
+                }))].map((opt) => (
+                  <button
+                    key={opt.value || "any-purpose"}
+                    onClick={() => setFilters((prev) => ({ ...prev, listingPurpose: opt.value }))}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${safeFilters.listingPurpose === opt.value ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {safeFilters.listingPurpose !== "SALE" && (
+              <div>
+                <p className="mb-2 text-sm font-semibold text-slate-800">{language === "fr" ? "Durée" : "Stay type"}</p>
+                <div className="flex flex-wrap gap-2">
+                  {[{ value: "", label: t.common.any }, ...STAY_TYPES.map((s) => ({
+                    value: s.value,
+                    label: language === "fr" ? s.labelFr : s.labelEn,
+                  }))].map((opt) => (
+                    <button
+                      key={opt.value || "any-stay"}
+                      onClick={() => setFilters((prev) => ({ ...prev, stayType: opt.value }))}
+                      className={`rounded-full px-3 py-1.5 text-xs font-semibold ${safeFilters.stayType === opt.value ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              onClick={() => setFilters((prev) => ({ ...prev, sharedAccommodation: !prev.sharedAccommodation }))}
+              className={`w-full rounded-xl border-2 p-3 text-left text-sm font-medium ${safeFilters.sharedAccommodation ? "border-violet-600 bg-violet-50 text-violet-800" : "border-slate-200 text-slate-700"}`}
+            >
+              {language === "fr" ? "Colocation / chambre partagée" : "Shared accommodation / roommates"}
+            </button>
           </div>
         </div>
       )}</>
@@ -859,10 +927,20 @@ export default function SearchPage() {
                       variant={viewMode === "grid" ? "grid" : "compact"}
                       id={listing.id}
                       title={listing.title}
-                      price={listing.rentAmount}
+                      price={listing.listingPurpose === "SALE" ? (listing.salePrice ?? listing.rentAmount) : listing.rentAmount}
                       city={listing.city}
                       neighborhood={listing.neighborhood}
                       propertyType={listing.propertyType}
+                      listingPurpose={listing.listingPurpose}
+                      stayType={listing.stayType}
+                      pricePeriod={listing.pricePeriod}
+                      salePrice={listing.salePrice}
+                      furnishingStatus={listing.furnishingStatus}
+                      isSharedAccommodation={listing.isSharedAccommodation}
+                      roommatesWanted={listing.roommatesWanted}
+                      availableRoommateSlots={listing.availableRoommateSlots}
+                      roomPreviewEnabled={listing.roomPreviewEnabled}
+                      roomPreviewStatus={listing.roomPreviewStatus}
                       bedrooms={listing.bedrooms}
                       bathrooms={listing.bathrooms}
                       imageUrl={listing.photos?.find(p => p.isPrimary)?.photoUrl || listing.photos?.[0]?.photoUrl}

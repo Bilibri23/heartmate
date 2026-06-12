@@ -53,6 +53,10 @@ public class SearchController {
             @RequestParam(required = false) Double userLat,
             @RequestParam(required = false) Double userLon,
             @RequestParam(required = false) String availableFrom,
+            @RequestParam(required = false) String listingPurpose,
+            @RequestParam(required = false) String stayType,
+            @RequestParam(required = false) String furnishingStatus,
+            @RequestParam(required = false) Boolean sharedAccommodation,
             @RequestParam(required = false, defaultValue = "en") String lang,
             @RequestParam(required = false, defaultValue = "relevance") String mode,
             @RequestParam(required = false) UUID userId,
@@ -75,6 +79,9 @@ public class SearchController {
             userLat = inputSanitizer.sanitizeLatitude(userLat);
             userLon = inputSanitizer.sanitizeLongitude(userLon);
             availableFrom = inputSanitizer.sanitizeDate(availableFrom);
+            listingPurpose = inputSanitizer.sanitizeListingPurpose(listingPurpose);
+            stayType = inputSanitizer.sanitizeStayType(stayType);
+            furnishingStatus = inputSanitizer.sanitizeFurnishingStatus(furnishingStatus);
         } catch (SecurityException e) {
             log.warn("Security violation in search: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
@@ -105,7 +112,8 @@ public class SearchController {
                 results = listingService.searchListingsAdvanced(
                         query, city, neighborhood, propertyType, minPrice, maxPrice,
                         bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
-                        availableFrom, userId, fallbackPageable);
+                        availableFrom, listingPurpose, stayType, furnishingStatus, sharedAccommodation,
+                        userId, fallbackPageable);
             }
             return ResponseEntity.ok(results);
         }
@@ -115,7 +123,8 @@ public class SearchController {
         Page<ListingResponse> results = listingService.searchListingsAdvanced(
                 query, city, neighborhood, propertyType, minPrice, maxPrice,
                 bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
-                availableFrom, userId, pageable);
+                availableFrom, listingPurpose, stayType, furnishingStatus, sharedAccommodation,
+                userId, pageable);
         return ResponseEntity.ok(results);
     }
 }

@@ -26,9 +26,16 @@ public class ListingRequest {
     
     private String description;
     
-    private String propertyType; // APARTMENT, HOUSE, STUDIO, SHARED_ROOM, PRIVATE_ROOM
+    private String propertyType; // APARTMENT, HOUSE, STUDIO, ROOM, SHARED_ROOM, PRIVATE_ROOM
+
+    private String listingPurpose; // RENT, SALE
+    private String stayType; // SHORT_TERM, LONG_TERM, FLEXIBLE
+    private String pricePeriod; // NIGHT, WEEK, MONTH, TOTAL
+    private Integer salePrice;
+    private Integer minStayDays;
+    private Integer maxStayDays;
+    private String furnishingStatus; // FURNISHED, SEMI_FURNISHED, UNFURNISHED
     
-    @NotNull(message = "Rent amount is required", groups = Create.class)
     @Min(value = 0, message = "Rent amount must be positive", groups = {Create.class, Update.class})
     private Integer rentAmount;
     
@@ -55,6 +62,14 @@ public class ListingRequest {
     
     // Amenities
     private List<String> amenities; // WiFi, Water, Electricity, Parking, Security, Furnished
+
+      // Shared accommodation
+    private Boolean isSharedAccommodation;
+    private Boolean roommatesWanted;
+    private Integer availableRoommateSlots;
+    private String sharedSpaceNotes;
+    private Boolean roommateCompatibilityEnabled;
+    private String preferredRoommateGender;
 
     // Room Preview
     private Boolean isUnfurnished;

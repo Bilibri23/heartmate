@@ -174,4 +174,27 @@ class MigrationCoverageTest {
                 "using to_jsonb"
         );
     }
+
+    @Test
+    void listingTaxonomyMigrationAddsRentSaleAndSharedFields() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V53__listing_taxonomy_and_shared_accommodation.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains(
+                "listing_purpose",
+                "stay_type",
+                "price_period",
+                "furnishing_status",
+                "is_shared_accommodation",
+                "roommates_wanted",
+                "property_type = 'shared_room'"
+        );
+    }
 }

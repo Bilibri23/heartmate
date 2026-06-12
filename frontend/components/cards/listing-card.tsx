@@ -7,6 +7,8 @@ import { useLanguage } from "@/context/language-context"
 import { labelDiscoveryReasons } from "@/lib/discovery-reason-labels"
 import { cn } from "@/lib/utils"
 import { trustTierChipClassName } from "@/lib/listing-trust-tier"
+import { ListingAttributeBadges } from "@/components/listings/listing-attribute-badges"
+import { displayListingPrice, type ListingTaxonomy } from "@/lib/listing-taxonomy"
 import { useEffect, useRef, useState } from "react"
 
 interface ListingCardProps {
@@ -36,6 +38,16 @@ interface ListingCardProps {
   aiInsight?: string
   roommateTags?: string[]
   roommateCompatibility?: number
+  listingPurpose?: string
+  stayType?: string
+  pricePeriod?: string
+  salePrice?: number
+  furnishingStatus?: string
+  isSharedAccommodation?: boolean
+  roommatesWanted?: boolean
+  availableRoommateSlots?: number
+  roomPreviewEnabled?: boolean
+  roomPreviewStatus?: string
   onFavoriteToggle?: (id: string) => void
 }
 
@@ -64,9 +76,35 @@ export function ListingCard({
   aiInsight,
   roommateTags = [],
   roommateCompatibility,
+  listingPurpose,
+  stayType,
+  pricePeriod,
+  salePrice,
+  furnishingStatus,
+  isSharedAccommodation,
+  roommatesWanted,
+  availableRoommateSlots,
+  roomPreviewEnabled,
+  roomPreviewStatus,
   onFavoriteToggle,
 }: ListingCardProps) {
   const { formatCurrency, t, language } = useLanguage()
+  const lang = language === "fr" ? "fr" : "en"
+  const taxonomy: ListingTaxonomy = {
+    listingPurpose,
+    stayType,
+    pricePeriod,
+    salePrice,
+    rentAmount: price,
+    furnishingStatus,
+    isSharedAccommodation,
+    roommatesWanted,
+    availableRoommateSlots,
+    roomPreviewEnabled,
+    roomPreviewStatus,
+    propertyType,
+  }
+  const priceLabel = displayListingPrice(taxonomy, formatCurrency, lang)
   const [favorited, setFavorited] = useState(isFavorited)
   const [imgIndex, setImgIndex] = useState(0)
 
@@ -126,8 +164,8 @@ export function ListingCard({
     (isFeatured ? `Popular in ${city}` : null)
   const ariaListing =
     reasonLabels.length > 0
-      ? `${title}. ${reasonLabels.join(". ")}. ${formatCurrency(price)} per month.`
-      : `${title}. ${formatCurrency(price)} per month.`
+      ? `${title}. ${reasonLabels.join(". ")}. ${priceLabel}.`
+      : `${title}. ${priceLabel}.`
   const listingHref = `/listings/${id}`
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const cardRef = useRef<HTMLDivElement | null>(null)
@@ -174,7 +212,7 @@ export function ListingCard({
           <div className="min-w-0 flex-1 py-1">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <p className="text-base font-extrabold leading-tight text-slate-950">{formatCurrency(price)}</p>
+                <p className="text-base font-extrabold leading-tight text-slate-950">{priceLabel}</p>
                 <h3 className="mt-1 line-clamp-1 text-sm font-semibold text-slate-900">{title}</h3>
               </div>
               <button
@@ -192,8 +230,8 @@ export function ListingCard({
               <MapPin className="h-3 w-3 shrink-0" />
               <span className="truncate">{locationLabel}</span>
             </p>
+            <ListingAttributeBadges listing={taxonomy} language={lang} className="mt-2" maxBadges={4} />
             <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-medium text-slate-600">
-              {listingTypeLabel && <span className="rounded-full bg-slate-100 px-2 py-0.5">{listingTypeLabel}</span>}
               <span className="rounded-full bg-slate-100 px-2 py-0.5">{bedrooms} bed</span>
               <span className="rounded-full bg-slate-100 px-2 py-0.5">{bathrooms} bath</span>
               {roommateCompatibility != null && (
@@ -263,7 +301,7 @@ export function ListingCard({
           <div className="space-y-2 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-lg font-extrabold leading-tight text-slate-950">{formatCurrency(price)}</p>
+                <p className="text-lg font-extrabold leading-tight text-slate-950">{priceLabel}</p>
                 <h3 className="mt-1 line-clamp-1 text-sm font-semibold text-slate-900">{title}</h3>
               </div>
               {matchScore != null && matchScore > 0 && (
@@ -276,9 +314,9 @@ export function ListingCard({
               <MapPin className="h-3.5 w-3.5 shrink-0 text-blue-500" />
               <span className="truncate">{locationLabel}</span>
             </p>
+            <ListingAttributeBadges listing={taxonomy} language={lang} className="mt-1" maxBadges={4} />
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2 text-xs text-slate-600">
-                {listingTypeLabel && <span className="truncate">{listingTypeLabel}</span>}
                 <span className="flex items-center gap-1"><Bed className="h-3.5 w-3.5" /> {bedrooms}</span>
                 <span className="flex items-center gap-1"><Bath className="h-3.5 w-3.5" /> {bathrooms}</span>
               </div>
@@ -470,9 +508,8 @@ export function ListingCard({
             {/* Price */}
             <div className="flex items-baseline gap-1.5 mb-1">
               <span className="text-3xl font-extrabold text-white leading-none">
-                {formatCurrency(price)}
+                {priceLabel}
               </span>
-              <span className="text-white/70 text-xs font-medium">/mo</span>
               {rating && rating > 0 && (
                 <div className="ml-auto flex items-center gap-1 bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5">
                   <Star className="h-3 w-3 fill-amber-400 text-amber-400" />

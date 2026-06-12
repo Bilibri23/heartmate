@@ -53,6 +53,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @Transactional
 public class ListingService {
+
+    private static final int MAX_LISTING_PHOTOS = 15;
     
     private final PropertyListingRepository listingRepository;
     private final ListingPhotoRepository photoRepository;
@@ -103,6 +105,8 @@ public class ListingService {
             log.warn("Duplicate listing create suppressed for landlord={} existingListing={}", landlordId, existing.getId());
             return mapToResponse(existing, landlordId);
         }
+
+        validateListingPricing(request, true);
         
         // Create listing
         PropertyListing listing = PropertyListing.builder()
@@ -148,6 +152,8 @@ public class ListingService {
                 .viewsCount(0)
                 .favoritesCount(0)
                 .build();
+
+        applyTaxonomyFields(listing, request, true);
 
         if (Boolean.TRUE.equals(listing.getRoomPreviewEnabled())) {
             throw new BadRequestException("Create the listing photos before enabling Room Preview");
@@ -326,6 +332,8 @@ public class ListingService {
                 listing.setStatus(newStatus);
             }
         }
+
+        applyTaxonomyFields(listing, request, false);
         
         PropertyListing updated = listingRepository.save(listing);
         log.info("Listing updated successfully: {}", listingId);
@@ -419,6 +427,32 @@ public class ListingService {
             String availableFrom,
             UUID userId,
             Pageable pageable) {
+        return searchListingsAdvanced(
+                query, city, neighborhood, propertyType, minPrice, maxPrice,
+                bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
+                availableFrom, null, null, null, null, userId, pageable);
+    }
+
+    public Page<ListingResponse> searchListingsAdvanced(
+            String query,
+            String city,
+            String neighborhood,
+            String propertyType,
+            Integer minPrice,
+            Integer maxPrice,
+            Integer bedrooms,
+            Integer bathrooms,
+            List<String> amenities,
+            Double maxDistance,
+            Double userLat,
+            Double userLon,
+            String availableFrom,
+            String listingPurpose,
+            String stayType,
+            String furnishingStatus,
+            Boolean sharedAccommodation,
+            UUID userId,
+            Pageable pageable) {
         log.info("Advanced search - query: {}, city: {}, bedrooms: {}, bathrooms: {}, maxDistance: {}", 
                 query, city, bedrooms, bathrooms, maxDistance);
         
@@ -429,7 +463,8 @@ public class ListingService {
         var spec = ListingSpecifications.buildSearchSpec(
                 query, city, neighborhood, propertyType,
                 minPrice, maxPrice, bedrooms, bathrooms,
-                amenities, availableFrom);
+                amenities, availableFrom,
+                listingPurpose, stayType, furnishingStatus, sharedAccommodation);
         Page<PropertyListing> page = listingRepository.findAll(spec, pageable);
         return page.map(listing -> mapToResponse(listing, userId));
     }
@@ -541,10 +576,14 @@ public class ListingService {
         if (!listing.getLandlord().getId().equals(landlordId)) {
             throw new BadRequestException("Only the listing owner can add photos");
         }
+
+        List<ListingPhoto> existingPhotos = photoRepository.findByListingId(listingId);
+        if (existingPhotos.size() >= MAX_LISTING_PHOTOS) {
+            throw new BadRequestException("Maximum of " + MAX_LISTING_PHOTOS + " photos per listing");
+        }
         
         // If this is primary, unset other primary photos
         if (Boolean.TRUE.equals(isPrimary)) {
-            List<ListingPhoto> existingPhotos = photoRepository.findByListingId(listingId);
             for (ListingPhoto photo : existingPhotos) {
                 if (photo.getIsPrimary()) {
                     photo.setIsPrimary(false);
@@ -554,7 +593,6 @@ public class ListingService {
         }
         
         // Get next display order
-        List<ListingPhoto> existingPhotos = photoRepository.findByListingId(listingId);
         int nextOrder = existingPhotos.size();
         
         ListingPhoto photo = ListingPhoto.builder()
@@ -758,6 +796,159 @@ public class ListingService {
             throw new BadRequestException("Invalid property type: " + propertyType);
         }
     }
+
+    private void validateListingPricing(ListingRequest request, boolean isCreate) {
+        PropertyListing.ListingPurpose purpose = parseListingPurpose(request.getListingPurpose());
+        if (purpose == null) {
+            purpose = PropertyListing.ListingPurpose.RENT;
+        }
+        if (purpose == PropertyListing.ListingPurpose.SALE) {
+            Integer salePrice = request.getSalePrice() != null ? request.getSalePrice() : request.getRentAmount();
+            if (isCreate && salePrice == null) {
+                throw new BadRequestException("Sale price is required for sale listings");
+            }
+        } else if (isCreate && request.getRentAmount() == null) {
+            throw new BadRequestException("Rent amount is required for rental listings");
+        }
+    }
+
+    private void applyTaxonomyFields(PropertyListing listing, ListingRequest request, boolean isCreate) {
+        if (request.getListingPurpose() != null) {
+            listing.setListingPurpose(parseListingPurpose(request.getListingPurpose()));
+        } else if (isCreate) {
+            listing.setListingPurpose(PropertyListing.ListingPurpose.RENT);
+        }
+
+        if (request.getStayType() != null) {
+            listing.setStayType(parseStayType(request.getStayType()));
+        } else if (isCreate) {
+            listing.setStayType(PropertyListing.StayType.LONG_TERM);
+        }
+
+        if (request.getPricePeriod() != null) {
+            listing.setPricePeriod(parsePricePeriod(request.getPricePeriod()));
+        } else if (isCreate) {
+            if (listing.getListingPurpose() == PropertyListing.ListingPurpose.SALE) {
+                listing.setPricePeriod(PropertyListing.PricePeriod.TOTAL);
+            } else if (listing.getStayType() == PropertyListing.StayType.SHORT_TERM) {
+                listing.setPricePeriod(PropertyListing.PricePeriod.NIGHT);
+            } else {
+                listing.setPricePeriod(PropertyListing.PricePeriod.MONTH);
+            }
+        }
+
+        if (request.getSalePrice() != null) {
+            listing.setSalePrice(request.getSalePrice());
+        } else if (listing.getListingPurpose() == PropertyListing.ListingPurpose.SALE
+                && request.getRentAmount() != null) {
+            listing.setSalePrice(request.getRentAmount());
+        }
+
+        if (request.getMinStayDays() != null) {
+            listing.setMinStayDays(request.getMinStayDays());
+        }
+        if (request.getMaxStayDays() != null) {
+            listing.setMaxStayDays(request.getMaxStayDays());
+        }
+
+        if (request.getFurnishingStatus() != null) {
+            listing.setFurnishingStatus(parseFurnishingStatus(request.getFurnishingStatus()));
+            syncLegacyFurnishingFields(listing);
+        } else if (request.getIsUnfurnished() != null) {
+            listing.setIsUnfurnished(request.getIsUnfurnished());
+            if (Boolean.TRUE.equals(request.getIsUnfurnished())) {
+                listing.setFurnishingStatus(PropertyListing.FurnishingStatus.UNFURNISHED);
+            } else if (listing.getFurnishingStatus() == PropertyListing.FurnishingStatus.UNFURNISHED) {
+                listing.setFurnishingStatus(PropertyListing.FurnishingStatus.SEMI_FURNISHED);
+            }
+            syncLegacyFurnishingFields(listing);
+        }
+
+        if (request.getIsSharedAccommodation() != null) {
+            listing.setIsSharedAccommodation(request.getIsSharedAccommodation());
+        } else if (isCreate && listing.getPropertyType() == PropertyListing.PropertyType.SHARED_ROOM) {
+            listing.setIsSharedAccommodation(true);
+            listing.setRoommatesWanted(true);
+        }
+
+        if (request.getRoommatesWanted() != null) {
+            listing.setRoommatesWanted(request.getRoommatesWanted());
+        }
+        if (request.getAvailableRoommateSlots() != null) {
+            listing.setAvailableRoommateSlots(request.getAvailableRoommateSlots());
+        }
+        if (request.getSharedSpaceNotes() != null) {
+            listing.setSharedSpaceNotes(request.getSharedSpaceNotes());
+        }
+        if (request.getRoommateCompatibilityEnabled() != null) {
+            listing.setRoommateCompatibilityEnabled(request.getRoommateCompatibilityEnabled());
+        }
+        if (request.getPreferredRoommateGender() != null) {
+            listing.setPreferredRoommateGender(blankToNull(request.getPreferredRoommateGender()));
+        }
+    }
+
+    private void syncLegacyFurnishingFields(PropertyListing listing) {
+        if (listing.getFurnishingStatus() == null) {
+            return;
+        }
+        switch (listing.getFurnishingStatus()) {
+            case FURNISHED -> {
+                listing.setIsUnfurnished(false);
+                List<String> amenities = listing.getAmenities() == null ? new ArrayList<>() : new ArrayList<>(listing.getAmenities());
+                if (!amenities.contains("Furnished")) {
+                    amenities.add("Furnished");
+                }
+                listing.setAmenities(amenities);
+            }
+            case UNFURNISHED -> listing.setIsUnfurnished(true);
+            case SEMI_FURNISHED -> listing.setIsUnfurnished(false);
+        }
+    }
+
+    private PropertyListing.ListingPurpose parseListingPurpose(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return PropertyListing.ListingPurpose.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid listing purpose: " + value);
+        }
+    }
+
+    private PropertyListing.StayType parseStayType(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return PropertyListing.StayType.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid stay type: " + value);
+        }
+    }
+
+    private PropertyListing.PricePeriod parsePricePeriod(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return PropertyListing.PricePeriod.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid price period: " + value);
+        }
+    }
+
+    private PropertyListing.FurnishingStatus parseFurnishingStatus(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return PropertyListing.FurnishingStatus.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("Invalid furnishing status: " + value);
+        }
+    }
     
     private PropertyListing.Status parseStatus(String status) {
         if (status == null) {
@@ -852,6 +1043,19 @@ public class ListingService {
                 .title(listing.getTitle())
                 .description(listing.getDescription())
                 .propertyType(listing.getPropertyType() != null ? listing.getPropertyType().name() : null)
+                .listingPurpose(listing.getListingPurpose() != null ? listing.getListingPurpose().name() : PropertyListing.ListingPurpose.RENT.name())
+                .stayType(listing.getStayType() != null ? listing.getStayType().name() : PropertyListing.StayType.LONG_TERM.name())
+                .pricePeriod(listing.getPricePeriod() != null ? listing.getPricePeriod().name() : PropertyListing.PricePeriod.MONTH.name())
+                .salePrice(listing.getSalePrice())
+                .minStayDays(listing.getMinStayDays())
+                .maxStayDays(listing.getMaxStayDays())
+                .furnishingStatus(listing.getFurnishingStatus() != null ? listing.getFurnishingStatus().name() : null)
+                .isSharedAccommodation(Boolean.TRUE.equals(listing.getIsSharedAccommodation()))
+                .roommatesWanted(Boolean.TRUE.equals(listing.getRoommatesWanted()))
+                .availableRoommateSlots(listing.getAvailableRoommateSlots())
+                .sharedSpaceNotes(listing.getSharedSpaceNotes())
+                .roommateCompatibilityEnabled(Boolean.TRUE.equals(listing.getRoommateCompatibilityEnabled()))
+                .preferredRoommateGender(listing.getPreferredRoommateGender())
                 .rentAmount(listing.getRentAmount())
                 .deposit(listing.getDeposit())
                 .agencyFees(listing.getAgencyFees())

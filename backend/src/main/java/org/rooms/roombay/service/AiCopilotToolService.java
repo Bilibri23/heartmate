@@ -435,7 +435,11 @@ public class AiCopilotToolService {
                 null,
                 null,
                 List.of(),
-                null
+                null,
+                request.listingPurpose(),
+                request.stayType(),
+                request.furnishingStatus(),
+                request.sharedAccommodation()
         );
         return propertyListingRepository.findAll(
                 spec,
@@ -446,13 +450,42 @@ public class AiCopilotToolService {
     private static ListingSearchRequest parseListingSearchRequest(String message) {
         String raw = message == null ? "" : message.trim();
         String lower = raw.toLowerCase(Locale.ROOT);
-        boolean searchIntent = lower.matches(".*\\b(need|want|find|looking for|search|show me|studio|apartment|house|room|listing|rent)\\b.*");
+        boolean searchIntent = lower.matches(".*\\b(need|want|find|looking for|search|show me|studio|apartment|house|room|chambre|listing|rent|sale|buy|roommate|colocation)\\b.*");
         String propertyType = null;
         if (lower.matches(".*\\bstudio\\b.*")) propertyType = "STUDIO";
         else if (lower.matches(".*\\b(apartment|appartement|flat)\\b.*")) propertyType = "APARTMENT";
         else if (lower.matches(".*\\bhouse\\b.*")) propertyType = "HOUSE";
-        else if (lower.matches(".*\\b(shared room|shared)\\b.*")) propertyType = "SHARED_ROOM";
-        else if (lower.matches(".*\\b(room|private room)\\b.*")) propertyType = "PRIVATE_ROOM";
+        else if (lower.matches(".*\\b(shared room|shared accommodation|colocation|coloc)\\b.*")) propertyType = "SHARED_ROOM";
+        else if (lower.matches(".*\\b(chambre|private room)\\b.*")) propertyType = "ROOM";
+        else if (lower.matches(".*\\broom\\b.*")) propertyType = "ROOM";
+
+        String listingPurpose = null;
+        if (lower.matches(".*\\b(for sale|buy|purchase|sale|à vendre|vendre)\\b.*")) {
+            listingPurpose = "SALE";
+        } else if (lower.matches(".*\\b(rent|rental|location|louer)\\b.*")) {
+            listingPurpose = "RENT";
+        }
+
+        String stayType = null;
+        if (lower.matches(".*\\b(short[- ]term|nightly|per night|vacation|holiday)\\b.*")) {
+            stayType = "SHORT_TERM";
+        } else if (lower.matches(".*\\b(long[- ]term|monthly|yearly)\\b.*")) {
+            stayType = "LONG_TERM";
+        }
+
+        String furnishingStatus = null;
+        if (lower.matches(".*\\b(furnished|meublé|meublee)\\b.*")) {
+            furnishingStatus = "FURNISHED";
+        } else if (lower.matches(".*\\b(semi[- ]furnished|partiellement meublé)\\b.*")) {
+            furnishingStatus = "SEMI_FURNISHED";
+        } else if (lower.matches(".*\\b(unfurnished|non meublé|vide)\\b.*")) {
+            furnishingStatus = "UNFURNISHED";
+        }
+
+        Boolean sharedAccommodation = null;
+        if (lower.matches(".*\\b(roommate|roommates|shared accommodation|colocation|coloc)\\b.*")) {
+            sharedAccommodation = true;
+        }
 
         Integer maxPrice = null;
         java.util.regex.Matcher price = java.util.regex.Pattern
@@ -465,7 +498,9 @@ public class AiCopilotToolService {
 
         String location = extractLocation(raw);
         String query = location != null && !location.isBlank() ? location : raw;
-        return new ListingSearchRequest(searchIntent, query.trim(), null, propertyType, maxPrice);
+        return new ListingSearchRequest(
+                searchIntent, query.trim(), null, propertyType, maxPrice,
+                listingPurpose, stayType, furnishingStatus, sharedAccommodation);
     }
 
     private static String extractLocation(String raw) {
@@ -497,6 +532,16 @@ public class AiCopilotToolService {
                 .city(cleanValue(listing.getCity()))
                 .neighborhood(cleanValue(listing.getNeighborhood()))
                 .propertyType(listing.getPropertyType() == null ? null : listing.getPropertyType().name())
+                .listingPurpose(listing.getListingPurpose() == null ? null : listing.getListingPurpose().name())
+                .stayType(listing.getStayType() == null ? null : listing.getStayType().name())
+                .pricePeriod(listing.getPricePeriod() == null ? null : listing.getPricePeriod().name())
+                .salePrice(listing.getSalePrice())
+                .furnishingStatus(listing.getFurnishingStatus() == null ? null : listing.getFurnishingStatus().name())
+                .isSharedAccommodation(Boolean.TRUE.equals(listing.getIsSharedAccommodation()))
+                .roommatesWanted(Boolean.TRUE.equals(listing.getRoommatesWanted()))
+                .availableRoommateSlots(listing.getAvailableRoommateSlots())
+                .roomPreviewEnabled(Boolean.TRUE.equals(listing.getRoomPreviewEnabled()))
+                .roomPreviewStatus(listing.getRoomPreviewStatus() == null ? null : listing.getRoomPreviewStatus().name())
                 .verified(Boolean.TRUE.equals(listing.getVerified()))
                 .status(listing.getStatus() == null ? null : listing.getStatus().name())
                 .available(listing.getStatus() == PropertyListing.Status.ACTIVE)
@@ -525,12 +570,23 @@ public class AiCopilotToolService {
                 .type("NAVIGATE")
                 .actionUrl(listingActionUrl(listing))
                 .build());
-        actions.add(AiChatResponse.SuggestedAction.builder()
-                .id("apply_now")
-                .label("Apply now")
-                .type("NAVIGATE")
-                .actionUrl(listingActionUrl(listing))
-                .build());
+        if (listing.getListingPurpose() != PropertyListing.ListingPurpose.SALE) {
+            actions.add(AiChatResponse.SuggestedAction.builder()
+                    .id("apply_now")
+                    .label("Apply now")
+                    .type("NAVIGATE")
+                    .actionUrl(listingActionUrl(listing))
+                    .build());
+        } else {
+            actions.add(AiChatResponse.SuggestedAction.builder()
+                    .id("contact_seller")
+                    .label("Contact seller")
+                    .type("NAVIGATE")
+                    .actionUrl(landlordId != null && !landlordId.isBlank()
+                            ? "/messages/" + landlordId
+                            : listingActionUrl(listing))
+                    .build());
+        }
         if (landlordId != null && !landlordId.isBlank()) {
             actions.add(AiChatResponse.SuggestedAction.builder()
                     .id("message_landlord")
@@ -853,21 +909,31 @@ public class AiCopilotToolService {
             String query,
             String city,
             String propertyType,
-            Integer maxPrice
+            Integer maxPrice,
+            String listingPurpose,
+            String stayType,
+            String furnishingStatus,
+            Boolean sharedAccommodation
     ) {
         boolean matchesSearchIntent() {
-            return searchIntent && ((query != null && !query.isBlank()) || propertyType != null || maxPrice != null);
+            return searchIntent && ((query != null && !query.isBlank()) || propertyType != null || maxPrice != null
+                    || listingPurpose != null || stayType != null || furnishingStatus != null || sharedAccommodation != null);
         }
 
         String describe() {
             List<String> parts = new ArrayList<>();
+            if (listingPurpose != null) parts.add(listingPurpose.toLowerCase(Locale.ROOT));
             if (propertyType != null) parts.add(propertyType.toLowerCase(Locale.ROOT).replace("_", " "));
             if (query != null && !query.isBlank()) parts.add("near " + query);
             if (maxPrice != null) parts.add("under " + maxPrice + " XAF");
+            if (stayType != null) parts.add(stayType.toLowerCase(Locale.ROOT).replace("_", " "));
+            if (Boolean.TRUE.equals(sharedAccommodation)) parts.add("shared");
             return parts.isEmpty() ? "your search" : String.join(" ", parts);
         }
 
         String searchUrl() {
+            StringBuilder url = new StringBuilder("/search?");
+            List<String> params = new ArrayList<>();
             String q = query == null ? "" : query;
             if (propertyType != null && !q.toLowerCase(Locale.ROOT).contains(propertyType.toLowerCase(Locale.ROOT))) {
                 q = (propertyType.toLowerCase(Locale.ROOT).replace("_", " ") + " " + q).trim();
@@ -875,7 +941,28 @@ public class AiCopilotToolService {
             if (maxPrice != null) {
                 q = (q + " under " + maxPrice).trim();
             }
-            return "/search?query=" + URLEncoder.encode(q, StandardCharsets.UTF_8);
+            if (!q.isBlank()) {
+                params.add("query=" + URLEncoder.encode(q, StandardCharsets.UTF_8));
+            }
+            if (propertyType != null) {
+                params.add("propertyType=" + URLEncoder.encode(propertyType, StandardCharsets.UTF_8));
+            }
+            if (listingPurpose != null) {
+                params.add("listingPurpose=" + URLEncoder.encode(listingPurpose, StandardCharsets.UTF_8));
+            }
+            if (stayType != null) {
+                params.add("stayType=" + URLEncoder.encode(stayType, StandardCharsets.UTF_8));
+            }
+            if (furnishingStatus != null) {
+                params.add("furnishingStatus=" + URLEncoder.encode(furnishingStatus, StandardCharsets.UTF_8));
+            }
+            if (Boolean.TRUE.equals(sharedAccommodation)) {
+                params.add("sharedAccommodation=true");
+            }
+            if (maxPrice != null) {
+                params.add("maxPrice=" + maxPrice);
+            }
+            return url.append(String.join("&", params)).toString();
         }
     }
 

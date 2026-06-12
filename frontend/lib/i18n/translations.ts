@@ -224,7 +224,7 @@ export const translations = {
     landlordForm: {
       newListing: "New Listing",
       addPhotos: "Add Photos",
-      uploadPhotos: "Upload up to 10 photos",
+      uploadPhotos: "Upload up to 15 photos",
       cover: "Cover",
       add: "Add",
       propertyDetails: "Property Details",
@@ -707,7 +707,7 @@ export const translations = {
     landlordForm: {
       newListing: "Nouvelle annonce",
       addPhotos: "Ajouter des photos",
-      uploadPhotos: "Téléchargez jusqu'à 10 photos",
+      uploadPhotos: "Téléchargez jusqu'à 15 photos",
       cover: "Couverture",
       add: "Ajouter",
       propertyDetails: "Détails du bien",

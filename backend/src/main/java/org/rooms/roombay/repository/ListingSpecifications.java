@@ -28,6 +28,28 @@ public final class ListingSpecifications {
             Integer bathrooms,
             List<String> amenities,
             String availableFrom) {
+        return buildSearchSpec(
+                query, city, neighborhood, propertyType,
+                minPrice, maxPrice, bedrooms, bathrooms,
+                amenities, availableFrom,
+                null, null, null, null);
+    }
+
+    public static Specification<PropertyListing> buildSearchSpec(
+            String query,
+            String city,
+            String neighborhood,
+            String propertyType,
+            Integer minPrice,
+            Integer maxPrice,
+            Integer bedrooms,
+            Integer bathrooms,
+            List<String> amenities,
+            String availableFrom,
+            String listingPurpose,
+            String stayType,
+            String furnishingStatus,
+            Boolean sharedAccommodation) {
 
         return (root, cq, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -61,12 +83,69 @@ public final class ListingSpecifications {
                 }
             }
 
-            if (minPrice != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("rentAmount"), minPrice));
+            PropertyListing.ListingPurpose purposeFilter = parseListingPurpose(listingPurpose);
+            if (purposeFilter != null) {
+                predicates.add(cb.equal(root.get("listingPurpose"), purposeFilter));
             }
 
-            if (maxPrice != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("rentAmount"), maxPrice));
+            if (stayType != null && !stayType.isBlank()) {
+                try {
+                    PropertyListing.StayType stay = PropertyListing.StayType.valueOf(stayType.toUpperCase());
+                    predicates.add(cb.equal(root.get("stayType"), stay));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+
+            if (furnishingStatus != null && !furnishingStatus.isBlank()) {
+                try {
+                    PropertyListing.FurnishingStatus furnishing = PropertyListing.FurnishingStatus.valueOf(furnishingStatus.toUpperCase());
+                    predicates.add(cb.equal(root.get("furnishingStatus"), furnishing));
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+
+            if (sharedAccommodation != null) {
+                predicates.add(cb.equal(root.get("isSharedAccommodation"), sharedAccommodation));
+            }
+
+            if (minPrice != null || maxPrice != null) {
+                if (purposeFilter == PropertyListing.ListingPurpose.SALE) {
+                    if (minPrice != null) {
+                        predicates.add(cb.greaterThanOrEqualTo(root.get("salePrice"), minPrice));
+                    }
+                    if (maxPrice != null) {
+                        predicates.add(cb.lessThanOrEqualTo(root.get("salePrice"), maxPrice));
+                    }
+                } else if (purposeFilter == PropertyListing.ListingPurpose.RENT) {
+                    if (minPrice != null) {
+                        predicates.add(cb.greaterThanOrEqualTo(root.get("rentAmount"), minPrice));
+                    }
+                    if (maxPrice != null) {
+                        predicates.add(cb.lessThanOrEqualTo(root.get("rentAmount"), maxPrice));
+                    }
+                } else {
+                    List<Predicate> pricePredicates = new ArrayList<>();
+                    if (minPrice != null || maxPrice != null) {
+                        List<Predicate> rentPrice = new ArrayList<>();
+                        if (minPrice != null) {
+                            rentPrice.add(cb.greaterThanOrEqualTo(root.get("rentAmount"), minPrice));
+                        }
+                        if (maxPrice != null) {
+                            rentPrice.add(cb.lessThanOrEqualTo(root.get("rentAmount"), maxPrice));
+                        }
+                        pricePredicates.add(cb.and(rentPrice.toArray(new Predicate[0])));
+
+                        List<Predicate> salePrice = new ArrayList<>();
+                        if (minPrice != null) {
+                            salePrice.add(cb.greaterThanOrEqualTo(root.get("salePrice"), minPrice));
+                        }
+                        if (maxPrice != null) {
+                            salePrice.add(cb.lessThanOrEqualTo(root.get("salePrice"), maxPrice));
+                        }
+                        pricePredicates.add(cb.and(salePrice.toArray(new Predicate[0])));
+                        predicates.add(cb.or(pricePredicates.toArray(new Predicate[0])));
+                    }
+                }
             }
 
             if (bedrooms != null) {
@@ -90,5 +169,16 @@ public final class ListingSpecifications {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    private static PropertyListing.ListingPurpose parseListingPurpose(String listingPurpose) {
+        if (listingPurpose == null || listingPurpose.isBlank()) {
+            return null;
+        }
+        try {
+            return PropertyListing.ListingPurpose.valueOf(listingPurpose.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

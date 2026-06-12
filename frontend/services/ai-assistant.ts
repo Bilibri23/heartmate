@@ -29,9 +29,19 @@ export type AiListingResult = {
   id: string
   title?: string
   rentAmount?: number
+  salePrice?: number
   city?: string
   neighborhood?: string
   propertyType?: string
+  listingPurpose?: string
+  stayType?: string
+  pricePeriod?: string
+  furnishingStatus?: string
+  isSharedAccommodation?: boolean
+  roommatesWanted?: boolean
+  availableRoommateSlots?: number
+  roomPreviewEnabled?: boolean
+  roomPreviewStatus?: string
   verified?: boolean
   status?: string
   available?: boolean

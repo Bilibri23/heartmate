@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { aiAssistantService, type AiCitation, type AiListingResult, type AiPersona, type AiStreamEvent, type AiSuggestedAction } from "@/services/ai-assistant"
+import { ListingAttributeBadges } from "@/components/listings/listing-attribute-badges"
+import { displayListingPrice, isSaleListing } from "@/lib/listing-taxonomy"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "@/context/auth-context"
@@ -395,7 +397,10 @@ function AiListingCard({
   const listingUrl = `/listings/${listing.id}`
   const location = [listing.neighborhood, listing.city].filter(Boolean).join(", ")
   const statusLabel = listing.available ? "Available" : friendlyStatus(listing.status)
-  const propertyType = friendlyPropertyType(listing.propertyType)
+  const priceLabel = displayListingPrice(listing, (amount) =>
+    new Intl.NumberFormat("fr-CM", { maximumFractionDigits: 0 }).format(amount) + " XAF"
+  )
+  const saleListing = isSaleListing(listing)
 
   const track = (eventType: string) => {
     aiAssistantService.trackListingEvent(eventType, listing.id).catch(() => {})
@@ -466,7 +471,7 @@ function AiListingCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-950">{listing.title || "RoomBay listing"}</p>
-              <p className="mt-0.5 text-base font-bold text-slate-950">{formatRent(listing.rentAmount)}</p>
+              <p className="mt-0.5 text-base font-bold text-slate-950">{priceLabel}</p>
             </div>
             {listing.verified && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
@@ -482,9 +487,9 @@ function AiListingCard({
                 {location}
               </span>
             )}
-            {propertyType && <span className="rounded-full bg-slate-100 px-2 py-1">{propertyType}</span>}
             {statusLabel && <span className="rounded-full bg-blue-50 px-2 py-1 font-medium text-blue-700">{statusLabel}</span>}
           </div>
+          <ListingAttributeBadges listing={listing} className="mt-2" maxBadges={5} />
         </div>
       </div>
 
@@ -515,10 +520,12 @@ function AiListingCard({
           <Bookmark className="mr-1 h-3.5 w-3.5" />
           Save
         </Button>
-        <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={handleApply}>
-          <FileText className="mr-1 h-3.5 w-3.5" />
-          Apply now
-        </Button>
+        {!saleListing && (
+          <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={handleApply}>
+            <FileText className="mr-1 h-3.5 w-3.5" />
+            Apply now
+          </Button>
+        )}
         {listing.landlordId && (
           <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={handleMessage}>
             <MessageCircle className="mr-1 h-3.5 w-3.5" />
