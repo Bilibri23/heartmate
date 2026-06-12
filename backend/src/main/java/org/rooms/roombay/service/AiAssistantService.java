@@ -42,6 +42,8 @@ public class AiAssistantService {
     private static final Pattern NEXT_STEP_PATTERN = Pattern.compile("(?i)\\bnext\\s*step\\b");
     static final String NO_DOC_FALLBACK_ANSWER =
             "I do not have documentation that answers this question. Please open the relevant RoomBay screen or contact support.";
+    static final String MODEL_UNAVAILABLE_FALLBACK =
+            "The assistant model is busy right now, so I could not write a full answer. Please try again in a moment, or open the relevant RoomBay screen.";
 
     private final AiModelRouter modelRouter;
     private final AiGraphRagService graphRagService;
@@ -64,6 +66,9 @@ public class AiAssistantService {
 
     @Value("${roombay.ai.memory.max-turns:6}")
     private int memoryMaxTurns;
+
+    @Value("${roombay.ai.chat-retrieval-k:6}")
+    private int chatRetrievalK;
 
     @Value("${roombay.ai.debug-synthesis-logging:false}")
     private boolean debugSynthesisLogging;
@@ -103,23 +108,7 @@ public class AiAssistantService {
 
         if (aiCopilotToolService != null) {
             try {
-                java.util.Optional<AiChatResponse> adminStatsAnswer = aiCopilotToolService.tryAnswerAdminPlatformStats(
-                        userId,
-                        SecurityUtils.getCurrentUserRole(),
-                        request.getMessage(),
-                        threadId
-                );
-                if (adminStatsAnswer.isPresent()) {
-                    AiChatResponse response = adminStatsAnswer.get();
-                    chatLogRepository.insert(userId, persona.name(), request.getMessage(), response.getAnswer(), List.of());
-                    aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
-                    analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null,
-                            Map.of("persona", persona.name(), "toolGrounded", true, "question", safeAnalyticsQuestion(request.getMessage())));
-                    log.info("[AI] chat user={} answeredWith=admin_platform_stats ms={}", userId, System.currentTimeMillis() - started);
-                    return response;
-                }
-
-                java.util.Optional<AiChatResponse> toolAnswer = aiCopilotToolService.tryAnswerTenantListingSearch(
+                java.util.Optional<AiChatResponse> toolAnswer = aiCopilotToolService.tryAnswerWithTools(
                         userId,
                         SecurityUtils.getCurrentUserRole(),
                         request.getMessage(),
@@ -131,11 +120,11 @@ public class AiAssistantService {
                     aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
                     analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null,
                             Map.of("persona", persona.name(), "toolGrounded", true, "question", safeAnalyticsQuestion(request.getMessage())));
-                    log.info("[AI] chat user={} answeredWith=tenant_listing_search ms={}", userId, System.currentTimeMillis() - started);
+                    log.info("[AI] chat user={} answeredWith=copilot_tool ms={}", userId, System.currentTimeMillis() - started);
                     return response;
                 }
             } catch (Exception e) {
-                log.warn("[AI] tenant listing search tool answer unavailable: {}", e.getMessage());
+                log.warn("[AI] copilot tool answer unavailable: {}", e.getMessage());
             }
         }
 
@@ -144,13 +133,13 @@ public class AiAssistantService {
         }
 
         // Persona is derived from authenticated role to prevent client spoofing.
-        List<Double> qEmb = modelRouter.embed(request.getMessage());
         List<AiRagRepository.ChunkRow> chunks;
         try {
-            chunks = graphRagService.retrieve(qEmb, 8);
+            List<Double> qEmb = modelRouter.embed(request.getMessage());
+            chunks = graphRagService.retrieve(qEmb, chatRetrievalK);
         } catch (Exception e) {
-            // Keep assistant available even when vector index/schema has drift.
-            log.warn("[AI] RAG retrieval failed, continuing without context: {}", e.getMessage());
+            // Keep assistant available even when embeddings, the model host, or the vector index fail.
+            log.warn("[AI] embedding/retrieval failed, continuing without context: {}", e.getMessage());
             chunks = List.of();
         }
 
@@ -205,8 +194,15 @@ public class AiAssistantService {
             parsed = parseAssistantOutput(raw);
             logParsedResponse(userId, parsed);
         } catch (RuntimeException ex) {
+            // Resilience: when the model host (VPS/OpenAI) is down or times out, never 500.
+            // Recover with a doc-grounded summary so the user still gets useful, safe content.
             appErrorLogService.log("ERROR", "AI", "AI chat synthesis failed: " + ex.getMessage(), "/api/ai/chat", ex);
-            throw ex;
+            analyticsEventService.emit("ai_no_answer", userId, SecurityUtils.getCurrentUserRole(), null,
+                    Map.of("reason", "model_unavailable", "persona", persona.name(),
+                            "question", safeAnalyticsQuestion(request.getMessage())));
+            String recovered = buildChunkGroundedFallback(chunks, request.getMessage());
+            parsed = new ParsedAssistant(recovered.isBlank() ? MODEL_UNAVAILABLE_FALLBACK : recovered, List.of());
+            log.warn("[AI] model synthesis failed; served grounded fallback user={}", userId);
         }
 
         List<AiChatResponse.Citation> citations = chunks.stream().map(c -> AiChatResponse.Citation.builder()

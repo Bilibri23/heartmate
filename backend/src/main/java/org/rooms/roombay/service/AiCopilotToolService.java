@@ -50,6 +50,22 @@ public class AiCopilotToolService {
                     + "|\\b(users?|accounts?)\\s+on\\s+the\\s+platform\\b"
                     + "|\\bplatform\\s+(stats?|statistics|metrics|overview)\\b");
 
+    private static final Pattern ADMIN_QUEUE_INTENT = Pattern.compile(
+            "(?i)\\b(queue|queues|backlog|moderation)\\b"
+                    + "|\\b(pending|awaiting|to\\s+review|needs?\\s+review|how\\s+many|number\\s+of)\\b[\\w\\s]*"
+                    + "\\b(verification|verifications|listing|listings|report|reports|payment|payments|proof|proofs|dispute|disputes)\\b"
+                    + "|\\bwhat\\s+(needs|should\\s+i)\\s+review\\b");
+
+    private static final Pattern TENANT_STATUS_INTENT = Pattern.compile(
+            "(?i)\\b(my|status\\s+of\\s+my)\\b[\\w\\s]*"
+                    + "\\b(application|applications|lease|leases|payment|payments|verification|saved|favou?rites?)\\b"
+                    + "|\\b(am\\s+i\\s+verified|application\\s+status|verification\\s+status|my\\s+status)\\b");
+
+    private static final Pattern LANDLORD_STATUS_INTENT = Pattern.compile(
+            "(?i)\\b(my|how\\s+many|number\\s+of|pending)\\b[\\w\\s]*"
+                    + "\\b(application|applications|listing|listings|payout|payouts|tenant|tenants|lease|leases)\\b"
+                    + "|\\b(am\\s+i\\s+verified|verification\\s+status|my\\s+status|portfolio)\\b");
+
     private final StudentVerificationRepository studentVerificationRepository;
     private final RoomApplicationRepository roomApplicationRepository;
     private final LeaseRepository leaseRepository;
@@ -89,6 +105,161 @@ public class AiCopilotToolService {
             }
         }
         return lines.isEmpty() ? "" : "Read_only_platform_tools:\n" + String.join("\n", lines);
+    }
+
+    /**
+     * Single entry point for deterministic, role-safe answers. Tries each persona tool in priority
+     * order and returns the first match, so the assistant answers common factual questions from live
+     * data instead of relying on the model. Returns empty when no intent matches (RAG handles it).
+     */
+    public Optional<AiChatResponse> tryAnswerWithTools(UUID userId, String role, String userMessage, String threadId) {
+        if (userMessage == null || userMessage.isBlank()) {
+            return Optional.empty();
+        }
+        String normalizedRole = normalizeRole(role);
+        Optional<AiChatResponse> answer;
+        if ("ADMIN".equals(normalizedRole)) {
+            answer = tryAnswerAdminPlatformStats(userId, role, userMessage, threadId);
+            if (answer.isPresent()) return answer;
+            answer = tryAnswerAdminQueues(userId, role, userMessage, threadId);
+            if (answer.isPresent()) return answer;
+        } else if ("LANDLORD".equals(normalizedRole)) {
+            answer = tryAnswerLandlordStatus(userId, role, userMessage, threadId);
+            if (answer.isPresent()) return answer;
+        } else {
+            answer = tryAnswerTenantStatus(userId, role, userMessage, threadId);
+            if (answer.isPresent()) return answer;
+            answer = tryAnswerTenantListingSearch(userId, role, userMessage, threadId);
+            if (answer.isPresent()) return answer;
+        }
+        return Optional.empty();
+    }
+
+    public Optional<AiChatResponse> tryAnswerAdminQueues(UUID userId, String role, String userMessage, String threadId) {
+        if (!"ADMIN".equals(normalizeRole(role))) {
+            return Optional.empty();
+        }
+        if (userMessage == null || !ADMIN_QUEUE_INTENT.matcher(userMessage).find()) {
+            return Optional.empty();
+        }
+        if (!isToolAllowed("ADMIN", "admin_ops_snapshot")) {
+            logToolCall(userId, "ADMIN", "admin_ops_snapshot", false, "blocked_by_role_policy");
+            return Optional.empty();
+        }
+
+        long pendingStudent = studentVerificationRepository.countByStatus(StudentVerification.Status.PENDING);
+        long pendingLandlord =
+                landlordVerificationRepository.countByIdentityStatus(LandlordVerification.VerificationStatus.PENDING)
+                        + landlordVerificationRepository.countByBusinessStatus(LandlordVerification.VerificationStatus.PENDING)
+                        + landlordVerificationRepository.countByPropertyStatus(LandlordVerification.VerificationStatus.PENDING);
+        long pendingListings = propertyListingRepository.countByStatus(PropertyListing.Status.PENDING);
+        long pendingProofs = paymentRepository.countByStatus(Payment.PaymentStatus.SUBMITTED);
+        long openReports = safeCountReports(Report.ReportStatus.PENDING)
+                + safeCountReports(Report.ReportStatus.OPEN)
+                + safeCountReports(Report.ReportStatus.UNDER_REVIEW);
+
+        String answer = "Here is the current admin review backlog:\n"
+                + "- Tenant verifications pending: " + pendingStudent + "\n"
+                + "- Landlord verification sections pending: " + pendingLandlord + "\n"
+                + "- Listings awaiting review: " + pendingListings + "\n"
+                + "- Payment proofs submitted: " + pendingProofs + "\n"
+                + "- Open reports: " + openReports + "\n\n"
+                + "Next step: open the admin queues and clear the highest-priority items first.";
+
+        logToolCall(userId, "ADMIN", "admin_ops_snapshot", true, "answered_queue_backlog");
+        return Optional.of(toolResponse(answer, threadId, "admin_queues", "Open queues", "/admin/queues"));
+    }
+
+    public Optional<AiChatResponse> tryAnswerLandlordStatus(UUID userId, String role, String userMessage, String threadId) {
+        if (!"LANDLORD".equals(normalizeRole(role))) {
+            return Optional.empty();
+        }
+        if (userMessage == null || !LANDLORD_STATUS_INTENT.matcher(userMessage).find()) {
+            return Optional.empty();
+        }
+        if (!isToolAllowed("LANDLORD", "landlord_portfolio_status")) {
+            logToolCall(userId, "LANDLORD", "landlord_portfolio_status", false, "blocked_by_role_policy");
+            return Optional.empty();
+        }
+
+        long listings = propertyListingRepository.countByLandlordId(userId);
+        long verifiedListings = propertyListingRepository.countByLandlordIdAndVerifiedTrue(userId);
+        long totalApplications = roomApplicationRepository.countByLandlordId(userId);
+        long pendingApplications = roomApplicationRepository.countByLandlordIdAndStatus(userId, RoomApplication.Status.PENDING);
+        long leases = leaseRepository.countByLandlordId(userId);
+        String verification = landlordVerificationRepository.findByUserId(userId)
+                .map(lv -> lv.getVerificationLevel() == null
+                        ? "in progress"
+                        : lv.getVerificationLevel().name().toLowerCase(Locale.ROOT).replace("_", " "))
+                .orElse("not started");
+
+        String answer = "Here is your landlord portfolio summary:\n"
+                + "- Listings: " + listings + " (" + verifiedListings + " verified)\n"
+                + "- Applications: " + totalApplications + " total, " + pendingApplications + " pending your review\n"
+                + "- Active leases: " + leases + "\n"
+                + "- Verification: " + verification + "\n\n"
+                + "Next step: open your landlord dashboard to act on pending applications.";
+
+        logToolCall(userId, "LANDLORD", "landlord_portfolio_status", true, "answered_portfolio_summary");
+        return Optional.of(toolResponse(answer, threadId, "landlord_applications", "Open applications", "/landlord/applications"));
+    }
+
+    public Optional<AiChatResponse> tryAnswerTenantStatus(UUID userId, String role, String userMessage, String threadId) {
+        if (!"STUDENT".equals(normalizeRole(role))) {
+            return Optional.empty();
+        }
+        if (userMessage == null || !TENANT_STATUS_INTENT.matcher(userMessage).find()) {
+            return Optional.empty();
+        }
+        if (!isToolAllowed("STUDENT", "tenant_status_snapshot")) {
+            logToolCall(userId, "STUDENT", "tenant_status_snapshot", false, "blocked_by_role_policy");
+            return Optional.empty();
+        }
+
+        String verification = studentVerificationRepository.findByUserId(userId)
+                .map(v -> v.getStatus().name())
+                .orElse("NONE");
+        long applications = roomApplicationRepository.countByStudentId(userId);
+        long pendingApplications = roomApplicationRepository.countByStudentIdAndStatus(userId, RoomApplication.Status.PENDING);
+        long acceptedApplications = roomApplicationRepository.countByStudentIdAndStatus(userId, RoomApplication.Status.ACCEPTED);
+        long leases = leaseRepository.countByStudentId(userId);
+        long savedListings = listingFavoriteRepository.findByUserId(userId).size();
+
+        String answer = "Here is your current RoomBay status:\n"
+                + "- Verification: " + humanVerification(verification) + "\n"
+                + "- Applications: " + applications + " total (" + pendingApplications + " pending, " + acceptedApplications + " accepted)\n"
+                + "- Active leases: " + leases + "\n"
+                + "- Saved homes: " + savedListings + "\n\n"
+                + "Next step: open your applications to continue any pending step.";
+
+        logToolCall(userId, "STUDENT", "tenant_status_snapshot", true, "answered_status_summary");
+        return Optional.of(toolResponse(answer, threadId, "tenant_applications", "Open applications", "/applications"));
+    }
+
+    private static AiChatResponse toolResponse(String answer, String threadId, String actionId, String actionLabel, String actionUrl) {
+        return AiChatResponse.builder()
+                .answer(answer)
+                .threadId(threadId)
+                .citations(List.of())
+                .suggestedActions(List.of(
+                        AiChatResponse.SuggestedAction.builder()
+                                .id(actionId)
+                                .label(actionLabel)
+                                .type("NAVIGATE")
+                                .actionUrl(actionUrl)
+                                .build()
+                ))
+                .ragGrounded(false)
+                .build();
+    }
+
+    private static String humanVerification(String status) {
+        return switch (status == null ? "" : status) {
+            case "VERIFIED" -> "verified";
+            case "PENDING" -> "pending review";
+            case "REJECTED" -> "rejected, please resubmit";
+            default -> "not started";
+        };
     }
 
     public Optional<AiChatResponse> tryAnswerAdminPlatformStats(UUID userId, String role, String userMessage, String threadId) {

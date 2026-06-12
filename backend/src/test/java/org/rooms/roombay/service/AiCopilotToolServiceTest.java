@@ -203,4 +203,60 @@ class AiCopilotToolServiceTest {
 
         assertThat(response).isEmpty();
     }
+
+    @Test
+    void adminQueueQuestionReturnsBacklogCountsAndQueuesAction() {
+        UUID adminId = UUID.randomUUID();
+        when(studentVerificationRepository.countByStatus(StudentVerification.Status.PENDING)).thenReturn(4L);
+        when(propertyListingRepository.countByStatus(PropertyListing.Status.PENDING)).thenReturn(2L);
+
+        var response = service.tryAnswerAdminQueues(adminId, "ADMIN", "what is in the verification queue", "thread-q");
+
+        assertThat(response).isPresent();
+        assertThat(response.get().getAnswer()).contains("Tenant verifications pending: 4", "Listings awaiting review: 2");
+        assertThat(response.get().getSuggestedActions().get(0).getActionUrl()).isEqualTo("/admin/queues");
+    }
+
+    @Test
+    void tenantStatusQuestionReturnsPersonalSummary() {
+        UUID userId = UUID.randomUUID();
+        when(studentVerificationRepository.findByUserId(userId)).thenReturn(
+                Optional.of(StudentVerification.builder().status(StudentVerification.Status.VERIFIED).build()));
+        when(roomApplicationRepository.countByStudentId(userId)).thenReturn(3L);
+        when(roomApplicationRepository.countByStudentIdAndStatus(userId, RoomApplication.Status.PENDING)).thenReturn(1L);
+        when(listingFavoriteRepository.findByUserId(userId)).thenReturn(List.of());
+
+        var response = service.tryAnswerTenantStatus(userId, "STUDENT", "what is my application status", "thread-s");
+
+        assertThat(response).isPresent();
+        assertThat(response.get().getAnswer()).contains("Verification: verified", "Applications: 3 total");
+        assertThat(response.get().getSuggestedActions().get(0).getActionUrl()).isEqualTo("/applications");
+    }
+
+    @Test
+    void landlordStatusQuestionReturnsPortfolioSummary() {
+        UUID userId = UUID.randomUUID();
+        when(propertyListingRepository.countByLandlordId(userId)).thenReturn(5L);
+        when(propertyListingRepository.countByLandlordIdAndVerifiedTrue(userId)).thenReturn(3L);
+        when(roomApplicationRepository.countByLandlordIdAndStatus(userId, RoomApplication.Status.PENDING)).thenReturn(2L);
+        when(landlordVerificationRepository.findByUserId(userId)).thenReturn(Optional.empty());
+
+        var response = service.tryAnswerLandlordStatus(userId, "LANDLORD", "how many applications do i have", "thread-l");
+
+        assertThat(response).isPresent();
+        assertThat(response.get().getAnswer()).contains("Listings: 5 (3 verified)", "2 pending your review");
+        assertThat(response.get().getSuggestedActions().get(0).getActionUrl()).isEqualTo("/landlord/applications");
+    }
+
+    @Test
+    void dispatcherRoutesByRole() {
+        UUID adminId = UUID.randomUUID();
+        when(userRepository.count()).thenReturn(10L);
+
+        var adminAnswer = service.tryAnswerWithTools(adminId, "ADMIN", "how many users are on the platform", "t");
+        assertThat(adminAnswer).isPresent();
+
+        var noMatch = service.tryAnswerWithTools(adminId, "ADMIN", "explain the verification policy", "t");
+        assertThat(noMatch).isEmpty();
+    }
 }

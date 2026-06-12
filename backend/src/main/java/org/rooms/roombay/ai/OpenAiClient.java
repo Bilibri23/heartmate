@@ -16,6 +16,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,9 @@ public class OpenAiClient {
 
     @Value("${roombay.ai.debug-synthesis-logging:false}")
     private boolean debugSynthesisLogging;
+
+    @Value("${roombay.ai.request-timeout-ms:85000}")
+    private long requestTimeoutMs;
 
     public List<Double> embed(String input) {
         if (apiKey == null || apiKey.isBlank()) {
@@ -158,10 +162,14 @@ public class OpenAiClient {
                     .uri(URI.create(baseUrl + "/chat/completions"))
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .timeout(Duration.ofMillis(requestTimeoutMs))
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            HttpResponse<java.io.InputStream> response = HttpClient.newHttpClient()
+            HttpClient httpClient = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+            HttpResponse<java.io.InputStream> response = httpClient
                     .send(request, HttpResponse.BodyHandlers.ofInputStream());
 
             if (response.statusCode() >= 400) {

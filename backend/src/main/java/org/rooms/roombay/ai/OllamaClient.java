@@ -18,6 +18,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,9 @@ public class OllamaClient {
 
     @Value("${roombay.ai.debug-synthesis-logging:false}")
     private boolean debugSynthesisLogging;
+
+    @Value("${roombay.ai.request-timeout-ms:85000}")
+    private long requestTimeoutMs;
 
     public List<Double> embed(String input) {
         Map<String, Object> payload = Map.of("model", embeddingModel, "input", input);
@@ -166,10 +170,14 @@ public class OllamaClient {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/api/generate"))
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .timeout(Duration.ofMillis(requestTimeoutMs))
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
 
-            HttpResponse<java.io.InputStream> response = HttpClient.newHttpClient()
+            HttpClient httpClient = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+            HttpResponse<java.io.InputStream> response = httpClient
                     .send(request, HttpResponse.BodyHandlers.ofInputStream());
 
             if (response.statusCode() == 404) {
