@@ -41,6 +41,21 @@ public interface ListingViewRepository extends JpaRepository<ListingView, UUID> 
     @Query("SELECT COUNT(lv) > 0 FROM ListingView lv " +
            "WHERE lv.user.id = :userId AND lv.listing.id = :listingId")
     boolean hasUserViewedListing(@Param("userId") UUID userId, @Param("listingId") UUID listingId);
+
+    @Query("SELECT COUNT(lv) FROM ListingView lv WHERE lv.listing.landlord.id = :landlordId " +
+           "AND lv.createdAt >= :start AND lv.createdAt < :end")
+    long countByLandlordIdAndCreatedAtBetween(
+            @Param("landlordId") UUID landlordId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
+    @Query("SELECT lv.listing.id, COUNT(lv) FROM ListingView lv " +
+           "WHERE lv.listing.landlord.id = :landlordId AND lv.createdAt >= :since " +
+           "GROUP BY lv.listing.id ORDER BY COUNT(lv) DESC")
+    List<Object[]> countViewsByListingForLandlordSince(
+            @Param("landlordId") UUID landlordId,
+            @Param("since") LocalDateTime since,
+            org.springframework.data.domain.Pageable pageable);
     
     /**
      * Find users who viewed the same listings (for collaborative filtering)

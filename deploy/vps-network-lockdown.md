@@ -12,7 +12,7 @@ ROOMBAY_SEARCH_ELASTICSEARCH_ENABLED=false
 
 Only Ollama is required for AI at launch. DB-backed listing search works without OpenSearch.
 
-Expose Ollama (`11434`) with a plan for:
+Expose Ollama (`11434`) and, when enabled, the AI orchestrator (`8131`) with a plan for:
 
 - **WireGuard / Tailscale** between Railway and VPS, or
 - **SSH tunnel** from a sidecar (operational overhead), or
@@ -25,6 +25,8 @@ Keep Redis disabled: `SPRING_DATA_REDIS_ENABLED=false`.
 ```bash
 # On VPS — replace with current Railway egress (re-check after redeploys)
 sudo ufw allow from RAILWAY_EGRESS_IP to any port 11434 proto tcp
+# When ROOMBAY_AI_ORCHESTRATOR_ENABLED=true on Railway:
+sudo ufw allow from RAILWAY_EGRESS_IP to any port 8131 proto tcp
 # Repeat for 9200 only when OpenSearch is enabled and secured
 ```
 

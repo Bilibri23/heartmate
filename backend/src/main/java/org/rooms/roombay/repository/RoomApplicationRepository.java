@@ -93,6 +93,21 @@ public interface RoomApplicationRepository extends JpaRepository<RoomApplication
      */
     @Query("SELECT COUNT(a) FROM RoomApplication a WHERE a.listing.landlord.id = :landlordId AND a.status = :status")
     long countByLandlordIdAndStatus(@Param("landlordId") UUID landlordId, @Param("status") RoomApplication.Status status);
+
+    @Query("SELECT COUNT(a) FROM RoomApplication a WHERE a.listing.landlord.id = :landlordId " +
+           "AND a.createdAt >= :start AND a.createdAt < :end")
+    long countByLandlordIdAndCreatedAtBetween(
+            @Param("landlordId") UUID landlordId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
+
+    @Query("SELECT COUNT(a) FROM RoomApplication a WHERE a.listing.landlord.id = :landlordId " +
+           "AND a.status = :status AND a.createdAt >= :start AND a.createdAt < :end")
+    long countByLandlordIdAndStatusAndCreatedAtBetween(
+            @Param("landlordId") UUID landlordId,
+            @Param("status") RoomApplication.Status status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
     
     /**
      * Find expired applications

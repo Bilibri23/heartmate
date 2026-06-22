@@ -24,6 +24,13 @@ public interface ListingFavoriteRepository extends JpaRepository<ListingFavorite
     
     @Query("SELECT COUNT(f) FROM ListingFavorite f WHERE f.listing.id = :listingId")
     Long countByListingId(@Param("listingId") UUID listingId);
+
+    @Query("SELECT COUNT(f) FROM ListingFavorite f WHERE f.listing.landlord.id = :landlordId " +
+           "AND f.createdAt >= :start AND f.createdAt < :end")
+    long countByLandlordIdAndCreatedAtBetween(
+            @Param("landlordId") UUID landlordId,
+            @Param("start") java.time.LocalDateTime start,
+            @Param("end") java.time.LocalDateTime end);
     
     void deleteByUserIdAndListingId(UUID userId, UUID listingId);
 }

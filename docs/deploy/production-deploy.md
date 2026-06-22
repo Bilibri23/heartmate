@@ -98,3 +98,94 @@ Manual checks:
 ## Payments at launch
 
 No card/Stripe gateway. Manual proof + admin verify is intentional. Do not market instant card checkout.
+
+## Optional — LangGraph AI orchestrator (feedback loop sidecar)
+
+The orchestrator is **off by default**. Spring falls back to the built-in assistant if the sidecar is disabled or unreachable. Full architecture: [`docs/admin/ai-orchestrator.md`](../admin/ai-orchestrator.md).
+
+### Why VPS (not a second Railway service)
+
+Ollama already runs on Hetzner. The sidecar calls Ollama locally and calls Railway for read-only tools (`/internal/ai/*`). A Railway-hosted sidecar would still need VPS Ollama over the network.
+
+### 1. Generate shared secret
+
+```bash
+openssl rand -hex 32
+```
+
+Use the same value as:
+
+- Railway: `ROOMBAY_AI_INTERNAL_TOKEN`
+- VPS `.env`: `ROOMBAY_INTERNAL_TOKEN`
+
+### 2. VPS — start the sidecar
+
+On the VPS (`~/roombay`):
+
+1. Copy [`deploy/vps.env.example`](../../deploy/vps.env.example) to `.env` and set `ROOMBAY_API_BASE_URL`, `ROOMBAY_INTERNAL_TOKEN`, `AI_PROVIDER=ollama`.
+2. Ensure [`deploy/docker-compose.vps.yml`](../../deploy/docker-compose.vps.yml) is present (build context includes `ai-orchestrator/`).
+3. Start:
+
+```bash
+docker compose up -d ai-orchestrator
+```
+
+4. Lock port **8131** to Railway egress only — see [`deploy/vps-network-lockdown.md`](../../deploy/vps-network-lockdown.md).
+
+### 3. Railway — enable delegation
+
+In the backend service variables (see [`deploy/railway.env.example`](../../deploy/railway.env.example)):
+
+| Variable | Value |
+|----------|--------|
+| `ROOMBAY_AI_ORCHESTRATOR_ENABLED` | `true` |
+| `ROOMBAY_AI_ORCHESTRATOR_BASE_URL` | `http://YOUR_VPS_IP:8131` |
+| `ROOMBAY_AI_INTERNAL_TOKEN` | same secret as VPS |
+
+Redeploy Railway after saving variables.
+
+### 4. Verify (smoke test)
+
+**Level 1 — sidecar health (on VPS or from a machine that can reach :8131):**
+
+```bash
+curl http://YOUR_VPS_IP:8131/health
+```
+
+**Level 2 — orchestrate (LangGraph loop):**
+
+```bash
+curl -X POST http://YOUR_VPS_IP:8131/orchestrate \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Find a room in Buea under 50000","persona":"TENANT","userId":"00000000-0000-0000-0000-000000000001","userRole":"STUDENT","requestId":"smoke-1"}'
+```
+
+Use `AI_PROVIDER=stub` in VPS `.env` for a deterministic response without Ollama.
+
+**Level 3 — internal tool gate (Railway API):**
+
+```bash
+# Expect 401
+curl -X POST https://api.roombay.app/internal/ai/retrieve \
+  -H "Content-Type: application/json" \
+  -d '{"query":"test","userId":"00000000-0000-0000-0000-000000000001","role":"STUDENT"}'
+
+# Expect 200 with token
+curl -X POST https://api.roombay.app/internal/ai/retrieve \
+  -H "Content-Type: application/json" \
+  -H "X-RoomBay-Internal-Token: YOUR_SECRET" \
+  -d '{"query":"how do I apply","userId":"00000000-0000-0000-0000-000000000001","role":"STUDENT"}'
+```
+
+**Level 4 — product UI:** log in as a **STUDENT**, open AI chat, ask a listing question. Check Railway logs for orchestrator delegation vs built-in fallback.
+
+**Level 5 — automated (local / CI):**
+
+```bash
+cd ai-orchestrator && pytest -q
+.\mvnw.cmd -Dtest=AiOrchestratorClientTest,AiInternalToolControllerTest test
+```
+
+### Demo tip
+
+Compare the same chat question with `ROOMBAY_AI_ORCHESTRATOR_ENABLED=false` vs `true`. With orchestrator on, strict listing filters can trigger a listing-search retry (relaxed budget/neighbourhood). VPS logs: `docker logs ai-orchestrator`.
