@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { NextStepCard } from "@/components/workflows/next-step-card"
+import { VisitTimeline } from "@/components/workflows/visit-timeline"
 import Link from "next/link"
 import api from "@/lib/api"
 
@@ -77,6 +78,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
 
   const fetchApplications = useCallback(async () => {
@@ -295,6 +297,21 @@ export default function ApplicationsPage() {
                     )}
                   </div>
                 </Link>
+
+                {/* Progress timeline */}
+                <div className="px-4 pb-2">
+                  <button
+                    onClick={() => setExpandedId(expandedId === app.id ? null : app.id)}
+                    className="text-sm font-medium text-blue-600"
+                  >
+                    {expandedId === app.id ? "Hide progress" : "Track progress"}
+                  </button>
+                  {expandedId === app.id && (
+                    <div className="mt-2 border-t border-slate-100 pt-3">
+                      <VisitTimeline applicationId={app.id} />
+                    </div>
+                  )}
+                </div>
 
                 {/* Actions */}
                 {app.status === "PENDING" && (

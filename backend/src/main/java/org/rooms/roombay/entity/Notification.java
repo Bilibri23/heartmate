@@ -117,6 +117,14 @@ public class Notification {
         CO_APPLICATION_DECLINED,
 
         // Share listing with roommate (simplified from co-apply)
-        LISTING_SHARED
+        LISTING_SHARED,
+
+        // Visit scheduling notifications
+        VISIT_REQUESTED,
+        VISIT_ACCEPTED,
+        VISIT_RESCHEDULED,
+        VISIT_CANCELLED,
+        VISIT_COMPLETED,
+        VISIT_NO_SHOW
     }
 }

@@ -13,8 +13,10 @@ import org.rooms.roombay.entity.RoomApplication;
 import org.rooms.roombay.exception.ResourceNotFoundException;
 import org.rooms.roombay.security.RequiresCompletion;
 import org.rooms.roombay.security.RequiresVerification;
+import org.rooms.roombay.dto.response.ApplicationTimelineResponse;
 import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.ApplicationService;
+import org.rooms.roombay.service.ApplicationTimelineService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,7 +38,8 @@ import java.util.UUID;
 public class ApplicationController {
     
     private final ApplicationService applicationService;
-    
+    private final ApplicationTimelineService applicationTimelineService;
+
     /**
      * Create a new application (Students only)
      */
@@ -203,6 +206,16 @@ public class ApplicationController {
         return ResponseEntity.noContent().build();
     }
     
+    /**
+     * Get the derived progress timeline for an application (tenant or landlord)
+     */
+    @GetMapping("/{applicationId}/timeline")
+    @Operation(summary = "Get application timeline", description = "Derived progress: submitted → reviewing → visit → lease → payment → move-in")
+    public ResponseEntity<ApplicationTimelineResponse> getTimeline(@PathVariable UUID applicationId) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok(applicationTimelineService.buildTimeline(applicationId, userId));
+    }
+
     /**
      * Get application statistics for current user
      */
