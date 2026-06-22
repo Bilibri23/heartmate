@@ -518,19 +518,13 @@ export default function ListingDetailPage() {
 
     setIsScheduling(true)
     try {
-      // Send a message to the landlord with the viewing request
-      const formattedDate = new Date(viewingDate).toLocaleDateString("en-GB", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-      })
+      // Create a structured visit request (datetime as ISO_LOCAL_DATE_TIME, no zone).
+      const requestedDatetime = `${viewingDate}T${viewingTime}:00`
 
-      const message = `📅 **Viewing Request**\n\nI would like to schedule a viewing for:\n\n🏠 Property: ${listing.title}\n📍 Location: ${listing.neighborhood}, ${listing.city}\n📆 Date: ${formattedDate}\n⏰ Time: ${viewingTime}\n\n${viewingMessage ? `Message: ${viewingMessage}` : ""}`
-
-      await api.post("/messages", {
-        receiverId: landlordId,
-        content: message,
+      await api.post("/visits", {
+        listingId: listing.id,
+        requestedDatetime,
+        message: viewingMessage || undefined,
       })
 
       setIsScheduleOpen(false)
@@ -538,10 +532,11 @@ export default function ListingDetailPage() {
       setViewingTime("")
       setViewingMessage("")
 
-      // Redirect to messages
-      router.push(buildMessageHref(landlordId))
-    } catch (err) {
-      console.error("Failed to schedule viewing:", err)
+      toast.success("Visit requested. The landlord will confirm a time.")
+      router.push("/visits")
+    } catch (err: any) {
+      console.error("Failed to request visit:", err)
+      toast.error(err?.response?.data?.message || "Failed to request visit")
     } finally {
       setIsScheduling(false)
     }

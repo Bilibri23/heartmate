@@ -176,6 +176,31 @@ class MigrationCoverageTest {
     }
 
     @Test
+    void visitsTableIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V54__create_visits_table.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("create extension if not exists pgcrypto");
+        assertThat(migration).contains(
+                "create table if not exists visits",
+                "tenant_id uuid",
+                "landlord_id uuid",
+                "requested_datetime timestamp",
+                "visit_datetime timestamp",
+                "status varchar(40)",
+                "idx_visits_status",
+                "idx_visits_tenant"
+        );
+    }
+
+    @Test
     void listingTaxonomyMigrationAddsRentSaleAndSharedFields() throws IOException {
         String migration = Files.readString(Path.of(
                 "backend",

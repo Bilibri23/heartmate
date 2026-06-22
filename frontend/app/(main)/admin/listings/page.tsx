@@ -61,6 +61,11 @@ interface Listing {
   bedrooms: number
   bathrooms: number
   amenities: string[]
+  listingPurpose?: string
+  salePrice?: number
+  propertyType?: string
+  furnishingStatus?: string
+  isSharedAccommodation?: boolean
   isUnfurnished?: boolean
   roomPreviewEnabled?: boolean
   roomLengthMeters?: number

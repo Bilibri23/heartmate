@@ -17,7 +17,9 @@ import java.util.UUID;
 public interface LeaseRepository extends JpaRepository<Lease, UUID> {
     
     Optional<Lease> findByReferenceCode(String referenceCode);
-    
+
+    Optional<Lease> findByApplicationId(UUID applicationId);
+
     Page<Lease> findByStudentId(UUID studentId, Pageable pageable);
     
     Page<Lease> findByLandlordId(UUID landlordId, Pageable pageable);

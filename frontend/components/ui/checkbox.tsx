@@ -9,13 +9,15 @@ interface CheckboxProps {
   onCheckedChange?: (checked: boolean) => void
   className?: string
   disabled?: boolean
+  id?: string
 }
 
 export const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
-  ({ checked = false, onCheckedChange, className, disabled = false }, ref) => {
+  ({ checked = false, onCheckedChange, className, disabled = false, id }, ref) => {
     return (
       <button
         ref={ref}
+        id={id}
         type="button"
         role="checkbox"
         aria-checked={checked}
