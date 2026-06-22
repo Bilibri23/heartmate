@@ -1,0 +1,35 @@
+---
+description: RoomBay project guardrails for AI agents — read AGENTS.md, Flyway, Windows Maven
+alwaysApply: true
+---
+
+# RoomBay
+
+Read [AGENTS.md](AGENTS.md) before multi-file changes.
+
+## Tooling
+
+- Maven: `.\mvnw.cmd` from repo root (Windows); not bare `mvn`.
+- PowerShell: `;` not `&&`; quote `-Dtest=...` (e.g. `.\mvnw.cmd "-Dtest=FooTest" test`).
+
+## Schema and API changes
+
+New DB columns require: Flyway `V{n}__*.sql` → entity → DTOs → service mapping → `MigrationCoverageTest` → frontend types/UI if user-facing.
+
+Local Flyway is **OFF**; prod Flyway is **ON** (Railway deploy runs migrations).
+
+## Product invariants
+
+- Sale listings: Contact seller, not Apply.
+- Room Preview live: `roomPreviewEnabled && roomPreviewStatus === APPROVED`.
+- Roles: `STUDENT`, `LANDLORD`, `ADMIN`.
+
+## Avoid
+
+- `track_dev/` as source of truth (historical).
+- Committing unless the user asks.
+- Secrets in git.
+
+## Tests before done
+
+`.\mvnw.cmd test`; frontend `npm run lint && npm run build` when touched.

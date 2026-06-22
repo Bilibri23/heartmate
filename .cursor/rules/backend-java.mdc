@@ -1,0 +1,31 @@
+---
+description: Spring Boot backend conventions — entities, Flyway, services, tests
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend (Java / Spring Boot)
+
+## Layout
+
+- Entities: `backend/src/main/java/org/rooms/roombay/entity/`
+- DTOs: `dto/request`, `dto/response`
+- Services: `service/`; controllers: `controller/`
+- Migrations: `backend/src/main/resources/db/migration/V{n}__snake_case.sql`
+
+## Patterns
+
+- Use Lombok `@Builder` / `@RequiredArgsConstructor` like surrounding classes.
+- `BadRequestException` accepts `String` message only (no cause constructor).
+- Search filters: extend `ListingSpecifications.buildSearchSpec` overload; wire params in `ListingController` / `SearchController` + `InputSanitizer`.
+- Sanitize user input via `InputSanitizer` for enum-like query params.
+
+## Tests
+
+- Unit tests: `backend/src/test/java/org/rooms/roombay/`
+- New migrations: add assertions to `MigrationCoverageTest.java`.
+- Run: `.\mvnw.cmd "-Dtest=ClassName" test`
+
+## Prod config
+
+`application-prod.properties`: Flyway enabled, `ddl-auto=validate`, secrets via env vars.
