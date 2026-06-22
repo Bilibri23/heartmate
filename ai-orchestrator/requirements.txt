@@ -1,0 +1,12 @@
+# RoomBay AI Orchestrator (LangGraph sidecar)
+# Pinned to minor versions for reproducible builds; bump deliberately.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+langgraph==0.2.61
+langchain-core==0.3.28
+httpx==0.28.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Test-only
+pytest==8.3.4
