@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { springBackendOrigin } from "./lib/spring-backend-origin";
+import { resolveCspApiOrigin, springBackendOrigin } from "./lib/spring-backend-origin";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: [
@@ -37,8 +37,7 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "https://api.roombay.app";
-    const apiOrigin = new URL(apiBase).origin;
+    const apiOrigin = resolveCspApiOrigin(process.env);
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://accounts.google.com https://apis.google.com",

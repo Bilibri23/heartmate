@@ -32,3 +32,35 @@ export function springBackendOrigin(
 
   return normalized;
 }
+
+/**
+ * Absolute origin for CSP connect-src when env uses a relative client path (e.g. `/api`).
+ */
+export function resolveCspApiOrigin(env: NodeJS.ProcessEnv = process.env): string {
+  const apiBase =
+    env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
+    env.NEXT_PUBLIC_API_URL?.trim() ||
+    "";
+
+  if (apiBase && !apiBase.startsWith("/")) {
+    try {
+      const withScheme = apiBase.startsWith("http") ? apiBase : `https://${apiBase}`;
+      return new URL(withScheme).origin;
+    } catch {
+      // fall through to site origin
+    }
+  }
+
+  const site =
+    env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    (env.VERCEL_URL
+      ? `https://${env.VERCEL_URL.replace(/^https?:\/\//, "")}`
+      : "") ||
+    "https://roombay.app";
+
+  try {
+    return new URL(site.startsWith("http") ? site : `https://${site}`).origin;
+  } catch {
+    return "https://api.roombay.app";
+  }
+}
