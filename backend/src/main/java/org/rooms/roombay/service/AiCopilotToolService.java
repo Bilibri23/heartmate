@@ -391,6 +391,44 @@ public class AiCopilotToolService {
                 .build());
     }
 
+    /**
+     * Listing search for the LangGraph orchestrator sidecar. Takes already-parsed
+     * filters (the sidecar extracts them) and reuses the same spec + ranking + card
+     * mapping as the in-chat tenant listing search. Tenant-scoped, read-only.
+     */
+    public List<AiChatResponse.ListingResult> searchListingsForOrchestrator(
+            UUID userId,
+            String role,
+            String query,
+            String city,
+            String propertyType,
+            Integer maxPrice,
+            String listingPurpose,
+            String stayType,
+            String furnishingStatus,
+            Boolean sharedAccommodation) {
+        if (!"STUDENT".equals(normalizeRole(role))) {
+            return List.of();
+        }
+        ListingSearchRequest request = new ListingSearchRequest(
+                true,
+                query == null ? "" : query.trim(),
+                city,
+                propertyType,
+                maxPrice,
+                listingPurpose,
+                stayType,
+                furnishingStatus,
+                sharedAccommodation);
+        List<PropertyListing> matches = findTenantListingMatches(request);
+        Optional<ListingPreferences> savedPreferences = listingPreferencesRepository.findByUserId(userId);
+        logToolCall(userId, normalizeRole(role), "tenant_listing_search", true,
+                "orchestrator matches=%d query=%s propertyType=%s".formatted(matches.size(), request.query(), propertyType));
+        return matches.stream()
+                .map(listing -> toListingResult(listing, request, savedPreferences))
+                .toList();
+    }
+
     public boolean isToolAllowed(String role, String toolName) {
         String normalizedRole = normalizeRole(role);
         String normalizedTool = toolName == null ? "" : toolName.trim().toLowerCase(Locale.ROOT);

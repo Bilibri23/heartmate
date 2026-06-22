@@ -63,6 +63,9 @@ public class AiAssistantService {
     private final AppErrorLogService appErrorLogService;
     @Autowired(required = false)
     private AiCopilotToolService aiCopilotToolService;
+    // Present only when roombay.ai.orchestrator.enabled=true; otherwise the built-in pipeline runs.
+    @Autowired(required = false)
+    private AiOrchestratorClient aiOrchestratorClient;
 
     @Value("${roombay.ai.memory.max-turns:6}")
     private int memoryMaxTurns;
@@ -104,6 +107,49 @@ public class AiAssistantService {
                     .suggestedActions(List.of())
                     .ragGrounded(false)
                     .build();
+        }
+
+        // LangGraph orchestrator delegation. When enabled and reachable, it owns the
+        // full agentic flow (RAG/GraphRAG + listing search + feedback loops). Any failure
+        // returns empty and we fall through to the built-in pipeline below, unchanged.
+        if (aiOrchestratorClient != null) {
+            String requestId = UUID.randomUUID().toString();
+            if (progress != null) {
+                progress.onRetrievalStarted();
+            }
+            java.util.Optional<AiChatResponse> orchestrated = aiOrchestratorClient.orchestrate(
+                    userId, SecurityUtils.getCurrentUserRole(), request, threadId, requestId);
+            if (orchestrated.isPresent()) {
+                AiChatResponse raw = orchestrated.get();
+                // Layer 3 backstop: guard the sidecar's answer just like our own pipeline.
+                AiOutputGuard.GuardResult guard = outputGuard.guard(raw.getAnswer());
+                if (guard.redacted()) {
+                    log.warn("[AI] orchestrator output guard redacted answer reason={}", guard.reason());
+                }
+                if (progress != null) {
+                    progress.onSourcesFound(raw.getCitations() == null ? 0 : raw.getCitations().size());
+                    progress.onGenerationStarted();
+                }
+                AiChatResponse response = AiChatResponse.builder()
+                        .answer(guard.safeText())
+                        .threadId(threadId)
+                        .citations(raw.getCitations() == null ? List.of() : raw.getCitations())
+                        .suggestedActions(guard.redacted() || raw.getSuggestedActions() == null ? List.of() : raw.getSuggestedActions())
+                        .listingResults(raw.getListingResults() == null ? List.of() : raw.getListingResults())
+                        .ragGrounded(Boolean.TRUE.equals(raw.getRagGrounded()))
+                        .build();
+                chatLogRepository.insert(userId, persona.name(), request.getMessage(), response.getAnswer(),
+                        response.getCitations().stream().map(AiChatResponse.Citation::getChunkId).toList());
+                aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
+                analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null,
+                        Map.of("persona", persona.name(), "orchestrated", true,
+                                "ragGrounded", Boolean.TRUE.equals(response.getRagGrounded()),
+                                "question", safeAnalyticsQuestion(request.getMessage())));
+                log.info("[AI] chat user={} answeredWith=orchestrator listings={} ms={}",
+                        userId, response.getListingResults() == null ? 0 : response.getListingResults().size(),
+                        System.currentTimeMillis() - started);
+                return response;
+            }
         }
 
         if (aiCopilotToolService != null) {
