@@ -51,6 +51,11 @@ interface Listing {
   address: string
   city: string
   rentAmount: number
+  salePrice?: number
+  listingPurpose?: string
+  propertyType?: string
+  furnishingStatus?: string
+  isSharedAccommodation?: boolean
   status: string
   landlordId: string
   landlordName: string
@@ -61,11 +66,6 @@ interface Listing {
   bedrooms: number
   bathrooms: number
   amenities: string[]
-  listingPurpose?: string
-  salePrice?: number
-  propertyType?: string
-  furnishingStatus?: string
-  isSharedAccommodation?: boolean
   isUnfurnished?: boolean
   roomPreviewEnabled?: boolean
   roomLengthMeters?: number
