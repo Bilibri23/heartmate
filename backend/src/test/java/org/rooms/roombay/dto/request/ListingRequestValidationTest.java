@@ -11,7 +11,7 @@ class ListingRequestValidationTest {
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     @Test
-    void createRequiresTitleAndRentAmount() {
+    void createRequiresTitle() {
         ListingRequest request = ListingRequest.builder()
                 .status("PENDING")
                 .build();
@@ -20,7 +20,21 @@ class ListingRequestValidationTest {
 
         assertThat(violations)
                 .extracting(v -> v.getPropertyPath().toString())
-                .contains("title", "rentAmount");
+                .containsExactly("title");
+    }
+
+    @Test
+    void createAllowsMissingRentAmountForSaleListings() {
+        ListingRequest request = ListingRequest.builder()
+                .title("House for sale")
+                .listingPurpose("SALE")
+                .salePrice(50000000)
+                .status("PENDING")
+                .build();
+
+        var violations = validator.validate(request, ListingRequest.Create.class);
+
+        assertThat(violations).isEmpty();
     }
 
     @Test

@@ -32,19 +32,6 @@ export function VideoPlayer({
   onFlag,
   listingId
 }: VideoPlayerProps) {
-  // Don't render if no src provided
-  if (!src) {
-    return (
-      <div className={`relative bg-slate-100 rounded-xl flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <Play className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-          <p className="text-slate-600 font-medium">Video Not Available</p>
-          <p className="text-sm text-slate-500 mt-1">No video tour provided</p>
-        </div>
-      </div>
-    )
-  }
-
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -52,11 +39,13 @@ export function VideoPlayer({
   const [isLoading, setIsLoading] = useState(true)
   const [showPlayOverlay, setShowPlayOverlay] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (!src) return
+
     const video = videoRef.current
     if (!video) return
 
@@ -83,7 +72,19 @@ export function VideoPlayer({
       video.removeEventListener('timeupdate', handleTimeUpdate)
       video.removeEventListener('ended', handleEnded)
     }
-  }, [])
+  }, [src])
+
+  if (!src) {
+    return (
+      <div className={`relative bg-slate-100 rounded-xl flex items-center justify-center ${className}`}>
+        <div className="text-center">
+          <Play className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+          <p className="text-slate-600 font-medium">Video Not Available</p>
+          <p className="text-sm text-slate-500 mt-1">No video tour provided</p>
+        </div>
+      </div>
+    )
+  }
 
   const togglePlay = () => {
     const video = videoRef.current

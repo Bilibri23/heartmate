@@ -117,7 +117,7 @@ export default function AdminListingsPage() {
         response = await api.get(`/admin/listings?status=${statusFilter}`)
       }
       
-      let data = response.data || []
+      const data = response.data || []
       setListings(data)
     } catch (err) {
       console.error("Failed to fetch listings:", err)
