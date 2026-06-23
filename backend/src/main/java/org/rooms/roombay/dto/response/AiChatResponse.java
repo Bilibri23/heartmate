@@ -20,6 +20,34 @@ public class AiChatResponse {
     private List<ListingResult> listingResults;
     /** False when no RAG chunks matched (ingest missing, dimension mismatch, or irrelevant query). */
     private Boolean ragGrounded;
+    /** Populated when the LangGraph orchestrator handled the request. */
+    private OrchestratorMeta meta;
+    /** Write-tool results from the agentic orchestrator (favorites, applications, visits). */
+    private List<ToolExecution> toolExecutions;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OrchestratorMeta {
+        private String intent;
+        private Integer groundingRetries;
+        private Integer listingRetries;
+        private Boolean regenerated;
+        private Boolean safetyBlocked;
+        private Integer latencyMs;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ToolExecution {
+        private String tool;
+        private Boolean success;
+        private String message;
+        private String entityId;
+    }
 
     @Data
     @Builder

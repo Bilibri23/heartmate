@@ -6,7 +6,7 @@ Linear backbone with three capped feedback loops:
     ↺ grounding retry (retrieve_docs → broaden_for_grounding → retrieve_docs)
   → fetch_user_preferences → search_listings
     ↺ listing-search retry (search_listings → relax_and_retry_listings → search_listings)
-  → rank_results → generate_response
+  → rank_results → execute_agent_tools → generate_response
     ↺ self-check reflect (self_check → regenerate → generate_response)
   → safety_check → prepare_actions → END
 """
@@ -38,6 +38,7 @@ def build_graph(tools: RoomBayTools, llm: LLM, settings: Settings | None = None)
         "search_listings": n.search_listings,
         "relax_and_retry_listings": n.relax_and_retry_listings,
         "rank_results": n.rank_results,
+        "execute_agent_tools": n.execute_agent_tools,
         "generate_response": n.generate_response,
         "regenerate": n.regenerate,
         "self_check": n.self_check,
@@ -85,7 +86,8 @@ def build_graph(tools: RoomBayTools, llm: LLM, settings: Settings | None = None)
     )
     g.add_edge("relax_and_retry_listings", "search_listings")
 
-    g.add_edge("rank_results", "generate_response")
+    g.add_edge("rank_results", "execute_agent_tools")
+    g.add_edge("execute_agent_tools", "generate_response")
     g.add_edge("generate_response", "self_check")
 
     # Loop 3: self-check / reflect

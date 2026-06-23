@@ -23,14 +23,17 @@ def _listing(**kw) -> ListingResult:
 
 class FakeTools:
     def __init__(self, *, chunks=None, listings=None, prefs=None,
-                 chunks_sequence=None, listings_when_no_neighborhood=False):
+                 chunks_sequence=None, listings_when_no_neighborhood=False,
+                 tool_result=None):
         self._chunks = chunks or []
         self._listings = listings or []
         self._prefs = prefs or Preferences()
         self._chunks_sequence = chunks_sequence
         self._listings_when_no_neighborhood = listings_when_no_neighborhood
+        self._tool_result = tool_result
         self.retrieve_calls = 0
         self.search_calls = 0
+        self.execute_calls = 0
 
     def retrieve(self, *, message, user_id, role, request_id):
         self.retrieve_calls += 1
@@ -42,12 +45,18 @@ class FakeTools:
     def search_listings(self, *, filters: ExtractedFilters, user_id, role, request_id):
         self.search_calls += 1
         if self._listings_when_no_neighborhood:
-            # Only return results once the neighborhood filter has been relaxed away.
             return [] if filters.neighborhood else self._listings
         return self._listings
 
     def preferences(self, *, user_id, role, request_id):
         return self._prefs
+
+    def execute_tool(self, *, tool, params, user_id, role, request_id):
+        self.execute_calls += 1
+        if self._tool_result is not None:
+            return self._tool_result
+        from app.schemas import ToolExecution
+        return ToolExecution(tool=tool, success=True, message=f"Done: {tool}", entityId=params.get("listingId"))
 
 
 def _run(tools, message, *, role="STUDENT", persona="TENANT", llm=None):
@@ -152,3 +161,22 @@ def test_role_gate_downgrades_admin_intent_for_non_admin():
     nodes = Nodes(FakeTools(), LLM(get_settings()))
     out = nodes.check_role_permissions({"intent": "admin_help", "role": "STUDENT"})
     assert out["intent"] == "knowledge_question"
+
+
+def test_save_listing_executes_write_tool():
+    listing_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    tools = FakeTools(listings=[_listing(id=listing_id)])
+    state = _run(tools, "save this listing for me")
+    assert state["intent"] == "save_listing"
+    assert tools.execute_calls == 1
+    assert state["tool_executions"][0].success is True
+    assert "SAVE_LISTING_FAVORITE" in state["tool_executions"][0].tool
+
+
+def test_apply_to_listing_uses_uuid_from_message():
+    listing_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    tools = FakeTools()
+    state = _run(tools, f"apply to this listing {listing_id}")
+    assert state["intent"] == "apply_to_listing"
+    assert tools.execute_calls == 1
+    assert state["target_listing_id"] == listing_id

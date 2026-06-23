@@ -63,7 +63,10 @@ and need no network.
 
 ## Security
 
-- Every tool call carries the internal token + `userId`/`role`/`requestId`; Spring
+- `POST /orchestrate` requires `X-RoomBay-Internal-Token` (same secret as Spring's
+  `ROOMBAY_AI_INTERNAL_TOKEN`). Closed by default when unset — blocks spoofed
+  `userId`/`role` from callers who reach port 8131.
+- Every outbound tool call carries the internal token + `userId`/`role`/`requestId`; Spring
   rejects bad tokens and re-checks role.
 - All tools are read-only. The agent only **suggests** actions — it never approves,
   rejects, verifies, or deletes anything.

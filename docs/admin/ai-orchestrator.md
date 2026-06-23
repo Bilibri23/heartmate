@@ -47,6 +47,9 @@ Each loop is capped (default 1) so latency stays bounded — no unbounded reason
 - `/internal/ai/*` is permitted in `SecurityConfig` but **token-gated** in the
   controller: a request without a matching `X-RoomBay-Internal-Token` gets 401, and
   a blank configured token rejects everything (closed by default).
+- **`POST /orchestrate` is also token-gated** with the same header. Only Spring
+  (holding `ROOMBAY_AI_INTERNAL_TOKEN`) may invoke the graph; public callers cannot
+  spoof `userId` / `userRole` through an open sidecar port.
 - The shared secret is `roombay.ai.internal.token` (backend) =
   `ROOMBAY_INTERNAL_TOKEN` (sidecar).
 - Every tool call carries `userId` / `role` / `requestId`; retrieval is role-filtered

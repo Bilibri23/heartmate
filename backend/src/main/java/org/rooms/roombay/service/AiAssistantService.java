@@ -137,16 +137,44 @@ public class AiAssistantService {
                         .suggestedActions(guard.redacted() || raw.getSuggestedActions() == null ? List.of() : raw.getSuggestedActions())
                         .listingResults(raw.getListingResults() == null ? List.of() : raw.getListingResults())
                         .ragGrounded(Boolean.TRUE.equals(raw.getRagGrounded()))
+                        .meta(raw.getMeta())
+                        .toolExecutions(raw.getToolExecutions() == null ? List.of() : raw.getToolExecutions())
                         .build();
                 chatLogRepository.insert(userId, persona.name(), request.getMessage(), response.getAnswer(),
                         response.getCitations().stream().map(AiChatResponse.Citation::getChunkId).toList());
                 aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
-                analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null,
-                        Map.of("persona", persona.name(), "orchestrated", true,
-                                "ragGrounded", Boolean.TRUE.equals(response.getRagGrounded()),
-                                "question", safeAnalyticsQuestion(request.getMessage())));
-                log.info("[AI] chat user={} answeredWith=orchestrator listings={} ms={}",
-                        userId, response.getListingResults() == null ? 0 : response.getListingResults().size(),
+                java.util.Map<String, Object> analytics = new java.util.HashMap<>();
+                analytics.put("persona", persona.name());
+                analytics.put("orchestrated", true);
+                analytics.put("ragGrounded", Boolean.TRUE.equals(response.getRagGrounded()));
+                analytics.put("question", safeAnalyticsQuestion(request.getMessage()));
+                analytics.put("requestId", requestId);
+                if (raw.getMeta() != null) {
+                    if (raw.getMeta().getIntent() != null) {
+                        analytics.put("intent", raw.getMeta().getIntent());
+                    }
+                    if (raw.getMeta().getGroundingRetries() != null) {
+                        analytics.put("groundingRetries", raw.getMeta().getGroundingRetries());
+                    }
+                    if (raw.getMeta().getListingRetries() != null) {
+                        analytics.put("listingRetries", raw.getMeta().getListingRetries());
+                    }
+                    if (raw.getMeta().getRegenerated() != null) {
+                        analytics.put("regenerated", raw.getMeta().getRegenerated());
+                    }
+                    if (raw.getMeta().getLatencyMs() != null) {
+                        analytics.put("latencyMs", raw.getMeta().getLatencyMs());
+                    }
+                }
+                if (raw.getToolExecutions() != null && !raw.getToolExecutions().isEmpty()) {
+                    analytics.put("toolExecutions", raw.getToolExecutions().size());
+                }
+                analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null, analytics);
+                log.info("[AI] chat user={} answeredWith=orchestrator intent={} listings={} tools={} ms={}",
+                        userId,
+                        raw.getMeta() == null ? "?" : raw.getMeta().getIntent(),
+                        response.getListingResults() == null ? 0 : response.getListingResults().size(),
+                        raw.getToolExecutions() == null ? 0 : raw.getToolExecutions().size(),
                         System.currentTimeMillis() - started);
                 return response;
             }

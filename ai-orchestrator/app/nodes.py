@@ -25,6 +25,7 @@ from .schemas import (
     Preferences,
     RetrievedChunk,
     SuggestedAction,
+    ToolExecution,
 )
 
 # --- Lightweight Cameroon geography + taxonomy lexicons for rule-based parsing ---
@@ -72,6 +73,19 @@ class State(TypedDict, total=False):
     relax_level: int
     safety_blocked: bool
     self_check_ok: bool
+    target_listing_id: str | None
+    tool_executions: list[ToolExecution]
+
+
+_AGENT_INTENTS = {"save_listing", "apply_to_listing", "request_visit"}
+_AGENT_TOOL_BY_INTENT = {
+    "save_listing": "SAVE_LISTING_FAVORITE",
+    "apply_to_listing": "APPLY_TO_LISTING",
+    "request_visit": "REQUEST_VISIT",
+}
+_UUID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE
+)
 
 
 def _lc(text: str) -> str:
@@ -99,6 +113,14 @@ class Nodes:
             r"\b(find|show|need|want|looking)\b", msg
         ):
             intent = "roommate_matching_help"
+        elif re.search(r"\b(request|schedule|book)\b.*\b(visit|viewing|tour)\b", msg):
+            intent = "request_visit"
+        elif re.search(r"\bapply\b.*\b(to|for)\b.*\b(this|that|listing|room|property|it)\b", msg):
+            intent = "apply_to_listing"
+        elif re.search(r"\b(save|favorite|bookmark|like)\b", msg) and re.search(
+            r"\b(this|that|listing|room|property|place|it)\b", msg
+        ):
+            intent = "save_listing"
         elif re.search(r"\bapply|application|how (do|to) i apply\b", msg):
             intent = "application_help"
         elif persona == "ADMIN":
@@ -119,7 +141,16 @@ class Nodes:
 
     # -- extract_filters --------------------------------------------------
     def extract_filters(self, state: State) -> dict[str, Any]:
-        return {"filters": self._extract(state["message"], state.get("relax_level", 0))}
+        listing_id = self._extract_listing_id(state["message"])
+        return {
+            "filters": self._extract(state["message"], state.get("relax_level", 0)),
+            "target_listing_id": listing_id,
+        }
+
+    @staticmethod
+    def _extract_listing_id(message: str) -> str | None:
+        match = _UUID_RE.search(message or "")
+        return match.group(0) if match else None
 
     def _extract(self, message: str, relax: int) -> ExtractedFilters:
         msg = _lc(message)
@@ -222,7 +253,10 @@ class Nodes:
 
     # -- search_listings --------------------------------------------------
     def search_listings(self, state: State) -> dict[str, Any]:
-        if state.get("intent") != "listing_search":
+        intent = state.get("intent")
+        if intent not in {"listing_search", *_AGENT_INTENTS}:
+            return {"listings": []}
+        if intent in _AGENT_INTENTS and state.get("target_listing_id"):
             return {"listings": []}
         listings = self.tools.search_listings(
             filters=state.get("filters", ExtractedFilters()),
@@ -271,6 +305,40 @@ class Nodes:
             listing.actions = self._listing_ctas(listing)
             ranked.append(listing)
         return {"listings": ranked[:5]}
+
+    # -- execute_agent_tools (allowlisted writes via Spring) --------------
+    def execute_agent_tools(self, state: State) -> dict[str, Any]:
+        intent = state.get("intent")
+        if intent not in _AGENT_INTENTS:
+            return {}
+        tool = _AGENT_TOOL_BY_INTENT[intent]
+        listing_id = state.get("target_listing_id")
+        if not listing_id:
+            listings = state.get("listings") or []
+            if listings and listings[0].id:
+                listing_id = listings[0].id
+        if not listing_id:
+            result = ToolExecution(
+                tool=tool,
+                success=False,
+                message="Tell me which listing to use (search first or paste the listing link).",
+            )
+            return {"tool_executions": [result]}
+
+        params: dict[str, Any] = {"listingId": listing_id}
+        if intent == "apply_to_listing":
+            params["message"] = state.get("message", "")
+        if intent == "request_visit":
+            params["message"] = "Visit requested via RoomBay AI assistant."
+
+        result = self.tools.execute_tool(
+            tool=tool,
+            params=params,
+            user_id=state.get("user_id"),
+            role=state.get("role", "STUDENT"),
+            request_id=state.get("request_id"),
+        )
+        return {"tool_executions": [result]}
 
     @staticmethod
     def _score_listing(
@@ -365,22 +433,42 @@ class Nodes:
 
     @staticmethod
     def _compose_grounded(state: State) -> str:
+        tool_note = Nodes._tool_execution_summary(state.get("tool_executions") or [])
         listings = state.get("listings", [])
         chunks = state.get("chunks", [])
+        body = ""
         if listings:
             top = ", ".join(f"{l.title} in {l.neighborhood or l.city or 'Cameroon'}" for l in listings[:3])
-            return (
+            body = (
                 f"I found {len(listings)} RoomBay listing(s) matching your search: {top}. "
                 "Next step: open a listing to view details, save it, or message the landlord."
             )
-        if chunks:
+        elif chunks:
             snippet = (chunks[0].text or "").strip().replace("\n", " ")
             snippet = (snippet[:240] + "…") if len(snippet) > 240 else snippet
-            return f"Based on RoomBay's information: {snippet} Next step: ask me for specifics or browse listings."
-        return (
-            "I don't have specific RoomBay information for that yet. "
-            "Next step: try a city, budget, and property type (e.g. 'studio in Damas under 80,000')."
-        )
+            body = (
+                f"Based on RoomBay's information: {snippet} "
+                "Next step: ask me for specifics or browse listings."
+            )
+        else:
+            body = (
+                "I don't have specific RoomBay information for that yet. "
+                "Next step: try a city, budget, and property type (e.g. 'studio in Damas under 80,000')."
+            )
+        if tool_note:
+            return f"{tool_note} {body}"
+        return body
+
+    @staticmethod
+    def _tool_execution_summary(executions: list[ToolExecution]) -> str:
+        if not executions:
+            return ""
+        first = executions[0]
+        if first.success and first.message:
+            return first.message
+        if first.message:
+            return first.message
+        return ""
 
     # -- self_check (reflect) --------------------------------------------
     def self_check(self, state: State) -> dict[str, Any]:
@@ -424,5 +512,13 @@ class Nodes:
         elif intent == "room_preview_help":
             actions.append(
                 SuggestedAction(id="search", label="Browse listings", type="NAVIGATE", actionUrl="/search")
+            )
+        elif intent == "save_listing":
+            actions.append(
+                SuggestedAction(id="favorites", label="View favorites", type="NAVIGATE", actionUrl="/favorites")
+            )
+        elif intent in {"apply_to_listing", "request_visit"}:
+            actions.append(
+                SuggestedAction(id="apps", label="View my applications", type="NAVIGATE", actionUrl="/applications")
             )
         return {"suggested_actions": actions}

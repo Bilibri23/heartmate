@@ -81,6 +81,13 @@ class OrchestrateMeta(BaseModel):
     latencyMs: Optional[int] = None
 
 
+class ToolExecution(BaseModel):
+    tool: str
+    success: bool = False
+    message: str = ""
+    entityId: Optional[str] = None
+
+
 class OrchestrateResponse(BaseModel):
     answer: str
     threadId: Optional[str] = None
@@ -89,6 +96,7 @@ class OrchestrateResponse(BaseModel):
     listingResults: list[ListingResult] = Field(default_factory=list)
     ragGrounded: bool = False
     meta: OrchestrateMeta = Field(default_factory=OrchestrateMeta)
+    toolExecutions: list[ToolExecution] = Field(default_factory=list)
 
 
 # --- Internal tool payloads (orchestrator -> Spring /internal/ai/*) ---

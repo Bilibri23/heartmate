@@ -157,8 +157,11 @@ curl http://YOUR_VPS_IP:8131/health
 ```bash
 curl -X POST http://YOUR_VPS_IP:8131/orchestrate \
   -H "Content-Type: application/json" \
+  -H "X-RoomBay-Internal-Token: YOUR_SECRET" \
   -d '{"message":"Find a room in Buea under 50000","persona":"TENANT","userId":"00000000-0000-0000-0000-000000000001","userRole":"STUDENT","requestId":"smoke-1"}'
 ```
+
+Without the internal token header, `/orchestrate` returns **401** (prevents spoofed `userId`/`role`).
 
 Use `AI_PROVIDER=stub` in VPS `.env` for a deterministic response without Ollama.
 

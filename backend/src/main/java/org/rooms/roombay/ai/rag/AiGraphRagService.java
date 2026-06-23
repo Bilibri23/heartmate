@@ -53,13 +53,35 @@ public class AiGraphRagService {
                 .build();
     }
 
+    @Value
+    @lombok.Builder
+    public static class ScoredChunk {
+        AiRagRepository.ChunkRow chunk;
+        double score;
+    }
+
     /**
      * Returns up to {@code finalK} chunks, ranked by hybrid score. Falls back to flat vector list if graph is empty.
      */
     public List<AiRagRepository.ChunkRow> retrieve(List<Double> queryEmbedding, int requestedK) {
+        return retrieveWithScores(queryEmbedding, requestedK).stream()
+                .map(ScoredChunk::getChunk)
+                .toList();
+    }
+
+    /**
+     * Same retrieval as {@link #retrieve} but preserves normalized relevance scores (0..1)
+     * for orchestrator grounding decisions.
+     */
+    public List<ScoredChunk> retrieveWithScores(List<Double> queryEmbedding, int requestedK) {
         int k = requestedK > 0 ? requestedK : finalK;
         if (!graphRagEnabledFlag) {
-            return ragRepository.topKSimilar(queryEmbedding, k);
+            return ragRepository.topKSimilarWithDistance(queryEmbedding, k).stream()
+                    .map(sc -> ScoredChunk.builder()
+                            .chunk(sc.getChunk())
+                            .score(vectorScoreFromDistance(sc.getDistance()))
+                            .build())
+                    .toList();
         }
         List<AiRagRepository.SimilarChunk> seeds = ragRepository.topKSimilarWithDistance(queryEmbedding, Math.max(seedK, k));
         if (seeds.isEmpty()) {
@@ -71,14 +93,19 @@ public class AiGraphRagService {
         for (AiRagRepository.SimilarChunk sc : seeds) {
             UUID id = sc.getChunk().getId();
             seedIds.add(id);
-            double dist = sc.getDistance();
-            double vecScore = 1.0 / (1.0 + dist);
+            double vecScore = vectorScoreFromDistance(sc.getDistance());
             scores.merge(id, vectorWeight * vecScore, Double::sum);
         }
 
         List<UUID> entityIds = ragRepository.findEntityIdsForChunkIds(seedIds);
         if (entityIds.isEmpty()) {
-            return seeds.stream().map(AiRagRepository.SimilarChunk::getChunk).limit(k).collect(Collectors.toList());
+            return seeds.stream()
+                    .limit(k)
+                    .map(sc -> ScoredChunk.builder()
+                            .chunk(sc.getChunk())
+                            .score(vectorScoreFromDistance(sc.getDistance()))
+                            .build())
+                    .toList();
         }
 
         List<UUID> neighborIds = ragRepository.findNeighborChunkIds(seedIds, entityIds, expandLimit).stream()
@@ -91,6 +118,7 @@ public class AiGraphRagService {
             rank += 1.0;
         }
 
+        double maxScore = scores.values().stream().mapToDouble(Double::doubleValue).max().orElse(1.0);
         List<UUID> orderedIds = scores.entrySet().stream()
                 .sorted(Map.Entry.<UUID, Double>comparingByValue().reversed())
                 .map(Map.Entry::getKey)
@@ -105,16 +133,22 @@ public class AiGraphRagService {
             byId.put(row.getId(), row);
         }
 
-        List<AiRagRepository.ChunkRow> out = new ArrayList<>();
+        List<ScoredChunk> out = new ArrayList<>();
         for (UUID id : orderedIds) {
             AiRagRepository.ChunkRow row = byId.get(id);
             if (row != null) {
-                out.add(row);
+                double raw = scores.getOrDefault(id, 0.0);
+                double normalized = maxScore > 0 ? raw / maxScore : 0.0;
+                out.add(ScoredChunk.builder().chunk(row).score(normalized).build());
             }
         }
         if (log.isDebugEnabled()) {
             log.debug("[AI] GraphRAG seeds={} entities={} neighbors={} out={}", seeds.size(), entityIds.size(), neighborIds.size(), out.size());
         }
         return out;
+    }
+
+    private static double vectorScoreFromDistance(double distance) {
+        return 1.0 / (1.0 + Math.max(0.0, distance));
     }
 }

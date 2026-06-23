@@ -11,6 +11,7 @@ import org.rooms.roombay.ai.safety.AiRetrievalPolicy;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.entity.ListingPreferences;
 import org.rooms.roombay.repository.ListingPreferencesRepository;
+import org.rooms.roombay.service.AiAgentToolService;
 import org.rooms.roombay.service.AiCopilotToolService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -21,7 +22,10 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,8 +38,9 @@ import java.util.UUID;
  * token is the trust anchor (see SecurityConfig permit + token check here). Each
  * call carries {@code userId} / {@code role} (originally derived by Spring from the
  * caller's JWT and passed through the sidecar), and role is re-applied here:
- * retrieval is role-filtered, listing search is tenant-scoped. All endpoints are
- * read-only — the sidecar can never mutate data through them.
+ * retrieval is role-filtered, listing search is tenant-scoped. Write tools are
+ * allowlisted and executed via {@link AiAgentToolService} with the same role checks
+ * as the public API.
  */
 @RestController
 @RequestMapping("/internal/ai")
@@ -49,6 +54,7 @@ public class AiInternalToolController {
     private final AiRetrievalPolicy retrievalPolicy;
     private final AiContextSanitizer contextSanitizer;
     private final AiCopilotToolService aiCopilotToolService;
+    private final AiAgentToolService aiAgentToolService;
     private final ListingPreferencesRepository listingPreferencesRepository;
 
     @Value("${roombay.ai.internal.token:}")
@@ -67,15 +73,25 @@ public class AiInternalToolController {
         String message = str(body.get("message"));
         String role = roleOrDefault(body.get("role"));
 
-        List<AiRagRepository.ChunkRow> chunks;
+        List<AiGraphRagService.ScoredChunk> scored;
         try {
             List<Double> qEmb = modelRouter.embed(message);
-            chunks = graphRagService.retrieve(qEmb, chatRetrievalK);
+            scored = graphRagService.retrieveWithScores(qEmb, chatRetrievalK);
         } catch (Exception ex) {
             log.warn("[AI][internal] retrieve embedding/retrieval failed: {}", ex.getMessage());
-            chunks = List.of();
+            scored = List.of();
         }
+        List<AiRagRepository.ChunkRow> chunks = scored.stream()
+                .map(AiGraphRagService.ScoredChunk::getChunk)
+                .toList();
         chunks = retrievalPolicy.filter(chunks, role);
+
+        Map<UUID, Double> scoreByChunkId = new HashMap<>();
+        for (AiGraphRagService.ScoredChunk sc : scored) {
+            if (sc.getChunk() != null && sc.getChunk().getId() != null) {
+                scoreByChunkId.put(sc.getChunk().getId(), sc.getScore());
+            }
+        }
 
         List<Map<String, Object>> out = new ArrayList<>();
         for (AiRagRepository.ChunkRow c : chunks) {
@@ -84,8 +100,8 @@ public class AiInternalToolController {
             m.put("source", c.getSource());
             m.put("title", c.getTitle());
             m.put("text", contextSanitizer.sanitize(c.getChunkText()));
-            // ChunkRow carries no similarity score; presence == retrieved/grounded.
-            m.put("score", 1.0);
+            double score = c.getId() == null ? 0.0 : scoreByChunkId.getOrDefault(c.getId(), 0.0);
+            m.put("score", score);
             out.add(m);
         }
         return ResponseEntity.ok(Map.of("chunks", out));
@@ -144,11 +160,44 @@ public class AiInternalToolController {
         return ResponseEntity.ok(out);
     }
 
+    @PostMapping("/tools/execute")
+    public ResponseEntity<Map<String, Object>> executeTool(
+            @RequestHeader(value = "X-RoomBay-Internal-Token", required = false) String token,
+            @RequestBody Map<String, Object> body) {
+        if (!authorized(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        UUID userId = uuid(body.get("userId"));
+        String role = roleOrDefault(body.get("role"));
+        String tool = str(body.get("tool"));
+        Map<String, Object> params = asMap(body.get("params"));
+        String requestId = str(body.get("requestId"));
+
+        if (userId == null || tool == null || tool.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "userId and tool are required"));
+        }
+
+        AiAgentToolService.ToolExecutionResult result = aiAgentToolService.execute(
+                userId, role, tool.trim().toUpperCase(java.util.Locale.ROOT), params, requestId);
+        return ResponseEntity.ok(Map.of(
+                "tool", result.tool(),
+                "success", result.success(),
+                "message", result.message(),
+                "entityId", result.entityId() == null ? "" : result.entityId()));
+    }
+
     // --- helpers ---
 
     private boolean authorized(String token) {
         // Closed by default: a blank configured token rejects all callers.
-        return internalToken != null && !internalToken.isBlank() && internalToken.equals(token);
+        if (internalToken == null || internalToken.isBlank() || token == null || token.isBlank()) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+                internalToken.getBytes(StandardCharsets.UTF_8),
+                token.getBytes(StandardCharsets.UTF_8));
     }
 
     private static String roleOrDefault(Object role) {

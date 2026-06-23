@@ -14,8 +14,9 @@ import logging
 import time
 import uuid
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 
+from .auth import require_internal_token
 from .config import get_settings
 from .graph import build_graph
 from .llm import get_llm
@@ -26,6 +27,7 @@ from .schemas import (
     OrchestrateMeta,
     OrchestrateRequest,
     OrchestrateResponse,
+    ToolExecution,
 )
 
 logging.basicConfig(level=get_settings().log_level)
@@ -52,7 +54,7 @@ def health() -> dict:
     }
 
 
-@app.post("/orchestrate", response_model=OrchestrateResponse)
+@app.post("/orchestrate", response_model=OrchestrateResponse, dependencies=[Depends(require_internal_token)])
 def orchestrate(req: OrchestrateRequest) -> OrchestrateResponse:
     started = time.monotonic()
     thread_id = req.threadId or str(uuid.uuid4())
@@ -107,4 +109,16 @@ def _to_response(state: State, thread_id: str, latency_ms: int) -> OrchestrateRe
             safetyBlocked=state.get("safety_blocked", False),
             latencyMs=latency_ms,
         ),
+        toolExecutions=_tool_executions(state),
     )
+
+
+def _tool_executions(state: State) -> list[ToolExecution]:
+    raw = state.get("tool_executions") or []
+    out: list[ToolExecution] = []
+    for item in raw:
+        if isinstance(item, ToolExecution):
+            out.append(item)
+        elif isinstance(item, dict):
+            out.append(ToolExecution(**item))
+    return out

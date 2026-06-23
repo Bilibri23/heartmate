@@ -23,8 +23,9 @@ import java.util.UUID;
  * <p>Only instantiated when {@code roombay.ai.orchestrator.enabled=true}; otherwise
  * the bean is absent and {@link AiAssistantService} keeps its built-in pipeline. Any
  * error, timeout, or blank answer returns {@link Optional#empty()} so the caller
- * transparently falls back. The orchestrator runs read-only tools and only suggests
- * actions; Spring re-applies {@code AiOutputGuard} on whatever it returns.
+ * transparently falls back. The orchestrator may run allowlisted write tools
+ * (favorites, applications, visits) scoped to the caller's userId/role; Spring
+ * re-applies {@code AiOutputGuard} on whatever it returns.
  */
 @Service
 @Slf4j
@@ -74,7 +75,8 @@ public class AiOrchestratorClient {
             }
             return Optional.of(response);
         } catch (Exception ex) {
-            log.warn("[AI] orchestrator unavailable, falling back: {}", ex.getMessage());
+            log.warn("[AI] orchestrator unavailable, falling back requestId={} reason={}: {}",
+                    requestId, ex.getClass().getSimpleName(), ex.getMessage());
             return Optional.empty();
         }
     }
