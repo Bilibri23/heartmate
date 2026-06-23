@@ -53,8 +53,8 @@ public class AiGraphRagService {
                 .build();
     }
 
-    @Value
     @lombok.Builder
+    @lombok.Getter
     public static class ScoredChunk {
         AiRagRepository.ChunkRow chunk;
         double score;
