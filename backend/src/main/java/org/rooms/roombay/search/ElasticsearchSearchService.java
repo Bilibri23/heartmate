@@ -3,6 +3,7 @@ package org.rooms.roombay.search;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.GeoLocation;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.Time;
 import co.elastic.clients.elasticsearch._types.query_dsl.FunctionBoostMode;
 import co.elastic.clients.elasticsearch._types.query_dsl.FunctionScoreMode;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
@@ -155,7 +156,7 @@ public class ElasticsearchSearchService {
                                                 .field("createdAt")
                                                 .placement(p -> p
                                                         .origin("now")
-                                                        .scale("30d")
+                                                        .scale(Time.of(t -> t.time("30d")))
                                                         .decay(0.5)
                                                 )
                                         )
