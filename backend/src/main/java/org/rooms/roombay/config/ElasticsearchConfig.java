@@ -1,12 +1,14 @@
 package org.rooms.roombay.config;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.HttpRequestInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfiguration;
-import org.springframework.data.elasticsearch.support.HttpHeaders;
+import org.springframework.data.elasticsearch.client.elc.RestClients;
 
 import java.net.URI;
 
@@ -27,17 +29,25 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
     public ClientConfiguration clientConfiguration() {
         String hostPort = parseHostAndPort(uris);
         log.info("Elasticsearch configured: {} (OpenSearch-compatible JSON headers)", hostPort);
-        // OpenSearch rejects the ES 8 vendor media type (application/vnd.elasticsearch+json).
-        // withHeaders runs per request and overrides the client's default Content-Type.
+        // ES 8 client sends vendor Content-Type; OpenSearch rejects it (406) or duplicate headers (400).
+        // Interceptor runs last and replaces Content-Type/Accept with plain application/json.
         return ClientConfiguration.builder()
                 .connectedTo(hostPort)
-                .withHeaders(() -> {
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.add("Content-Type", "application/json");
-                    headers.add("Accept", "application/json");
-                    return headers;
-                })
+                .withClientConfigurer(RestClients.RestClientConfigurationCallback.from(restClientBuilder -> {
+                    restClientBuilder.setHttpClientConfigCallback(httpClientBuilder ->
+                            httpClientBuilder.addInterceptorLast(openSearchHeaderInterceptor()));
+                    return restClientBuilder;
+                }))
                 .build();
+    }
+
+    private static HttpRequestInterceptor openSearchHeaderInterceptor() {
+        return (request, entity, context) -> {
+            request.removeHeaders(HttpHeaders.CONTENT_TYPE);
+            request.removeHeaders(HttpHeaders.ACCEPT);
+            request.setHeader(HttpHeaders.CONTENT_TYPE, "application/json");
+            request.setHeader(HttpHeaders.ACCEPT, "application/json");
+        };
     }
 
     private static String parseHostAndPort(String uris) {
