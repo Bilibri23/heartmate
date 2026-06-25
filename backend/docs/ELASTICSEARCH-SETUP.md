@@ -65,6 +65,15 @@ curl "http://localhost:8080/api/search?city=Douala&minPrice=50000&maxPrice=20000
 
 When Elasticsearch is disabled, `/api/search` falls back to the database-backed search.
 
+## OpenSearch on VPS (406 Not Acceptable)
+
+If indexing or search logs show `HTTP/1.1 406 Not Acceptable` against OpenSearch, the Elasticsearch 8 Java client is sending vendor `Content-Type` headers that OpenSearch does not accept. `ElasticsearchConfig` sets plain `application/json` headers for compatibility. After deploying that fix:
+
+1. Redeploy/restart the backend on Railway.
+2. Confirm startup log: `Elasticsearch configured: host:9200 (OpenSearch-compatible JSON headers)`.
+3. Run **Admin → Reindex Search** and wait ~30s.
+4. Admin settings should show document count > 0.
+
 ## Troubleshooting: "Elasticsearch returned 0 results"
 
 1. **Check Admin Settings** → Search Index section shows "X documents in index". If 0, the index is empty.

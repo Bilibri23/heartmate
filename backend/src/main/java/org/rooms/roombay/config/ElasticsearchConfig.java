@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.elc.ElasticsearchConfiguration;
+import org.springframework.data.elasticsearch.support.HttpHeaders;
 
 import java.net.URI;
 
@@ -25,9 +26,17 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
     @Override
     public ClientConfiguration clientConfiguration() {
         String hostPort = parseHostAndPort(uris);
-        log.info("Elasticsearch configured: {}", hostPort);
+        log.info("Elasticsearch configured: {} (OpenSearch-compatible JSON headers)", hostPort);
+        // OpenSearch rejects the ES 8 vendor media type (application/vnd.elasticsearch+json).
+        // withHeaders runs per request and overrides the client's default Content-Type.
         return ClientConfiguration.builder()
                 .connectedTo(hostPort)
+                .withHeaders(() -> {
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.add("Content-Type", "application/json");
+                    headers.add("Accept", "application/json");
+                    return headers;
+                })
                 .build();
     }
 
