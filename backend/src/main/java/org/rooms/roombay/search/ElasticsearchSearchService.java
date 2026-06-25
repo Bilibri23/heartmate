@@ -11,7 +11,6 @@ import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.ListingResponse;
@@ -155,8 +154,8 @@ public class ElasticsearchSearchService {
                                         .date(d -> d
                                                 .field("createdAt")
                                                 .placement(p -> p
-                                                        .origin(JsonData.of("now"))
-                                                        .scale(JsonData.of("30d"))
+                                                        .origin("now")
+                                                        .scale("30d")
                                                         .decay(0.5)
                                                 )
                                         )
