@@ -103,7 +103,7 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - name: Validate migration boot path
-        run: mvn -B test -Dtest=RoombayApplicationTests
+        run: mvn -B test -Dtest=RoombayApplicationTests -Droombay.schemaValidation.enabled=true
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5433/roombay_migration
           SPRING_DATASOURCE_USERNAME: test

@@ -1302,6 +1302,7 @@ public class ListingService {
         PropertyListing listing = findListingByIdAndLandlord(listingId, landlordId);
         listing.setStatus(PropertyListing.Status.RENTED);
         PropertyListing saved = listingRepository.save(listing);
+        enqueueSearchOutbox(saved, ListingSearchOutbox.EVENT_UPDATED);
         return mapToResponse(saved, landlordId);
     }
 
@@ -1318,6 +1319,7 @@ public class ListingService {
             log.info("Listing {} set to PENDING for admin approval", listingId);
         }
         PropertyListing saved = listingRepository.save(listing);
+        enqueueSearchOutbox(saved, ListingSearchOutbox.EVENT_UPDATED);
         return mapToResponse(saved, landlordId);
     }
 
@@ -1332,6 +1334,7 @@ public class ListingService {
         
         listing.setVideoTourUrl(videoUrl);
         listing = listingRepository.save(listing);
+        enqueueSearchOutbox(listing, ListingSearchOutbox.EVENT_UPDATED);
         return mapToResponse(listing, null);
     }
 

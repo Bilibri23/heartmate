@@ -7,12 +7,17 @@ import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
-import { Clock, Filter, Flame, Star, WifiOff } from "lucide-react"
+import { Clock, Filter, Flame, Star, WifiOff, Clapperboard, LayoutGrid } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { NextStepCard } from "@/components/workflows/next-step-card"
+import { ReelsFeed } from "@/components/ui/reels-feed"
 import api from "@/lib/api"
+
+const MIN_REELS_INVENTORY = 3
+
+type DiscoverMode = "reels" | "classic"
 
 interface RecommendedListing {
   listingId: string
@@ -50,6 +55,9 @@ export default function ForYouPage() {
   const [listings, setListings] = useState<RecommendedListing[]>([])
   const [trendingListings, setTrendingListings] = useState<RecommendedListing[]>([])
   const [recentListings, setRecentListings] = useState<RecommendedListing[]>([])
+  const [reelsListings, setReelsListings] = useState<RecommendedListing[]>([])
+  const [videoTourListingCount, setVideoTourListingCount] = useState(0)
+  const [discoverMode, setDiscoverMode] = useState<DiscoverMode>("classic")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -109,7 +117,7 @@ export default function ForYouPage() {
     try {
       const res = await api.get("/feed", {
         params: {
-          sections: "forYou,trending,recent",
+          sections: "forYou,trending,recent,reels",
           size: 12,
           lang: language === "fr" ? "fr" : "en",
         },
@@ -118,9 +126,26 @@ export default function ForYouPage() {
       const forYouItems: Record<string, unknown>[] = data.forYou?.items ?? []
       const trendingItems: Record<string, unknown>[] = data.trending?.items ?? []
       const recentItems: Record<string, unknown>[] = data.recent?.items ?? []
+      const reelsItems: Record<string, unknown>[] = data.reels?.items ?? []
+      const tourCount = Number(data.videoTourListingCount ?? 0)
+      const playableReels = reelsItems
+        .filter((l) => {
+          const url = (l.videoTourUrl as string) || ""
+          return url.trim().length > 0
+        })
+        .map((l) => normalizeListing(l))
+
+      setVideoTourListingCount(tourCount)
+      setReelsListings(playableReels)
       setListings(forYouItems.map((l) => normalizeListing(l)))
       setTrendingListings(trendingItems.map((l) => normalizeListing(l, ["TRENDING_VIEWS"])))
       setRecentListings(recentItems.map((l) => normalizeListing(l, ["NEW_LISTING"])))
+
+      if (tourCount >= MIN_REELS_INVENTORY && playableReels.length > 0) {
+        setDiscoverMode("reels")
+      } else {
+        setDiscoverMode("classic")
+      }
     } catch (err: unknown) {
       console.error("Failed to fetch listings:", err)
       // Detect HTTP status for user-friendly messaging
@@ -249,6 +274,30 @@ export default function ForYouPage() {
     </section>
   )
 
+  const reelsForFeed = reelsListings.map((l) => ({
+    id: l.listingId,
+    title: l.title,
+    rentAmount: l.rentAmount,
+    city: l.city,
+    neighborhood: l.neighborhood,
+    bedrooms: l.bedrooms,
+    bathrooms: l.bathrooms,
+    videoTourUrl: l.videoTourUrl ?? undefined,
+    virtualTourProvider: l.virtualTourProvider ?? undefined,
+    isVerified: l.verified,
+    trustTier: l.trustTier,
+    isFeatured: l.featured,
+    isFavorited: l.isFavorited,
+    matchScore: l.matchScore,
+    description: l.description,
+    photos: l.primaryPhotoUrl ? [{ photoUrl: l.primaryPhotoUrl, isPrimary: true }] : [],
+  }))
+
+  const showReelsMode =
+    discoverMode === "reels" &&
+    videoTourListingCount >= MIN_REELS_INVENTORY &&
+    reelsForFeed.length > 0
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       <div data-tour="tenant-welcome">
@@ -261,6 +310,32 @@ export default function ForYouPage() {
         className="bg-white/95 backdrop-blur border-b border-slate-200"
       >
         <div className="flex px-4 py-2 gap-2 items-center flex-wrap">
+          {videoTourListingCount >= MIN_REELS_INVENTORY && reelsForFeed.length > 0 && (
+            <div className="flex bg-slate-100 rounded-full p-0.5">
+              <button
+                type="button"
+                onClick={() => setDiscoverMode("reels")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  discoverMode === "reels" ? "bg-white shadow-sm text-purple-600" : "text-slate-500"
+                }`}
+                aria-label="Video tours feed"
+              >
+                <Clapperboard className="h-3.5 w-3.5" />
+                Video tours
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscoverMode("classic")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  discoverMode === "classic" ? "bg-white shadow-sm text-blue-600" : "text-slate-500"
+                }`}
+                aria-label="Classic browse"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Classic browse
+              </button>
+            </div>
+          )}
           <Link href="/search" className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 text-sm font-medium transition-colors">
             <Filter className="h-4 w-4" />
             {t.common.filter}
@@ -277,6 +352,24 @@ export default function ForYouPage() {
       <div ref={containerRef} className="flex-1 overflow-y-auto relative">
         <PullToRefreshIndicator pullProgress={pullProgress} isRefreshing={isRefreshing} />
 
+        {showReelsMode && !isLoading && (
+          <ReelsFeed
+            listings={reelsForFeed}
+            onFavoriteToggle={handleFavoriteToggle}
+            onClose={() => setDiscoverMode("classic")}
+          />
+        )}
+
+        {showReelsMode && isLoading && (
+          <div className="h-[calc(100vh-120px)] bg-black flex items-center justify-center">
+            <div className="text-center">
+              <Clapperboard className="h-12 w-12 text-white/30 mx-auto mb-3" />
+              <p className="text-white/50 text-sm">Loading video tours…</p>
+            </div>
+          </div>
+        )}
+
+        {!showReelsMode && (
         <div className="py-4">
           {isLoading && (
             <div className="px-4 space-y-8">
@@ -373,6 +466,7 @@ export default function ForYouPage() {
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   )

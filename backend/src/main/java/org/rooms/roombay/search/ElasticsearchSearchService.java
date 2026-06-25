@@ -1,13 +1,17 @@
 package org.rooms.roombay.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.GeoLocation;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.FunctionBoostMode;
+import co.elastic.clients.elasticsearch._types.query_dsl.FunctionScoreMode;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.response.ListingResponse;
@@ -124,8 +128,15 @@ public class ElasticsearchSearchService {
                 filter.add(QueryBuilders.term(t -> t.field("amenities").value(a)));
             }
         }
+        if (userLat != null && userLon != null && maxDistance != null && maxDistance > 0) {
+            filter.add(Query.of(q -> q.geoDistance(g -> g
+                    .field("location")
+                    .distance(maxDistance + "km")
+                    .location(GeoLocation.of(gl -> gl.latlon(ll -> ll.lat(userLat).lon(userLon))))
+            )));
+        }
 
-        Query boostedQuery = QueryBuilders.bool(b -> {
+        Query boolQuery = QueryBuilders.bool(b -> {
             if (!must.isEmpty()) b.must(must);
             b.filter(filter);
             b.should(QueryBuilders.term(t -> t.field("featured").value(true).boost(2f)));
@@ -133,6 +144,28 @@ public class ElasticsearchSearchService {
             b.minimumShouldMatch("0");
             return b;
         });
+
+        // Recency decay via function_score for relevance/forYou/trending text search paths
+        Query boostedQuery = (MODE_RECENT.equalsIgnoreCase(mode))
+                ? boolQuery
+                : QueryBuilders.functionScore(fs -> fs
+                        .query(boolQuery)
+                        .functions(fn -> fn
+                                .gauss(g -> g
+                                        .date(d -> d
+                                                .field("createdAt")
+                                                .placement(p -> p
+                                                        .origin(JsonData.of("now"))
+                                                        .scale(JsonData.of("30d"))
+                                                        .decay(0.5)
+                                                )
+                                        )
+                                )
+                                .weight(1.0)
+                        )
+                        .scoreMode(FunctionScoreMode.Sum)
+                        .boostMode(FunctionBoostMode.Multiply)
+                );
 
         int from = (int) pageable.getOffset();
         int size = pageable.getPageSize();
@@ -148,6 +181,13 @@ public class ElasticsearchSearchService {
         } else if (MODE_TRENDING.equalsIgnoreCase(mode)) {
             reqBuilder.sort(so -> so.field(f -> f.field("viewsCount").order(SortOrder.Desc)));
             reqBuilder.sort(so -> so.field(f -> f.field("createdAt").order(SortOrder.Desc)));
+        } else if (userLat != null && userLon != null && maxDistance != null && maxDistance > 0) {
+            reqBuilder.sort(so -> so.geoDistance(g -> g
+                    .field("location")
+                    .location(GeoLocation.of(gl -> gl.latlon(ll -> ll.lat(userLat).lon(userLon))))
+                    .order(SortOrder.Asc)
+            ));
+            reqBuilder.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
         } else {
             reqBuilder.sort(so -> so.score(sc -> sc.order(SortOrder.Desc)));
         }

@@ -131,7 +131,7 @@ public class FeedService {
 
     private FeedSectionResponse buildReels(UUID userId, int size) {
         Pageable pageable = PageRequest.of(0, size);
-        Page<PropertyListing> page = listingRepository.findActiveWithVideoTour(pageable);
+        Page<PropertyListing> page = listingRepository.findActiveWithPlayableVideoTour(pageable);
         List<ListingResponse> items = page.getContent().stream()
                 .map(l -> listingService.toListingResponse(l, userId))
                 .collect(Collectors.toList());

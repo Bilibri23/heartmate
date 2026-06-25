@@ -99,4 +99,10 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
            "AND ((l.videoTourUrl IS NOT NULL AND TRIM(l.videoTourUrl) <> '') " +
            "OR (l.videoTourEmbedCode IS NOT NULL AND TRIM(l.videoTourEmbedCode) <> '')) ")
     long countActiveWithVideoTour();
+
+    /** Playable MP4/Cloudinary tours only — excludes embed-only inventory from reels feed. */
+    @Query("SELECT l FROM PropertyListing l WHERE l.status = 'ACTIVE' " +
+           "AND l.videoTourUrl IS NOT NULL AND TRIM(l.videoTourUrl) <> '' " +
+           "ORDER BY l.viewsCount DESC, l.createdAt DESC")
+    Page<PropertyListing> findActiveWithPlayableVideoTour(Pageable pageable);
 }

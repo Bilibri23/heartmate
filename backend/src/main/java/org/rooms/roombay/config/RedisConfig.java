@@ -76,9 +76,10 @@ public class RedisConfig {
     }
     
     /**
-     * Default in-memory cache manager (always available)
+     * In-memory cache manager when Redis is disabled.
      */
     @Bean(name = "cacheManager")
+    @ConditionalOnProperty(name = "spring.data.redis.enabled", havingValue = "false", matchIfMissing = true)
     public CacheManager inMemoryCacheManager() {
         log.info("Using in-memory cache manager");
         return new org.springframework.cache.concurrent.ConcurrentMapCacheManager(

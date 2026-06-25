@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { MobileHeader } from "@/components/layout/mobile-header"
-import { useLanguage } from "@/context/language-context"
 import { useAuth } from "@/context/auth-context"
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "@/components/ui/pull-to-refresh"
@@ -15,7 +14,6 @@ import {
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
-  Glasses,
   ClipboardList,
 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -59,7 +57,6 @@ interface AnalyticsData {
 }
 
 export default function LandlordAnalyticsPage() {
-  const { t } = useLanguage()
   const { user } = useAuth()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -127,6 +124,31 @@ export default function LandlordAnalyticsPage() {
     return "bg-red-100 text-red-700"
   }
 
+  const FunnelBar = ({
+    label,
+    value,
+    max,
+    color,
+  }: {
+    label: string
+    value: number
+    max: number
+    color: string
+  }) => {
+    const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-sm text-slate-600">{label}</span>
+          <span className="text-sm font-semibold text-slate-900">{value.toLocaleString()}</span>
+        </div>
+        <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       <MobileHeader title="Analytics" />
@@ -154,6 +176,53 @@ export default function LandlordAnalyticsPage() {
               </button>
             ))}
           </div>
+
+          {!isLoading && data && (
+            <div className="bg-gradient-to-br from-slate-900 to-violet-900 rounded-2xl p-4 shadow-sm text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-violet-200">Structured demand</p>
+                  <h3 className="font-semibold text-lg">Tenant funnel ({period})</h3>
+                </div>
+                <BarChart3 className="h-6 w-6 text-violet-300" />
+              </div>
+              <div className="space-y-3">
+                <FunnelBar
+                  label="Listing views"
+                  value={data.funnel.views}
+                  max={data.funnel.views}
+                  color="bg-blue-400"
+                />
+                <FunnelBar
+                  label="Favorites"
+                  value={data.funnel.favorites}
+                  max={data.funnel.views}
+                  color="bg-pink-400"
+                />
+                <FunnelBar
+                  label="Applications"
+                  value={data.funnel.applications}
+                  max={data.funnel.views}
+                  color="bg-emerald-400"
+                />
+                <FunnelBar
+                  label="Visit requests"
+                  value={data.funnel.visits}
+                  max={data.funnel.views}
+                  color="bg-violet-400"
+                />
+                <FunnelBar
+                  label="Accepted applications"
+                  value={data.funnel.acceptedApplications}
+                  max={data.funnel.views}
+                  color="bg-amber-400"
+                />
+              </div>
+              <p className="mt-4 text-xs text-violet-200/90">
+                Track how tenant interest converts from views to signed demand — use this view for listing optimization.
+              </p>
+            </div>
+          )}
 
           {isLoading ? (
             <div className="grid grid-cols-2 gap-3">
@@ -256,18 +325,6 @@ export default function LandlordAnalyticsPage() {
                   <p className="text-xs text-slate-500">Completed</p>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <p className="text-xs font-medium text-slate-500 mb-2">Period funnel ({period})</p>
-                <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-                  <span className="rounded-full bg-blue-50 px-2 py-1">{data.funnel.views} views</span>
-                  <span className="rounded-full bg-pink-50 px-2 py-1">{data.funnel.favorites} favorites</span>
-                  <span className="rounded-full bg-emerald-50 px-2 py-1">{data.funnel.applications} apps</span>
-                  <span className="rounded-full bg-violet-50 px-2 py-1">{data.funnel.visits} visits</span>
-                  <span className="rounded-full bg-amber-50 px-2 py-1">
-                    {data.funnel.acceptedApplications} accepted
-                  </span>
-                </div>
-              </div>
             </div>
           )}
 
@@ -319,17 +376,6 @@ export default function LandlordAnalyticsPage() {
             </div>
           )}
 
-          <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-violet-50/60 p-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
-                <Glasses className="h-5 w-5" aria-hidden />
-              </div>
-              <div className="min-w-0 space-y-1">
-                <h3 className="text-sm font-semibold text-slate-900">{t.landlordJourney.analyticsRoadmapTitle}</h3>
-                <p className="text-xs leading-relaxed text-slate-600">{t.landlordJourney.analyticsRoadmapBody}</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

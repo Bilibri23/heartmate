@@ -17,7 +17,7 @@ The listing search index is **optional**. By default the app uses `NoOpSearchInd
    roombay.search.elasticsearch.index-name=listings
    ```
 
-3. **Restart the backend.** `ElasticsearchConfig` extends Spring Data Elasticsearch's `ElasticsearchConfiguration` to create the `ElasticsearchClient` bean (the `spring.elasticsearch.uris` property alone does not auto-create it). The indexer job will create/update/delete documents in the `listings` index as outbox events are processed.
+3. **Restart the backend.** `ElasticsearchConfig` extends Spring Data Elasticsearch's `ElasticsearchConfiguration` to create the `ElasticsearchClient` bean (the `spring.elasticsearch.uris` property alone does not auto-create it). On startup, `ElasticsearchIndexMappingInitializer` creates the index with explicit mappings (`location` as `geo_point`, keyword filters, `createdAt` as date) when missing. The indexer job will create/update/delete documents in the `listings` index as outbox events are processed.
 
 ## Index shape
 
@@ -44,8 +44,8 @@ When Elasticsearch is enabled, use the **`GET /api/search`** endpoint instead of
 
 - **Fuzzy matching & typo tolerance**: `fuzziness: AUTO` on text fields — try `?query=aparment` or `?query=Douala` (typos) and verify results still match.
 - **Boosting**: Featured listings (2x) and verified listings (1.5x) rank higher — compare order with/without featured/verified listings.
-- **Language-aware relevance**: Pass `?lang=fr` for French analyzer — compare relevance for French vs English queries.
-- **Recency**: Newer listings get a score boost (via `createdAt` when indexed).
+- **Recency**: `function_score` gauss decay on `createdAt` (30-day scale) in relevance mode.
+- **Geo distance**: Pass `userLat`, `userLon`, and `maxDistance` (km) to filter and sort by proximity.
 
 ### Example requests
 
