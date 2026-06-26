@@ -65,9 +65,13 @@ curl "http://localhost:8080/api/search?city=Douala&minPrice=50000&maxPrice=20000
 
 When Elasticsearch is disabled, `/api/search` falls back to the database-backed search.
 
-## OpenSearch on VPS (406 / duplicate Content-Type)
+## OpenSearch on VPS (406 / duplicate Content-Type / X-Elastic-Product)
 
-If indexing or search logs show `406 Not Acceptable` or `content_type_header_exception: only one Content-Type header should be provided`, the Elasticsearch 8 Java client is sending vendor `Content-Type` headers that OpenSearch rejects. `ElasticsearchConfig` uses a RestClient interceptor to replace those with plain `application/json`. After deploying that fix:
+If indexing or search logs show `406 Not Acceptable` or `content_type_header_exception: only one Content-Type header should be provided`, the Elasticsearch 8 Java client is sending vendor `Content-Type` headers that OpenSearch rejects. `ElasticsearchConfig` uses a RestClient request interceptor to replace those with plain `application/json`.
+
+If logs show `Missing [X-Elastic-Product] header` (HTTP 200 but client rejects the response), OpenSearch is not sending the header the ES 8 Java client expects. `ElasticsearchConfig` adds a response interceptor that injects `X-Elastic-Product: Elasticsearch`.
+
+After deploying either fix:
 
 1. Redeploy/restart the backend on Railway.
 2. Confirm startup log: `Elasticsearch configured: host:9200 (OpenSearch-compatible JSON headers)`.

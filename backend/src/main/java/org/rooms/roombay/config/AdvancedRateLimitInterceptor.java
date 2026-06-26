@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -74,6 +75,12 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
 
     @Value("${ratelimit.listing-create.requests-per-minute:10}")
     private int listingCreateLimitPerMinute;
+
+    @Value("${ratelimit.admin.requests-per-minute:1000}")
+    private int adminLimitPerMinute;
+
+    @Value("${ratelimit.notifications.requests-per-minute:300}")
+    private int notificationsLimitPerMinute;
     
     @Override
     public boolean preHandle(@org.springframework.lang.NonNull HttpServletRequest request, 
@@ -82,6 +89,10 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         // Skip rate limiting for actuator endpoints
         String path = request.getRequestURI();
         if (path.startsWith("/actuator") || path.startsWith("/swagger") || path.startsWith("/api-docs")) {
+            return true;
+        }
+
+        if (isAdminUser()) {
             return true;
         }
         
@@ -217,6 +228,12 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         if (isListingCreateEndpoint(endpoint, method)) {
             return listingCreateLimitPerMinute;
         }
+        if (endpoint.startsWith("/api/admin")) {
+            return adminLimitPerMinute;
+        }
+        if (endpoint.contains("/notifications/unread-count")) {
+            return notificationsLimitPerMinute;
+        }
         return userLimitPerMinute;
     }
     
@@ -242,7 +259,23 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         if (isListingCreateEndpoint(endpoint, method)) {
             return Math.max(listingCreateLimitPerMinute / 2, 1);
         }
+        if (endpoint.startsWith("/api/admin")) {
+            return adminLimitPerMinute;
+        }
+        if (endpoint.contains("/notifications/unread-count")) {
+            return notificationsLimitPerMinute;
+        }
         return ipLimitPerMinute;
+    }
+
+    private static boolean isAdminUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getAuthorities() == null) {
+            return false;
+        }
+        return auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch("ROLE_ADMIN"::equals);
     }
 
     private static boolean isListingCreateEndpoint(String endpoint, String method) {

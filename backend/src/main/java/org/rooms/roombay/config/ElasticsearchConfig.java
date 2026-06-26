@@ -2,6 +2,7 @@ package org.rooms.roombay.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.HttpResponseInterceptor;
 import org.elasticsearch.client.RestClientBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -40,17 +41,25 @@ public class ElasticsearchConfig extends ElasticsearchConfiguration {
 
     private static RestClientBuilder configureOpenSearchRestClient(RestClientBuilder restClientBuilder) {
         restClientBuilder.setHttpClientConfigCallback(httpClientBuilder ->
-                httpClientBuilder.addInterceptorLast(openSearchHeaderInterceptor()));
+                httpClientBuilder
+                        .addInterceptorLast(openSearchRequestInterceptor())
+                        .addInterceptorLast(openSearchResponseInterceptor()));
         return restClientBuilder;
     }
 
-    private static HttpRequestInterceptor openSearchHeaderInterceptor() {
+    /** OpenSearch rejects ES 8 vendor Content-Type headers. */
+    private static HttpRequestInterceptor openSearchRequestInterceptor() {
         return (request, context) -> {
             request.removeHeaders("Content-Type");
             request.removeHeaders("Accept");
             request.setHeader("Content-Type", "application/json");
             request.setHeader("Accept", "application/json");
         };
+    }
+
+    /** ES 8 Java client requires X-Elastic-Product on responses; OpenSearch does not send it. */
+    private static HttpResponseInterceptor openSearchResponseInterceptor() {
+        return (response, context) -> response.addHeader("X-Elastic-Product", "Elasticsearch");
     }
 
     private static String parseHostAndPort(String uris) {
