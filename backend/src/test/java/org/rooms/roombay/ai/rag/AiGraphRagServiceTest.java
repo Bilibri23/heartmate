@@ -47,7 +47,9 @@ class AiGraphRagServiceTest {
                 .source("docs/a.md")
                 .title("A")
                 .build();
-        when(ragRepository.topKSimilar(q, 4)).thenReturn(List.of(row));
+        when(ragRepository.topKSimilarWithDistance(q, 4)).thenReturn(List.of(
+                AiRagRepository.SimilarChunk.builder().chunk(row).distance(0.1).build()
+        ));
 
         List<AiRagRepository.ChunkRow> out = service.retrieve(q, 4);
         assertEquals(1, out.size());
