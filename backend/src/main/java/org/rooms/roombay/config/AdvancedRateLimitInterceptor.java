@@ -105,7 +105,10 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
         int userLimit = getUserLimitForEndpoint(endpoint, request.getMethod());
         int ipLimit = getIpLimitForEndpoint(endpoint, request.getMethod());
         
-        // Check user-based rate limit (if authenticated)
+        // Authenticated requests are bounded per-user only. We deliberately skip the
+        // per-IP limit for them: many users legitimately share one egress IP behind the
+        // edge proxy / mobile CGNAT, so IP-limiting authenticated traffic makes users
+        // 429 each other on popular endpoints (auth/me, feed, search, messages).
         if (userId != null) {
             String userKey = "ratelimit:user:" + userId + ":" + rateLimitKey;
             if (!checkRateLimit(userKey, userLimit, 60)) {
@@ -113,16 +116,17 @@ public class AdvancedRateLimitInterceptor implements HandlerInterceptor {
                 sendRateLimitResponse(response, "User rate limit exceeded", userLimit);
                 return false;
             }
+            return true;
         }
-        
-        // Check IP-based rate limit
+
+        // Anonymous requests: IP-based limit guards against unauthenticated abuse.
         String ipKey = "ratelimit:ip:" + ip + ":" + rateLimitKey;
         if (!checkRateLimit(ipKey, ipLimit, 60)) {
             log.warn("IP rate limit exceeded: ip={}, endpoint={}", ip, endpoint);
             sendRateLimitResponse(response, "IP rate limit exceeded", ipLimit);
             return false;
         }
-        
+
         return true;
     }
     
