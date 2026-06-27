@@ -201,6 +201,25 @@ class MigrationCoverageTest {
     }
 
     @Test
+    void averageRatingTypeAlignmentIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V55__align_average_rating_type.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains(
+                "alter table property_listings",
+                "average_rating",
+                "double precision"
+        );
+    }
+
+    @Test
     void listingTaxonomyMigrationAddsRentSaleAndSharedFields() throws IOException {
         String migration = Files.readString(Path.of(
                 "backend",
