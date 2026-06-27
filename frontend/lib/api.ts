@@ -35,6 +35,19 @@ const clearAuthStorage = () => {
   localStorage.removeItem('user');
 };
 
+// Lightweight client-side backoff for HTTP 429. Background pollers (e.g. the
+// notification bell) check isRateLimited() and skip their next cycles instead of
+// hammering the API and flooding the console.
+let rateLimitedUntil = 0;
+
+export const isRateLimited = () => Date.now() < rateLimitedUntil;
+
+const noteRateLimited = (retryAfterHeader: unknown) => {
+  const seconds = Number(retryAfterHeader);
+  const backoffMs = (Number.isFinite(seconds) && seconds > 0 ? seconds : 60) * 1000;
+  rateLimitedUntil = Date.now() + backoffMs;
+};
+
 const attachToken = (config: any) => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   if (token) {
@@ -64,6 +77,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = (error.config || {}) as RetriableRequest;
+    // Throttled: record a backoff window (respecting Retry-After) and do NOT retry.
+    if (error.response?.status === 429) {
+      noteRateLimited(error.response.headers?.['retry-after']);
+      return Promise.reject(error);
+    }
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
       if (!refreshToken) {

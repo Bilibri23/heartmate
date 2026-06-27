@@ -7,7 +7,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useLanguage } from "@/context/language-context"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/context/auth-context"
-import api from "@/lib/api"
+import api, { isRateLimited } from "@/lib/api"
 import { useWebSocketNotifications } from "@/hooks/use-websocket-notifications"
 import { toast } from "sonner"
 import {
@@ -41,13 +41,14 @@ export function MobileHeader({
   }, [])
 
   const fetchUnreadCount = useCallback(async () => {
-    if (!user?.id || !showNotifications) return
+    // Skip while in a 429 backoff window so we don't keep hammering the API.
+    if (!user?.id || !showNotifications || isRateLimited()) return
     try {
       const response = await api.get("/notifications/unread-count")
       const count = response.data?.count ?? 0
       setUnreadCount(Number.isFinite(count) ? count : 0)
-    } catch (err) {
-      console.error("Failed to fetch unread notifications:", err)
+    } catch {
+      // Backoff is recorded by the API client (429); stay quiet to avoid console flooding.
     }
   }, [user?.id, showNotifications])
 
