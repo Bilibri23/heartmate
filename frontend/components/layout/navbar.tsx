@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useWebSocketNotifications } from '@/hooks/use-websocket-notifications';
-import api from '@/lib/api';
+import api, { isRateLimited } from '@/lib/api';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -25,13 +25,14 @@ export function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnreadCount = useCallback(async () => {
-    if (!user?.id) return;
+    // Skip while in a 429 backoff window so we don't keep hammering the API.
+    if (!user?.id || isRateLimited()) return;
     try {
       const response = await api.get('/notifications/unread-count');
       const count = Number(response.data?.count ?? 0);
       setUnreadCount(Number.isFinite(count) ? count : 0);
-    } catch (err) {
-      console.error('Failed to fetch unread notifications:', err);
+    } catch {
+      // Backoff is recorded by the API client (429); stay quiet to avoid console flooding.
     }
   }, [user?.id]);
 
