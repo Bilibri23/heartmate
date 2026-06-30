@@ -50,28 +50,12 @@ services:
     volumes:
       - redis_data:/data
 
-  # RoomBay AI Orchestrator (LangGraph sidecar). Build from repo: ../ai-orchestrator
-  # Optional: only run when the orchestrator feature is enabled on the backend.
-  # Lock down port 8131 to the backend's egress (same as 11434/9200/6379).
-  ai-orchestrator:
-    build: ../ai-orchestrator
-    container_name: ai-orchestrator
-    restart: unless-stopped
-    environment:
-      # Backend base URL (Railway API) the sidecar calls for read-only tools.
-      - ROOMBAY_API_BASE_URL=${ROOMBAY_API_BASE_URL:-http://host.docker.internal:8082}
-      # Must match the backend's roombay.ai.internal.token.
-      - ROOMBAY_INTERNAL_TOKEN=${ROOMBAY_INTERNAL_TOKEN:-}
-      # Reuse the VPS Ollama for generation (or set AI_PROVIDER=openai + OPENAI_API_KEY).
-      - AI_PROVIDER=${AI_PROVIDER:-ollama}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
-      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-qwen2.5:1.5b}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - PORT=8131
-    ports:
-      - "8131:8131"
-    depends_on:
-      - ollama
+  # NOTE: The standalone LangGraph sidecar (ai-orchestrator) has been retired. Agentic actions
+  # (save / apply / request-visit) now run natively in the Spring backend
+  # (service/AiAgentActionRouter), so there is no separate Python service to deploy and the
+  # orchestrator flag stays false. The ai-orchestrator/ source is kept in the repo as a
+  # reference/thesis artefact only. To re-introduce the sidecar, restore a service that builds
+  # ../ai-orchestrator, exposes port 8131, and set ROOMBAY_AI_ORCHESTRATOR_ENABLED=true.
 
 volumes:
   ollama_data:

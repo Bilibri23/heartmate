@@ -61,6 +61,7 @@ public class AiAssistantService {
     private final AiRetrievalPolicy retrievalPolicy;
     private final AnalyticsEventService analyticsEventService;
     private final AppErrorLogService appErrorLogService;
+    private final AiAgentActionRouter aiAgentActionRouter;
     @Autowired(required = false)
     private AiCopilotToolService aiCopilotToolService;
     // Present only when roombay.ai.orchestrator.enabled=true; otherwise the built-in pipeline runs.
@@ -107,6 +108,38 @@ public class AiAssistantService {
                     .suggestedActions(List.of())
                     .ragGrounded(false)
                     .build();
+        }
+
+        // Native agentic actions (save / apply / request-visit) run in-process via the domain
+        // services, independent of the LangGraph orchestrator flag. Non-action messages return
+        // empty and we fall through to the read-only RAG/copilot pipeline below, unchanged.
+        java.util.Optional<AiChatResponse> action = aiAgentActionRouter.tryExecute(
+                userId, SecurityUtils.getCurrentUserRole(), request, threadId);
+        if (action.isPresent()) {
+            AiChatResponse raw = action.get();
+            AiOutputGuard.GuardResult guard = outputGuard.guard(raw.getAnswer());
+            AiChatResponse response = AiChatResponse.builder()
+                    .answer(guard.safeText())
+                    .threadId(threadId)
+                    .citations(List.of())
+                    .suggestedActions(guard.redacted() || raw.getSuggestedActions() == null
+                            ? List.of() : raw.getSuggestedActions())
+                    .listingResults(List.of())
+                    .ragGrounded(false)
+                    .toolExecutions(raw.getToolExecutions() == null ? List.of() : raw.getToolExecutions())
+                    .build();
+            if (progress != null) {
+                progress.onGenerationStarted();
+            }
+            chatLogRepository.insert(userId, persona.name(), request.getMessage(), response.getAnswer(), List.of());
+            aiMemoryService.appendTurn(userId, threadId, request.getMessage(), response.getAnswer());
+            int toolCount = response.getToolExecutions() == null ? 0 : response.getToolExecutions().size();
+            analyticsEventService.emit("ai_answer_returned", userId, SecurityUtils.getCurrentUserRole(), null,
+                    Map.of("persona", persona.name(), "agentAction", true, "toolExecutions", toolCount,
+                            "question", safeAnalyticsQuestion(request.getMessage())));
+            log.info("[AI] chat user={} answeredWith=agent_action tools={} ms={}",
+                    userId, toolCount, System.currentTimeMillis() - started);
+            return response;
         }
 
         // LangGraph orchestrator delegation. When enabled and reachable, it owns the

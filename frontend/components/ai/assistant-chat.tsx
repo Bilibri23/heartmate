@@ -1,14 +1,14 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Send, Loader2, ExternalLink, Copy, Volume2, Square, MapPin, ShieldCheck, Home, Bookmark, FileText, MessageCircle } from "lucide-react"
+import { Send, Loader2, ExternalLink, Copy, Volume2, Square, MapPin, ShieldCheck, Home, Bookmark, FileText, MessageCircle, CheckCircle2, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { aiAssistantService, type AiCitation, type AiListingResult, type AiPersona, type AiStreamEvent, type AiSuggestedAction } from "@/services/ai-assistant"
+import { aiAssistantService, type AiCitation, type AiListingResult, type AiPersona, type AiStreamEvent, type AiSuggestedAction, type AiToolExecution } from "@/services/ai-assistant"
 import { ListingAttributeBadges } from "@/components/listings/listing-attribute-badges"
 import { displayListingPrice, isSaleListing } from "@/lib/listing-taxonomy"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "@/context/auth-context"
 import api from "@/lib/api"
@@ -25,8 +25,11 @@ type ChatMessage = {
   citations?: AiCitation[]
   suggestedActions?: AiSuggestedAction[]
   listingResults?: AiListingResult[]
+  toolExecutions?: AiToolExecution[]
   createdAt: number
 }
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
 type ApiError = {
   response?: {
@@ -51,7 +54,13 @@ const PROGRESS_LABELS = [
 
 export function AssistantChat({ persona }: { persona: AiPersona }) {
   const router = useRouter()
+  const pathname = usePathname()
   const { user } = useAuth()
+  // On a listing detail page (/listings/<id>), let "apply to this"/"save this" resolve the listing.
+  const contextListingId = useMemo(() => {
+    if (!pathname || !/\/listings?\//.test(pathname)) return undefined
+    return pathname.match(UUID_RE)?.[0]
+  }, [pathname])
   const threadStorageKey = `rb.ai.thread.${persona}`
   const messagesStorageKey = `rb.ai.messages.${persona}`
   const initialAssistantMessage = {
@@ -159,7 +168,7 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
     setMessages((prev) => [...prev, userMsg, pendingAssistantMsg])
     setIsSending(true)
 
-    const request = { message: text, persona, threadId: threadId ?? undefined }
+    const request = { message: text, persona, threadId: threadId ?? undefined, contextListingId }
     const updateAssistant = (patch: Partial<ChatMessage>) => {
       setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, ...patch } : m)))
     }
@@ -175,6 +184,7 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
         citations: res.citations,
         suggestedActions: res.suggestedActions,
         listingResults: res.listingResults,
+        toolExecutions: res.toolExecutions,
       })
     }
     const handleStreamEvent = (event: AiStreamEvent) => {
@@ -271,7 +281,29 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
                 </Button>
               </div>
             )}
-            {m.role === "assistant" && m.ragGrounded === false && (
+            {m.role === "assistant" && m.toolExecutions && m.toolExecutions.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {m.toolExecutions.map((t, i) => (
+                  <div
+                    key={`${t.tool}-${i}`}
+                    className={cn(
+                      "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
+                      t.success
+                        ? "bg-emerald-50 border-emerald-200/80 text-emerald-800"
+                        : "bg-amber-50 border-amber-200/80 text-amber-800"
+                    )}
+                  >
+                    {t.success ? (
+                      <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    )}
+                    <span>{t.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {m.role === "assistant" && m.toolExecutions === undefined && m.ragGrounded === false && (
               <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-2 py-1.5">
                 No matching help docs were found for this question, so this reply is not doc-grounded. Try rephrasing or run admin doc ingest if the knowledge base is empty.
               </p>

@@ -15,6 +15,15 @@ export type AiChatRequest = {
   message: string
   persona: AiPersona
   threadId?: string
+  /** Listing the user is currently viewing, so "apply to this" resolves to a concrete listing. */
+  contextListingId?: string
+}
+
+export type AiToolExecution = {
+  tool: string
+  success: boolean
+  message: string
+  entityId?: string
 }
 
 export type AiSuggestedAction = {
@@ -61,6 +70,8 @@ export type AiChatResponse = {
   ragGrounded?: boolean
   suggestedActions?: AiSuggestedAction[]
   listingResults?: AiListingResult[]
+  /** Results of any write actions the assistant executed (save / apply / request visit). */
+  toolExecutions?: AiToolExecution[]
 }
 
 export type AiStreamEvent =
