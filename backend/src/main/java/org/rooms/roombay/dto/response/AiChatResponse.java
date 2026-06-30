@@ -24,6 +24,19 @@ public class AiChatResponse {
     private OrchestratorMeta meta;
     /** Write-tool results from the agentic orchestrator (favorites, applications, visits). */
     private List<ToolExecution> toolExecutions;
+    /** Queue items (e.g. pending applications/listings) each with their own confirm-action buttons. */
+    private List<ActionItem> actionItems;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ActionItem {
+        private String id;
+        private String title;
+        private String subtitle;
+        private List<SuggestedAction> actions;
+    }
 
     @Data
     @Builder

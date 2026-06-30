@@ -84,6 +84,7 @@ public class AiAgentActionRouter {
 
     private final AiAgentToolService aiAgentToolService;
     private final AiPrivilegedActionService aiPrivilegedActionService;
+    private final AiQueueActionService aiQueueActionService;
 
     /**
      * @return a completed action response, or empty when the message is not a write action
@@ -97,7 +98,7 @@ public class AiAgentActionRouter {
 
         String normalizedRole = role == null ? "" : role.trim().toUpperCase(java.util.Locale.ROOT);
         if ("LANDLORD".equals(normalizedRole) || "ADMIN".equals(normalizedRole)) {
-            return proposePrivilegedAction(normalizedRole, request, threadId);
+            return proposePrivilegedAction(userId, normalizedRole, request, threadId);
         }
 
         String tool = classifyTool(message);
@@ -154,7 +155,7 @@ public class AiAgentActionRouter {
      * Landlord/admin actions are NOT executed here — they are proposed with a CONFIRM_ACTION button.
      * The user must click confirm, which calls the execute endpoint ({@link AiPrivilegedActionService}).
      */
-    private Optional<AiChatResponse> proposePrivilegedAction(String role, AiChatRequest request, String threadId) {
+    private Optional<AiChatResponse> proposePrivilegedAction(UUID userId, String role, AiChatRequest request, String threadId) {
         String message = request.getMessage();
         List<PrivilegedRule> rules = "ADMIN".equals(role) ? ADMIN_RULES : LANDLORD_RULES;
         PrivilegedRule matched = null;
@@ -164,28 +165,40 @@ public class AiAgentActionRouter {
                 break;
             }
         }
-        if (matched == null) {
-            return Optional.empty();
-        }
-        // Defensive: only propose tools the executor recognises for this role.
-        boolean valid = "ADMIN".equals(role)
-                ? aiPrivilegedActionService.isAdminTool(matched.tool())
-                : aiPrivilegedActionService.isLandlordTool(matched.tool());
-        if (!valid) {
-            return Optional.empty();
+
+        // Specific target named (id pasted, or listing in context) → propose that single action.
+        if (matched != null) {
+            boolean valid = "ADMIN".equals(role)
+                    ? aiPrivilegedActionService.isAdminTool(matched.tool())
+                    : aiPrivilegedActionService.isLandlordTool(matched.tool());
+            if (valid) {
+                boolean isListingTool = matched.tool().contains("LISTING");
+                UUID targetId = resolvePrivilegedTarget(message, request.getContextListingId(), isListingTool);
+                if (targetId != null) {
+                    return Optional.of(buildSingleProposal(matched, targetId, message, threadId));
+                }
+            }
         }
 
-        boolean isListingTool = matched.tool().contains("LISTING");
-        UUID targetId = resolvePrivilegedTarget(message, request.getContextListingId(), isListingTool);
-        if (targetId == null) {
+        // No specific id → show the relevant queue with per-item confirm buttons (no ids to copy).
+        Optional<AiChatResponse> queue = aiQueueActionService.tryQueue(userId, role, message, threadId);
+        if (queue.isPresent()) {
+            return queue;
+        }
+
+        // An action verb with no id and no queue match: ask, unless it's a how-to question.
+        if (matched != null) {
             if (QUESTION_LEAD.matcher(message).find() || message.strip().endsWith("?")) {
                 return Optional.empty();
             }
             return Optional.of(plainAnswer(threadId,
-                    "Which one? Paste the " + targetNoun(matched.tool())
-                            + " id (it's shown on the item in your dashboard) and I'll set it up to confirm."));
+                    "Which one? Ask me for your pending " + targetNoun(matched.tool())
+                            + "s and I'll list them with confirm buttons."));
         }
+        return Optional.empty();
+    }
 
+    private AiChatResponse buildSingleProposal(PrivilegedRule matched, UUID targetId, String message, String threadId) {
         Map<String, String> params = new LinkedHashMap<>();
         params.put("targetId", targetId.toString());
         params.put("reason", message);
@@ -206,7 +219,7 @@ public class AiAgentActionRouter {
         String answer = plain + " for record " + shortId(targetId)
                 + "? This acts on the live record. Click confirm to proceed, or ignore to cancel.";
 
-        return Optional.of(AiChatResponse.builder()
+        return AiChatResponse.builder()
                 .answer(answer)
                 .threadId(threadId)
                 .citations(List.of())
@@ -214,7 +227,7 @@ public class AiAgentActionRouter {
                 .listingResults(List.of())
                 .ragGrounded(false)
                 .toolExecutions(List.of())
-                .build());
+                .build();
     }
 
     private UUID resolvePrivilegedTarget(String message, String contextListingId, boolean isListingTool) {

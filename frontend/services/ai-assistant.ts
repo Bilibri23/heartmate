@@ -26,6 +26,13 @@ export type AiToolExecution = {
   entityId?: string
 }
 
+export type AiActionItem = {
+  id: string
+  title: string
+  subtitle?: string
+  actions: AiSuggestedAction[]
+}
+
 export type AiSuggestedAction = {
   id: string
   label: string
@@ -76,6 +83,8 @@ export type AiChatResponse = {
   listingResults?: AiListingResult[]
   /** Results of any write actions the assistant executed (save / apply / request visit). */
   toolExecutions?: AiToolExecution[]
+  /** Queue items (pending applications/listings/etc.) each with their own confirm buttons. */
+  actionItems?: AiActionItem[]
 }
 
 export type AiStreamEvent =

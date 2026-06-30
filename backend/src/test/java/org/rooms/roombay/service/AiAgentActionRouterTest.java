@@ -8,6 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.rooms.roombay.dto.request.AiChatRequest;
 import org.rooms.roombay.dto.response.AiChatResponse;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,9 +30,11 @@ class AiAgentActionRouterTest {
     private AiAgentToolService aiAgentToolService;
     @Mock
     private AiPrivilegedActionService aiPrivilegedActionService;
+    @Mock
+    private AiQueueActionService aiQueueActionService;
 
     private AiAgentActionRouter router() {
-        return new AiAgentActionRouter(aiAgentToolService, aiPrivilegedActionService);
+        return new AiAgentActionRouter(aiAgentToolService, aiPrivilegedActionService, aiQueueActionService);
     }
 
     private static AiChatRequest msg(String text) {
@@ -179,6 +182,23 @@ class AiAgentActionRouterTest {
         AiChatResponse.SuggestedAction action = out.get().getSuggestedActions().get(0);
         assertThat(action.getTool()).isEqualTo(AiPrivilegedActionService.APPROVE_LISTING);
         assertThat(action.getType()).isEqualTo("CONFIRM_ACTION");
+    }
+
+    @Test
+    void pendingQueueRequestDelegatesToQueueService() {
+        AiChatResponse queued = AiChatResponse.builder()
+                .answer("You have 2 pending applications.")
+                .actionItems(List.of(AiChatResponse.ActionItem.builder().id("a1").title("John · Studio").build()))
+                .build();
+        when(aiQueueActionService.tryQueue(any(UUID.class), eq("LANDLORD"), anyString(), anyString()))
+                .thenReturn(Optional.of(queued));
+
+        Optional<AiChatResponse> out = router().tryExecute(
+                UUID.randomUUID(), "LANDLORD", msg("show my pending applications"), "t1");
+
+        assertThat(out).isPresent();
+        assertThat(out.get().getActionItems()).hasSize(1);
+        verifyNoInteractions(aiAgentToolService);
     }
 
     @Test

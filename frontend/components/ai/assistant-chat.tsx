@@ -5,7 +5,7 @@ import { Send, Loader2, ExternalLink, Copy, Volume2, Square, MapPin, ShieldCheck
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
-import { aiAssistantService, type AiCitation, type AiListingResult, type AiPersona, type AiStreamEvent, type AiSuggestedAction, type AiToolExecution } from "@/services/ai-assistant"
+import { aiAssistantService, type AiActionItem, type AiCitation, type AiListingResult, type AiPersona, type AiStreamEvent, type AiSuggestedAction, type AiToolExecution } from "@/services/ai-assistant"
 import { ListingAttributeBadges } from "@/components/listings/listing-attribute-badges"
 import { displayListingPrice, isSaleListing } from "@/lib/listing-taxonomy"
 import { useRouter, usePathname } from "next/navigation"
@@ -26,8 +26,11 @@ type ChatMessage = {
   suggestedActions?: AiSuggestedAction[]
   listingResults?: AiListingResult[]
   toolExecutions?: AiToolExecution[]
+  actionItems?: ChatActionItem[]
   createdAt: number
 }
+
+type ChatActionItem = AiActionItem & { result?: AiToolExecution }
 
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
@@ -186,6 +189,7 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
         suggestedActions: res.suggestedActions,
         listingResults: res.listingResults,
         toolExecutions: res.toolExecutions,
+        actionItems: res.actionItems,
       })
     }
     const handleStreamEvent = (event: AiStreamEvent) => {
@@ -247,6 +251,34 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
                 ...m,
                 suggestedActions: (m.suggestedActions || []).filter((a) => a.id !== action.id),
                 toolExecutions: [...(m.toolExecutions || []), result],
+              }
+            : m
+        )
+      )
+      if (result.success) toast.success(result.message)
+      else toast.error(result.message)
+    } catch {
+      toast.error("Action could not be completed. Please try again.")
+    } finally {
+      setPendingActionId(null)
+    }
+  }
+
+  // Confirm an action on a specific queue item; on success the item shows a result chip.
+  const confirmItemAction = async (messageId: string, itemId: string, action: AiSuggestedAction) => {
+    if (!action.tool || !action.actionParams || pendingActionId) return
+    const key = `${itemId}:${action.id}`
+    setPendingActionId(key)
+    try {
+      const result = await aiAssistantService.executeAction(action.tool, action.actionParams)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                actionItems: (m.actionItems || []).map((it) =>
+                  it.id === itemId ? { ...it, result, actions: [] } : it
+                ),
               }
             : m
         )
@@ -327,6 +359,49 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
                       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                     )}
                     <span>{t.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {m.role === "assistant" && m.actionItems && m.actionItems.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {m.actionItems.map((item) => (
+                  <div key={item.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                    <p className="text-sm font-medium text-slate-800">{item.title}</p>
+                    {item.subtitle && <p className="text-xs text-slate-500 mt-0.5">{item.subtitle}</p>}
+                    {item.result ? (
+                      <div
+                        className={cn(
+                          "mt-2 flex items-center gap-1.5 text-xs font-medium",
+                          item.result.success ? "text-emerald-700" : "text-amber-700"
+                        )}
+                      >
+                        {item.result.success ? (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        )}
+                        <span>{item.result.message}</span>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {item.actions.map((a) => (
+                          <Button
+                            key={a.id}
+                            size="sm"
+                            variant="outline"
+                            className="h-8 rounded-lg border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            disabled={pendingActionId === `${item.id}:${a.id}`}
+                            onClick={() => confirmItemAction(m.id, item.id, a)}
+                          >
+                            {pendingActionId === `${item.id}:${a.id}` ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : null}
+                            {a.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
