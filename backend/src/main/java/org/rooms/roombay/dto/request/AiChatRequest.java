@@ -25,6 +25,12 @@ public class AiChatRequest {
      */
     private String threadId;
 
+    /**
+     * Optional listing the user is currently viewing. Lets the assistant resolve "apply to this"
+     * or "save this" to a concrete listing when the chat is opened from a listing detail page.
+     */
+    private String contextListingId;
+
     public enum Persona {
         TENANT,
         LANDLORD,

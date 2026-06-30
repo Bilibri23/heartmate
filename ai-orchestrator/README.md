@@ -1,5 +1,12 @@
 # RoomBay AI Orchestrator (LangGraph sidecar)
 
+> **Deprecated / not deployed.** Agentic actions (save listing, apply to listing, request a
+> visit) now run **natively in the Spring backend** via `service/AiAgentActionRouter`, which
+> calls the same `AiAgentToolService` directly — no separate Python service to host, and it
+> works with `roombay.ai.orchestrator.enabled=false`. This directory is retained as a
+> reference/thesis artefact. To re-enable the standalone sidecar, deploy this service, set the
+> `ROOMBAY_AI_ORCHESTRATOR_*` env vars, and flip the flag to true.
+
 A lightweight Python service that adds a **real LangGraph agent with a feedback
 loop** on top of RoomBay's existing custom RAG/GraphRAG and listing tools. It does
 **not** replace them and does **not** touch the database: it calls back into the
