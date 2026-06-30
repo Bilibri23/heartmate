@@ -127,6 +127,7 @@ public class AiAssistantService {
                     .listingResults(List.of())
                     .ragGrounded(false)
                     .toolExecutions(raw.getToolExecutions() == null ? List.of() : raw.getToolExecutions())
+                    .actionItems(raw.getActionItems() == null ? List.of() : raw.getActionItems())
                     .build();
             if (progress != null) {
                 progress.onGenerationStarted();

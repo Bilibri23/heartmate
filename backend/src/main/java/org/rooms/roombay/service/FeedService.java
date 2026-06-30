@@ -151,6 +151,7 @@ public class FeedService {
                 Page<ListingResponse> results = elasticsearchSearchService.get().search(
                         null, null, null, null, null, null, null, null, null,
                         null, null, null,
+                        null, null, null, null,
                         lang != null ? lang : "en",
                         mode,
                         userId,

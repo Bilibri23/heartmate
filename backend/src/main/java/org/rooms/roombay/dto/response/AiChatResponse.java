@@ -24,6 +24,19 @@ public class AiChatResponse {
     private OrchestratorMeta meta;
     /** Write-tool results from the agentic orchestrator (favorites, applications, visits). */
     private List<ToolExecution> toolExecutions;
+    /** Queue items (e.g. pending applications/listings) each with their own confirm-action buttons. */
+    private List<ActionItem> actionItems;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ActionItem {
+        private String id;
+        private String title;
+        private String subtitle;
+        private List<SuggestedAction> actions;
+    }
 
     @Data
     @Builder
@@ -66,9 +79,13 @@ public class AiChatResponse {
     public static class SuggestedAction {
         private String id;
         private String label;
-        private String type; // NAVIGATE | COPY_TEXT
+        private String type; // NAVIGATE | COPY_TEXT | CONFIRM_ACTION
         private String actionUrl;
         private String copyText;
+        /** For CONFIRM_ACTION: the privileged tool to run when the user clicks confirm. */
+        private String tool;
+        /** For CONFIRM_ACTION: parameters (e.g. targetId, reason) passed to the execute endpoint. */
+        private java.util.Map<String, String> actionParams;
     }
 
     @Data

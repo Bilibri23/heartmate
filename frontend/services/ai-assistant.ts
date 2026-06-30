@@ -26,12 +26,23 @@ export type AiToolExecution = {
   entityId?: string
 }
 
+export type AiActionItem = {
+  id: string
+  title: string
+  subtitle?: string
+  actions: AiSuggestedAction[]
+}
+
 export type AiSuggestedAction = {
   id: string
   label: string
-  type: "NAVIGATE" | "COPY_TEXT"
+  type: "NAVIGATE" | "COPY_TEXT" | "CONFIRM_ACTION"
   actionUrl?: string
   copyText?: string
+  /** For CONFIRM_ACTION: the privileged tool to run when the user confirms. */
+  tool?: string
+  /** For CONFIRM_ACTION: params posted to /ai/actions/execute (targetId, reason, ...). */
+  actionParams?: Record<string, string>
 }
 
 export type AiListingResult = {
@@ -72,6 +83,8 @@ export type AiChatResponse = {
   listingResults?: AiListingResult[]
   /** Results of any write actions the assistant executed (save / apply / request visit). */
   toolExecutions?: AiToolExecution[]
+  /** Queue items (pending applications/listings/etc.) each with their own confirm buttons. */
+  actionItems?: AiActionItem[]
 }
 
 export type AiStreamEvent =
@@ -182,5 +195,9 @@ export const aiAssistantService = {
   },
   trackListingEvent: async (eventType: string, listingId: string): Promise<void> => {
     await api.post("/ai/listing-events", { eventType, listingId })
+  },
+  executeAction: async (tool: string, params: Record<string, string>): Promise<AiToolExecution> => {
+    const res = await api.post<AiToolExecution>("/ai/actions/execute", { tool, params })
+    return res.data
   },
 }

@@ -7,6 +7,7 @@ import org.rooms.roombay.dto.response.AiChatResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +48,43 @@ public class AiAgentActionRouter {
             "(?i)^\\s*(how|what|where|when|why|which|can|could|should|would|do|does|did|is|are|will|"
                     + "tell\\s+me|explain)\\b");
 
+    private static final Pattern VERIFICATION_TYPE = Pattern.compile("(?i)\\b(identity|business|property)\\b");
+
+    /** Ordered privileged-intent rules per role: regex (verb+noun) → tool + confirm-button label. */
+    private record PrivilegedRule(Pattern pattern, String tool, String label) {}
+
+    private static final List<PrivilegedRule> LANDLORD_RULES = List.of(
+            new PrivilegedRule(Pattern.compile("(?i)\\b(reject|decline|deny|turn\\s*down)\\b.*\\bapplication"),
+                    AiPrivilegedActionService.REJECT_APPLICATION, "Confirm: Reject application"),
+            new PrivilegedRule(Pattern.compile("(?i)\\bshortlist\\b.*\\bapplication"),
+                    AiPrivilegedActionService.SHORTLIST_APPLICATION, "Confirm: Shortlist application"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(accept|approve)\\b.*\\bapplication"),
+                    AiPrivilegedActionService.ACCEPT_APPLICATION, "Confirm: Accept application"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(cancel|decline)\\b.*\\b(visit|viewing|tour)"),
+                    AiPrivilegedActionService.CANCEL_VISIT, "Confirm: Cancel visit"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(complete|completed|finish|done)\\b.*\\b(visit|viewing|tour)"
+                    + "|\\bmark\\b.*\\b(visit|viewing).*\\b(complete|done)"),
+                    AiPrivilegedActionService.COMPLETE_VISIT, "Confirm: Mark visit completed"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(accept|approve|confirm)\\b.*\\b(visit|viewing|tour)"),
+                    AiPrivilegedActionService.ACCEPT_VISIT, "Confirm: Accept visit"));
+
+    private static final List<PrivilegedRule> ADMIN_RULES = List.of(
+            new PrivilegedRule(Pattern.compile("(?i)\\b(reject|remove|take\\s*down|decline)\\b.*\\blisting"),
+                    AiPrivilegedActionService.REJECT_LISTING, "Confirm: Reject listing"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(approve|publish|activate)\\b.*\\blisting"),
+                    AiPrivilegedActionService.APPROVE_LISTING, "Confirm: Approve listing"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(reject|decline)\\b.*\\bverification"),
+                    AiPrivilegedActionService.REJECT_VERIFICATION, "Confirm: Reject verification"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(approve|verify)\\b.*\\bverification"),
+                    AiPrivilegedActionService.APPROVE_VERIFICATION, "Confirm: Approve verification"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(verify|confirm|approve)\\b.*\\bpayment"),
+                    AiPrivilegedActionService.VERIFY_PAYMENT, "Confirm: Verify payment"),
+            new PrivilegedRule(Pattern.compile("(?i)\\b(resolve|dismiss|close)\\b.*\\breport"),
+                    AiPrivilegedActionService.RESOLVE_REPORT, "Confirm: Resolve report"));
+
     private final AiAgentToolService aiAgentToolService;
+    private final AiPrivilegedActionService aiPrivilegedActionService;
+    private final AiQueueActionService aiQueueActionService;
 
     /**
      * @return a completed action response, or empty when the message is not a write action
@@ -58,6 +95,12 @@ public class AiAgentActionRouter {
         if (message == null || message.isBlank()) {
             return Optional.empty();
         }
+
+        String normalizedRole = role == null ? "" : role.trim().toUpperCase(java.util.Locale.ROOT);
+        if ("LANDLORD".equals(normalizedRole) || "ADMIN".equals(normalizedRole)) {
+            return proposePrivilegedAction(userId, normalizedRole, request, threadId);
+        }
+
         String tool = classifyTool(message);
         if (tool == null) {
             return Optional.empty();
@@ -106,6 +149,111 @@ public class AiAgentActionRouter {
                 .ragGrounded(false)
                 .toolExecutions(List.of(exec))
                 .build());
+    }
+
+    /**
+     * Landlord/admin actions are NOT executed here — they are proposed with a CONFIRM_ACTION button.
+     * The user must click confirm, which calls the execute endpoint ({@link AiPrivilegedActionService}).
+     */
+    private Optional<AiChatResponse> proposePrivilegedAction(UUID userId, String role, AiChatRequest request, String threadId) {
+        String message = request.getMessage();
+        List<PrivilegedRule> rules = "ADMIN".equals(role) ? ADMIN_RULES : LANDLORD_RULES;
+        PrivilegedRule matched = null;
+        for (PrivilegedRule rule : rules) {
+            if (rule.pattern().matcher(message).find()) {
+                matched = rule;
+                break;
+            }
+        }
+
+        // Specific target named (id pasted, or listing in context) → propose that single action.
+        if (matched != null) {
+            boolean valid = "ADMIN".equals(role)
+                    ? aiPrivilegedActionService.isAdminTool(matched.tool())
+                    : aiPrivilegedActionService.isLandlordTool(matched.tool());
+            if (valid) {
+                boolean isListingTool = matched.tool().contains("LISTING");
+                UUID targetId = resolvePrivilegedTarget(message, request.getContextListingId(), isListingTool);
+                if (targetId != null) {
+                    return Optional.of(buildSingleProposal(matched, targetId, message, threadId));
+                }
+            }
+        }
+
+        // No specific id → show the relevant queue with per-item confirm buttons (no ids to copy).
+        Optional<AiChatResponse> queue = aiQueueActionService.tryQueue(userId, role, message, threadId);
+        if (queue.isPresent()) {
+            return queue;
+        }
+
+        // An action verb with no id and no queue match: ask, unless it's a how-to question.
+        if (matched != null) {
+            if (QUESTION_LEAD.matcher(message).find() || message.strip().endsWith("?")) {
+                return Optional.empty();
+            }
+            return Optional.of(plainAnswer(threadId,
+                    "Which one? Ask me for your pending " + targetNoun(matched.tool())
+                            + "s and I'll list them with confirm buttons."));
+        }
+        return Optional.empty();
+    }
+
+    private AiChatResponse buildSingleProposal(PrivilegedRule matched, UUID targetId, String message, String threadId) {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("targetId", targetId.toString());
+        params.put("reason", message);
+        if (matched.tool().contains("VERIFICATION")) {
+            Matcher vt = VERIFICATION_TYPE.matcher(message);
+            params.put("verificationType", vt.find() ? vt.group(1).toUpperCase(java.util.Locale.ROOT) : "IDENTITY");
+        }
+
+        AiChatResponse.SuggestedAction confirm = AiChatResponse.SuggestedAction.builder()
+                .id("confirm-" + matched.tool().toLowerCase(java.util.Locale.ROOT))
+                .label(matched.label())
+                .type("CONFIRM_ACTION")
+                .tool(matched.tool())
+                .actionParams(params)
+                .build();
+
+        String plain = matched.label().replace("Confirm: ", "");
+        String answer = plain + " for record " + shortId(targetId)
+                + "? This acts on the live record. Click confirm to proceed, or ignore to cancel.";
+
+        return AiChatResponse.builder()
+                .answer(answer)
+                .threadId(threadId)
+                .citations(List.of())
+                .suggestedActions(List.of(confirm))
+                .listingResults(List.of())
+                .ragGrounded(false)
+                .toolExecutions(List.of())
+                .build();
+    }
+
+    private UUID resolvePrivilegedTarget(String message, String contextListingId, boolean isListingTool) {
+        Matcher m = UUID_RE.matcher(message);
+        if (m.find()) {
+            UUID fromMessage = parseUuid(m.group());
+            if (fromMessage != null) {
+                return fromMessage;
+            }
+        }
+        return isListingTool ? parseUuid(contextListingId) : null;
+    }
+
+    private static String targetNoun(String tool) {
+        if (tool.contains("APPLICATION")) return "application";
+        if (tool.contains("VISIT")) return "visit";
+        if (tool.contains("LISTING")) return "listing";
+        if (tool.contains("VERIFICATION")) return "verification";
+        if (tool.contains("PAYMENT")) return "payment";
+        if (tool.contains("REPORT")) return "report";
+        return "record";
+    }
+
+    private static String shortId(UUID id) {
+        String s = id.toString();
+        return s.substring(0, 8) + "…";
     }
 
     private String classifyTool(String message) {

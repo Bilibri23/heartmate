@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.rooms.roombay.dto.response.AreaStatsResponse;
 import org.rooms.roombay.dto.response.ListingResponse;
 import org.rooms.roombay.search.ElasticsearchSearchService;
 import org.rooms.roombay.service.AnalyticsEventService;
@@ -52,6 +53,10 @@ public class SearchController {
             @RequestParam(required = false) Double maxDistance,
             @RequestParam(required = false) Double userLat,
             @RequestParam(required = false) Double userLon,
+            @RequestParam(required = false) Double minLat,
+            @RequestParam(required = false) Double maxLat,
+            @RequestParam(required = false) Double minLng,
+            @RequestParam(required = false) Double maxLng,
             @RequestParam(required = false) String availableFrom,
             @RequestParam(required = false) String listingPurpose,
             @RequestParam(required = false) String stayType,
@@ -78,6 +83,10 @@ public class SearchController {
             maxDistance = inputSanitizer.sanitizeDistance(maxDistance);
             userLat = inputSanitizer.sanitizeLatitude(userLat);
             userLon = inputSanitizer.sanitizeLongitude(userLon);
+            minLat = inputSanitizer.sanitizeLatitude(minLat);
+            maxLat = inputSanitizer.sanitizeLatitude(maxLat);
+            minLng = inputSanitizer.sanitizeLongitude(minLng);
+            maxLng = inputSanitizer.sanitizeLongitude(maxLng);
             availableFrom = inputSanitizer.sanitizeDate(availableFrom);
             listingPurpose = inputSanitizer.sanitizeListingPurpose(listingPurpose);
             stayType = inputSanitizer.sanitizeStayType(stayType);
@@ -99,6 +108,7 @@ public class SearchController {
             Page<ListingResponse> results = elasticsearchSearchService.get().search(
                     query, city, neighborhood, propertyType, minPrice, maxPrice,
                     bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
+                    minLat, maxLat, minLng, maxLng,
                     lang, mode, userId, pageable);
             // Fallback to DB when ES returns nothing (e.g. index still populating)
             if (results.isEmpty() && results.getTotalElements() == 0) {
@@ -112,17 +122,45 @@ public class SearchController {
                 results = listingService.searchListingsAdvanced(
                         query, city, neighborhood, propertyType, minPrice, maxPrice,
                         bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
+                        minLat, maxLat, minLng, maxLng,
                         availableFrom, listingPurpose, stayType, furnishingStatus, sharedAccommodation,
                         userId, fallbackPageable);
             }
             return ResponseEntity.ok(results);
         }
 
+        return dbSearch(query, city, neighborhood, propertyType, minPrice, maxPrice,
+                bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
+                minLat, maxLat, minLng, maxLng, availableFrom, listingPurpose, stayType,
+                furnishingStatus, sharedAccommodation, userId, pageable);
+    }
+
+    @GetMapping("/area-stats")
+    @Operation(summary = "Neighborhood rent stats (heatmap)",
+            description = "Average/min/max rent and listing count per neighborhood for the map heatmap overlay.")
+    public ResponseEntity<List<AreaStatsResponse>> areaStats(@RequestParam(required = false) String city) {
+        String sanitizedCity;
+        try {
+            sanitizedCity = inputSanitizer.sanitizeCity(city);
+        } catch (SecurityException e) {
+            return ResponseEntity.badRequest().build();
+        }
+        return ResponseEntity.ok(listingService.areaRentStats(sanitizedCity));
+    }
+
+    private ResponseEntity<Page<ListingResponse>> dbSearch(
+            String query, String city, String neighborhood, String propertyType,
+            Integer minPrice, Integer maxPrice, Integer bedrooms, Integer bathrooms,
+            List<String> amenities, Double maxDistance, Double userLat, Double userLon,
+            Double minLat, Double maxLat, Double minLng, Double maxLng,
+            String availableFrom, String listingPurpose, String stayType,
+            String furnishingStatus, Boolean sharedAccommodation, UUID userId, Pageable pageable) {
         // Elasticsearch disabled - use DB search
         log.info("Searching via DB (Elasticsearch disabled) - query: {}, city: {}", query, city);
         Page<ListingResponse> results = listingService.searchListingsAdvanced(
                 query, city, neighborhood, propertyType, minPrice, maxPrice,
                 bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
+                minLat, maxLat, minLng, maxLng,
                 availableFrom, listingPurpose, stayType, furnishingStatus, sharedAccommodation,
                 userId, pageable);
         return ResponseEntity.ok(results);

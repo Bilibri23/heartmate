@@ -77,6 +77,10 @@ public class ElasticsearchSearchService {
             Double maxDistance,
             Double userLat,
             Double userLon,
+            Double minLat,
+            Double maxLat,
+            Double minLng,
+            Double maxLng,
             String lang,
             String mode,
             UUID userId,
@@ -133,6 +137,20 @@ public class ElasticsearchSearchService {
                     .field("location")
                     .distance(maxDistance + "km")
                     .location(GeoLocation.of(gl -> gl.latlon(ll -> ll.lat(userLat).lon(userLon))))
+            )));
+        }
+        // Viewport ("search this area") bounding box over the listing geo_point.
+        if (minLat != null && maxLat != null && minLng != null && maxLng != null) {
+            final double top = maxLat;
+            final double bottom = minLat;
+            final double left = minLng;
+            final double right = maxLng;
+            filter.add(Query.of(q -> q.geoBoundingBox(g -> g
+                    .field("location")
+                    .boundingBox(bb -> bb.tlbr(t -> t
+                            .topLeft(GeoLocation.of(gl -> gl.latlon(ll -> ll.lat(top).lon(left))))
+                            .bottomRight(GeoLocation.of(gl -> gl.latlon(ll -> ll.lat(bottom).lon(right))))
+                    ))
             )));
         }
 
