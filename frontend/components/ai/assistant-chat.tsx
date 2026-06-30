@@ -83,6 +83,7 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
   const [error, setError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const [speakingId, setSpeakingId] = useState<string | null>(null)
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
 
   const stopSpeaking = () => {
@@ -232,6 +233,33 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
     }
   }
 
+  // Landlord/admin confirm-button: execute the proposed privileged action, then replace the
+  // confirm button on that message with the result chip.
+  const confirmAction = async (messageId: string, action: AiSuggestedAction) => {
+    if (!action.tool || !action.actionParams || pendingActionId) return
+    setPendingActionId(action.id)
+    try {
+      const result = await aiAssistantService.executeAction(action.tool, action.actionParams)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                suggestedActions: (m.suggestedActions || []).filter((a) => a.id !== action.id),
+                toolExecutions: [...(m.toolExecutions || []), result],
+              }
+            : m
+        )
+      )
+      if (result.success) toast.success(result.message)
+      else toast.error(result.message)
+    } catch {
+      toast.error("Action could not be completed. Please try again.")
+    } finally {
+      setPendingActionId(null)
+    }
+  }
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-slate-50">
@@ -343,29 +371,46 @@ export function AssistantChat({ persona }: { persona: AiPersona }) {
               <div className="mt-3 pt-3 border-t border-slate-200/70 space-y-2">
                 <p className="text-xs font-medium text-slate-500">Suggested next steps</p>
                 <div className="flex flex-wrap gap-2">
-                  {m.suggestedActions.slice(0, 3).map((a) => (
-                    <Button
-                      key={a.id}
-                      size="sm"
-                      variant="outline"
-                      className="rounded-xl"
-                      onClick={() => {
-                        if (a.type === "NAVIGATE" && a.actionUrl) {
-                          router.push(a.actionUrl)
-                          return
-                        }
-                        if (a.type === "COPY_TEXT" && a.copyText) {
-                          navigator.clipboard.writeText(a.copyText).then(
-                            () => toast.success("Copied"),
-                            () => toast.error("Copy failed")
-                          )
-                        }
-                      }}
-                    >
-                      {a.type === "COPY_TEXT" ? <Copy className="h-3.5 w-3.5 mr-1" /> : null}
-                      {a.label}
-                    </Button>
-                  ))}
+                  {m.suggestedActions.slice(0, 3).map((a) =>
+                    a.type === "CONFIRM_ACTION" ? (
+                      <Button
+                        key={a.id}
+                        size="sm"
+                        className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+                        disabled={pendingActionId === a.id}
+                        onClick={() => confirmAction(m.id, a)}
+                      >
+                        {pendingActionId === a.id ? (
+                          <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        {a.label}
+                      </Button>
+                    ) : (
+                      <Button
+                        key={a.id}
+                        size="sm"
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={() => {
+                          if (a.type === "NAVIGATE" && a.actionUrl) {
+                            router.push(a.actionUrl)
+                            return
+                          }
+                          if (a.type === "COPY_TEXT" && a.copyText) {
+                            navigator.clipboard.writeText(a.copyText).then(
+                              () => toast.success("Copied"),
+                              () => toast.error("Copy failed")
+                            )
+                          }
+                        }}
+                      >
+                        {a.type === "COPY_TEXT" ? <Copy className="h-3.5 w-3.5 mr-1" /> : null}
+                        {a.label}
+                      </Button>
+                    )
+                  )}
                 </div>
               </div>
             )}

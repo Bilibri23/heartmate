@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.ai.rag.AiGraphRagService;
+import org.rooms.roombay.dto.request.AiActionExecuteRequest;
 import org.rooms.roombay.dto.request.AiChatRequest;
 import org.rooms.roombay.dto.response.AiChatResponse;
 import org.rooms.roombay.dto.response.AiGraphStatsResponse;
@@ -16,6 +17,7 @@ import org.rooms.roombay.security.SecurityUtils;
 import org.rooms.roombay.service.AiAssistantService;
 import org.rooms.roombay.service.AiChatProgressListener;
 import org.rooms.roombay.service.AiIngestionService;
+import org.rooms.roombay.service.AiPrivilegedActionService;
 import org.rooms.roombay.service.AnalyticsEventService;
 import org.rooms.roombay.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 public class AiAssistantController {
 
     private final AiAssistantService aiAssistantService;
+    private final AiPrivilegedActionService aiPrivilegedActionService;
     private final AiIngestionService aiIngestionService;
     private final AiGraphRagService aiGraphRagService;
     private final AiChatLogRepository aiChatLogRepository;
@@ -147,6 +150,19 @@ public class AiAssistantController {
         });
 
         return emitter;
+    }
+
+    @PostMapping("/actions/execute")
+    @Operation(summary = "Execute a confirmed AI action",
+            description = "Runs a landlord/admin write action the user confirmed via the chat confirm-button. "
+                    + "Role and ownership are re-validated server-side.")
+    public ResponseEntity<AiChatResponse.ToolExecution> executeAction(@Valid @RequestBody AiActionExecuteRequest request) {
+        AiChatResponse.ToolExecution result = aiPrivilegedActionService.execute(
+                SecurityUtils.getCurrentUserId(),
+                SecurityUtils.getCurrentUserRole(),
+                request.getTool(),
+                request.getParams());
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/listing-events")

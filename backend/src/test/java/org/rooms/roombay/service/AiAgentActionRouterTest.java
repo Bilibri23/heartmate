@@ -27,9 +27,11 @@ class AiAgentActionRouterTest {
 
     @Mock
     private AiAgentToolService aiAgentToolService;
+    @Mock
+    private AiPrivilegedActionService aiPrivilegedActionService;
 
     private AiAgentActionRouter router() {
-        return new AiAgentActionRouter(aiAgentToolService);
+        return new AiAgentActionRouter(aiAgentToolService, aiPrivilegedActionService);
     }
 
     private static AiChatRequest msg(String text) {
@@ -114,16 +116,16 @@ class AiAgentActionRouterTest {
     }
 
     @Test
-    void landlordCannotRunTenantActions() {
+    void landlordApplyMessageNeverRunsTenantActions() {
         UUID userId = UUID.randomUUID();
         UUID listingId = UUID.randomUUID();
 
+        // "apply to this listing" is not a landlord action, so it falls through to the normal
+        // pipeline; the tenant write tools are structurally reachable only for STUDENT role.
         Optional<AiChatResponse> out = router().tryExecute(
                 userId, "LANDLORD", msg("apply to this listing " + listingId), "t1");
 
-        assertThat(out).isPresent();
-        assertThat(out.get().getToolExecutions()).isEmpty();
-        assertThat(out.get().getAnswer()).contains("tenant");
+        assertThat(out).isEmpty();
         verifyNoInteractions(aiAgentToolService);
     }
 
@@ -145,6 +147,48 @@ class AiAgentActionRouterTest {
         assertThat(out.get().getToolExecutions()).isEmpty();
         assertThat(out.get().getAnswer().toLowerCase()).contains("which listing");
         verify(aiAgentToolService, never()).execute(any(UUID.class), anyString(), anyString(), anyMap(), anyString());
+    }
+
+    @Test
+    void landlordRejectApplicationIsProposedNotExecuted() {
+        when(aiPrivilegedActionService.isLandlordTool(anyString())).thenReturn(true);
+        UUID appId = UUID.randomUUID();
+
+        Optional<AiChatResponse> out = router().tryExecute(
+                UUID.randomUUID(), "LANDLORD", msg("reject application " + appId), "t1");
+
+        assertThat(out).isPresent();
+        assertThat(out.get().getToolExecutions()).isEmpty();
+        assertThat(out.get().getSuggestedActions()).hasSize(1);
+        AiChatResponse.SuggestedAction action = out.get().getSuggestedActions().get(0);
+        assertThat(action.getType()).isEqualTo("CONFIRM_ACTION");
+        assertThat(action.getTool()).isEqualTo(AiPrivilegedActionService.REJECT_APPLICATION);
+        assertThat(action.getActionParams()).containsEntry("targetId", appId.toString());
+        verifyNoInteractions(aiAgentToolService);
+    }
+
+    @Test
+    void adminApproveListingIsProposedWithConfirmAction() {
+        when(aiPrivilegedActionService.isAdminTool(anyString())).thenReturn(true);
+        UUID listingId = UUID.randomUUID();
+
+        Optional<AiChatResponse> out = router().tryExecute(
+                UUID.randomUUID(), "ADMIN", msg("approve listing " + listingId), "t1");
+
+        assertThat(out).isPresent();
+        AiChatResponse.SuggestedAction action = out.get().getSuggestedActions().get(0);
+        assertThat(action.getTool()).isEqualTo(AiPrivilegedActionService.APPROVE_LISTING);
+        assertThat(action.getType()).isEqualTo("CONFIRM_ACTION");
+    }
+
+    @Test
+    void landlordHowToQuestionFallsThrough() {
+        when(aiPrivilegedActionService.isLandlordTool(anyString())).thenReturn(true);
+
+        Optional<AiChatResponse> out = router().tryExecute(
+                UUID.randomUUID(), "LANDLORD", msg("how do I accept an application?"), "t1");
+
+        assertThat(out).isEmpty();
     }
 
     @Test

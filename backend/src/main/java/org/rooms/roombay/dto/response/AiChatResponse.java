@@ -66,9 +66,13 @@ public class AiChatResponse {
     public static class SuggestedAction {
         private String id;
         private String label;
-        private String type; // NAVIGATE | COPY_TEXT
+        private String type; // NAVIGATE | COPY_TEXT | CONFIRM_ACTION
         private String actionUrl;
         private String copyText;
+        /** For CONFIRM_ACTION: the privileged tool to run when the user clicks confirm. */
+        private String tool;
+        /** For CONFIRM_ACTION: parameters (e.g. targetId, reason) passed to the execute endpoint. */
+        private java.util.Map<String, String> actionParams;
     }
 
     @Data
