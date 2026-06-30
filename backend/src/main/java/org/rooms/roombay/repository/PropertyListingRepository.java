@@ -72,6 +72,22 @@ public interface PropertyListingRepository extends JpaRepository<PropertyListing
     
     @Query("SELECT l.city, COUNT(l) FROM PropertyListing l WHERE l.status != 'DELETED' GROUP BY l.city ORDER BY COUNT(l) DESC")
     List<Object[]> findTopCitiesByListingCount();
+
+    /**
+     * Rent stats per neighborhood for the map heatmap: count + avg/min/max rent over ACTIVE,
+     * verified RENT listings. Optional city filter (null = all cities).
+     * Columns: [city, neighborhood, count, avgRent, minRent, maxRent].
+     */
+    @Query("""
+            SELECT l.city, l.neighborhood, COUNT(l), AVG(l.rentAmount), MIN(l.rentAmount), MAX(l.rentAmount)
+            FROM PropertyListing l
+            WHERE l.status = 'ACTIVE' AND l.verified = true
+              AND l.listingPurpose = 'RENT'
+              AND l.neighborhood IS NOT NULL AND l.rentAmount IS NOT NULL
+              AND (:city IS NULL OR LOWER(l.city) = LOWER(:city))
+            GROUP BY l.city, l.neighborhood
+            """)
+    List<Object[]> aggregateRentByNeighborhood(@Param("city") String city);
     
     @Query("SELECT COUNT(DISTINCT l.landlord.id) FROM PropertyListing l")
     long countDistinctLandlords();

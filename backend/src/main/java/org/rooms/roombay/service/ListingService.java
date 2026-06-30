@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.rooms.roombay.dto.request.ArMarkersUpdateRequest;
 import org.rooms.roombay.dto.request.ListingApprovalRequest;
 import org.rooms.roombay.dto.request.ListingRequest;
+import org.rooms.roombay.dto.response.AreaStatsResponse;
 import org.rooms.roombay.dto.response.ArMarkerResponse;
 import org.rooms.roombay.dto.response.ListingRecommendationResponse;
 import org.rooms.roombay.dto.response.ListingResponse;
@@ -430,6 +431,7 @@ public class ListingService {
         return searchListingsAdvanced(
                 query, city, neighborhood, propertyType, minPrice, maxPrice,
                 bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
+                null, null, null, null,
                 availableFrom, null, null, null, null, userId, pageable);
     }
 
@@ -446,6 +448,10 @@ public class ListingService {
             Double maxDistance,
             Double userLat,
             Double userLon,
+            Double minLat,
+            Double maxLat,
+            Double minLng,
+            Double maxLng,
             String availableFrom,
             String listingPurpose,
             String stayType,
@@ -453,20 +459,57 @@ public class ListingService {
             Boolean sharedAccommodation,
             UUID userId,
             Pageable pageable) {
-        log.info("Advanced search - query: {}, city: {}, bedrooms: {}, bathrooms: {}, maxDistance: {}", 
-                query, city, bedrooms, bathrooms, maxDistance);
-        
-        if (maxDistance != null && userLat != null && userLon != null) {
-            throw new BadRequestException("Distance filtering is temporarily disabled until DB-native geospatial search is enabled");
-        }
+        log.info("Advanced search - query: {}, city: {}, bedrooms: {}, bathrooms: {}, maxDistance: {}, geo: {}",
+                query, city, bedrooms, bathrooms, maxDistance, (minLat != null || userLat != null));
+
+        // On the DB fallback (Elasticsearch handles exact geo in prod) we approximate the "Near me"
+        // radius with a bounding box, and use the viewport box directly for "search this area".
+        Double[] box = resolveBoundingBox(minLat, maxLat, minLng, maxLng, userLat, userLon, maxDistance);
 
         var spec = ListingSpecifications.buildSearchSpec(
                 query, city, neighborhood, propertyType,
                 minPrice, maxPrice, bedrooms, bathrooms,
                 amenities, availableFrom,
-                listingPurpose, stayType, furnishingStatus, sharedAccommodation);
+                listingPurpose, stayType, furnishingStatus, sharedAccommodation,
+                box[0], box[1], box[2], box[3]);
         Page<PropertyListing> page = listingRepository.findAll(spec, pageable);
         return page.map(listing -> mapToResponse(listing, userId));
+    }
+
+    /**
+     * Resolve an effective bounding box: prefer an explicit viewport box; otherwise derive one from
+     * the "Near me" centre + radius (km converted to degrees). Returns {minLat, maxLat, minLng,
+     * maxLng}, all null when no geo constraint applies.
+     */
+    private static Double[] resolveBoundingBox(Double minLat, Double maxLat, Double minLng, Double maxLng,
+                                               Double centerLat, Double centerLng, Double radiusKm) {
+        if (minLat != null && maxLat != null && minLng != null && maxLng != null) {
+            return new Double[]{minLat, maxLat, minLng, maxLng};
+        }
+        if (centerLat != null && centerLng != null && radiusKm != null && radiusKm > 0) {
+            double latDelta = radiusKm / 111.0;
+            double cos = Math.abs(Math.cos(Math.toRadians(centerLat)));
+            double lngDelta = radiusKm / (111.320 * (cos < 1e-6 ? 1e-6 : cos));
+            return new Double[]{centerLat - latDelta, centerLat + latDelta,
+                    centerLng - lngDelta, centerLng + lngDelta};
+        }
+        return new Double[]{null, null, null, null};
+    }
+
+    /** Per-neighborhood rent stats for the map heatmap overlay (optional city filter). */
+    @Transactional(readOnly = true)
+    public List<AreaStatsResponse> areaRentStats(String city) {
+        String filter = (city == null || city.isBlank()) ? null : city;
+        return listingRepository.aggregateRentByNeighborhood(filter).stream()
+                .map(r -> AreaStatsResponse.builder()
+                        .city((String) r[0])
+                        .neighborhood((String) r[1])
+                        .listingCount(r[2] == null ? 0L : ((Number) r[2]).longValue())
+                        .avgRent(r[3] == null ? null : ((Number) r[3]).doubleValue())
+                        .minRent(r[4] == null ? null : ((Number) r[4]).intValue())
+                        .maxRent(r[5] == null ? null : ((Number) r[5]).intValue())
+                        .build())
+                .toList();
     }
     
     @Transactional(readOnly = true)

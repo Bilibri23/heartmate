@@ -181,8 +181,9 @@ public class ListingController {
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<ListingResponse> listings = listingService.searchListingsAdvanced(
-                query, city, neighborhood, propertyType, minPrice, maxPrice, 
-                bedrooms, bathrooms, amenities, maxDistance, userLat, userLon, 
+                query, city, neighborhood, propertyType, minPrice, maxPrice,
+                bedrooms, bathrooms, amenities, maxDistance, userLat, userLon,
+                null, null, null, null,
                 availableFrom, listingPurpose, stayType, furnishingStatus, sharedAccommodation,
                 userId, pageable);
         analyticsEventService.emit("search_performed", userId, null, null,

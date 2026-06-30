@@ -19,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ReelsFeed } from "@/components/ui/reels-feed"
 import dynamic from "next/dynamic"
 import api from "@/lib/api"
+import { CAMPUSES, getCampusById } from "@/lib/landmarks"
+import type { AreaStat, MapBounds } from "@/components/ui/listings-map"
 
 const ListingsMap = dynamic(
   () => import("@/components/ui/listings-map").then((mod) => mod.ListingsMap),
@@ -279,6 +281,12 @@ export default function SearchPage() {
   const [totalElements, setTotalElements] = useState(0)
   const [viewMode, setViewMode] = useState<SearchViewMode>("grid")
 
+  // Map discovery: viewport "search this area" box, heatmap area-stats, campus proximity
+  const [areaBox, setAreaBox] = useState<MapBounds | null>(null)
+  const [areaStats, setAreaStats] = useState<AreaStat[]>([])
+  const [selectedCampusId, setSelectedCampusId] = useState<string>("")
+  const selectedCampus = getCampusById(selectedCampusId)
+
   // Saved searches
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([])
   const [showSaveSearch, setShowSaveSearch] = useState(false)
@@ -357,6 +365,12 @@ export default function SearchPage() {
         params.userLat = userLocation.lat
         params.userLon = userLocation.lon
       }
+      if (areaBox) {
+        params.minLat = areaBox.minLat
+        params.maxLat = areaBox.maxLat
+        params.minLng = areaBox.minLng
+        params.maxLng = areaBox.maxLng
+      }
       if (user?.id) params.userId = user.id
       if (rawQuery?.trim()) params.query = rawQuery
       params.lang = language === "fr" ? "fr" : "en"
@@ -374,9 +388,29 @@ export default function SearchPage() {
     } catch (e) {
       console.error("Failed to fetch listings:", e)
     } finally { setIsLoading(false) }
-  }, [filters, userLocation, user?.id, rawQuery, language])
+  }, [filters, userLocation, user?.id, rawQuery, language, areaBox])
 
   useEffect(() => { fetchListings() }, [fetchListings])
+
+  // Heatmap area-stats (avg rent per neighborhood), refreshed when the city filter changes.
+  useEffect(() => {
+    const city = safeFilters.city && safeFilters.city !== "all" ? safeFilters.city : undefined
+    api.get("/search/area-stats", { params: city ? { city } : {} })
+      .then((r) => setAreaStats(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setAreaStats([]))
+  }, [safeFilters.city])
+
+  // A new city filter invalidates a pinned "search this area" viewport box.
+  useEffect(() => { setAreaBox(null) }, [safeFilters.city])
+
+  // Selecting a campus drives the radius filter around it (and labels listings by distance).
+  useEffect(() => {
+    if (selectedCampus) {
+      setUserLocation({ lat: selectedCampus.lat, lon: selectedCampus.lng })
+      setFilters((prev) => ({ ...(prev ?? DEFAULT_FILTERS), maxDistance: (prev?.maxDistance ?? 0) > 0 ? prev!.maxDistance : 5 }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCampusId])
 
   const { containerRef, isRefreshing, pullProgress } = usePullToRefresh({ onRefresh: fetchListings })
 
@@ -801,6 +835,24 @@ export default function SearchPage() {
             )}
           </p>
             <div className="flex items-center gap-2 shrink-0" data-tour="search-view-modes">
+            {/* Near campus proximity */}
+            <div className="relative">
+              <select
+                value={selectedCampusId}
+                onChange={e => {
+                  const id = e.target.value
+                  setSelectedCampusId(id)
+                  if (!id) { setUserLocation(null); setFilters(prev => ({ ...prev, maxDistance: 0 })) }
+                }}
+                className="appearance-none bg-slate-100 text-xs font-medium text-slate-700 pl-3 pr-7 py-1.5 rounded-full focus:outline-none cursor-pointer max-w-[150px]"
+                aria-label="Near campus">
+                <option value="">Near campus…</option>
+                {CAMPUSES.map(c => (
+                  <option key={c.id} value={c.id}>{c.name.split("(")[0].trim()}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+            </div>
             {/* Sort */}
             <div className="relative">
               <select
@@ -880,6 +932,9 @@ export default function SearchPage() {
               onListingClick={id => {
                 router.push(`/listings/${id}`)
               }}
+              onSearchArea={setAreaBox}
+              areaStats={areaStats}
+              campus={selectedCampus}
               className="h-[calc(100vh-260px)]"
               formatCurrency={formatCurrency}
             />

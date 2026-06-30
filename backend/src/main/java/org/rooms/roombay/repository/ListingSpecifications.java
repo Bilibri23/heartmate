@@ -4,6 +4,7 @@ import jakarta.persistence.criteria.Predicate;
 import org.rooms.roombay.entity.PropertyListing;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,38 @@ public final class ListingSpecifications {
             String stayType,
             String furnishingStatus,
             Boolean sharedAccommodation) {
+        return buildSearchSpec(
+                query, city, neighborhood, propertyType,
+                minPrice, maxPrice, bedrooms, bathrooms,
+                amenities, availableFrom,
+                listingPurpose, stayType, furnishingStatus, sharedAccommodation,
+                null, null, null, null);
+    }
+
+    /**
+     * Full search spec with an optional geographic bounding box (for "search this area" and as the
+     * fallback approximation of the "Near me" radius). Listings missing coordinates are excluded
+     * when a box is supplied.
+     */
+    public static Specification<PropertyListing> buildSearchSpec(
+            String query,
+            String city,
+            String neighborhood,
+            String propertyType,
+            Integer minPrice,
+            Integer maxPrice,
+            Integer bedrooms,
+            Integer bathrooms,
+            List<String> amenities,
+            String availableFrom,
+            String listingPurpose,
+            String stayType,
+            String furnishingStatus,
+            Boolean sharedAccommodation,
+            Double minLat,
+            Double maxLat,
+            Double minLng,
+            Double maxLng) {
 
         return (root, cq, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -165,6 +198,15 @@ public final class ListingSpecifications {
                     ));
                 } catch (Exception ignored) {
                 }
+            }
+
+            if (minLat != null && maxLat != null && minLng != null && maxLng != null) {
+                predicates.add(cb.isNotNull(root.get("latitude")));
+                predicates.add(cb.isNotNull(root.get("longitude")));
+                predicates.add(cb.between(root.<BigDecimal>get("latitude"),
+                        BigDecimal.valueOf(Math.min(minLat, maxLat)), BigDecimal.valueOf(Math.max(minLat, maxLat))));
+                predicates.add(cb.between(root.<BigDecimal>get("longitude"),
+                        BigDecimal.valueOf(Math.min(minLng, maxLng)), BigDecimal.valueOf(Math.max(minLng, maxLng))));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
