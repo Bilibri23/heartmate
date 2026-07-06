@@ -5,11 +5,12 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 
-type Role = "ADMIN" | "LANDLORD" | "STUDENT";
+type Role = "ADMIN" | "LANDLORD" | "REALTOR" | "STUDENT";
 
 function homeForRole(role?: string | null): string {
   if (role === "ADMIN") return "/admin";
   if (role === "LANDLORD") return "/landlord";
+  if (role === "REALTOR") return "/realtor";
   return "/for-you";
 }
 

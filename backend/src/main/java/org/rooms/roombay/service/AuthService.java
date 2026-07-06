@@ -79,7 +79,7 @@ public class AuthService {
         if (request.getRole() != null && !request.getRole().isEmpty()) {
             try {
                 userRole = User.UserRole.valueOf(request.getRole().toUpperCase());
-                // Only allow STUDENT or LANDLORD during registration (ADMIN is created manually)
+                // Allow STUDENT, LANDLORD, or REALTOR during registration (ADMIN is created manually).
                 if (userRole == User.UserRole.ADMIN) {
                     userRole = User.UserRole.STUDENT;
                 }

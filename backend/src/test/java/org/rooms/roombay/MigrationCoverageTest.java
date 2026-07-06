@@ -241,4 +241,29 @@ class MigrationCoverageTest {
                 "property_type = 'shared_room'"
         );
     }
+
+    @Test
+    void realtorTablesAreCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V56__create_realtor_tables.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("create extension if not exists pgcrypto");
+        assertThat(migration).contains(
+                "create table if not exists realtor_profiles",
+                "user_id uuid not null unique references users(id)",
+                "verification_status varchar(40) not null default 'pending'",
+                "trust_score integer not null default 0",
+                "create table if not exists realtor_verification_documents",
+                "realtor_id uuid not null references realtor_profiles(id)",
+                "idx_realtor_profiles_status",
+                "idx_realtor_docs_realtor"
+        );
+    }
 }

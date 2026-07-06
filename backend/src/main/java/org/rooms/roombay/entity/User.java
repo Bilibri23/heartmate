@@ -117,7 +117,7 @@ public class User {
     }
 
     public enum UserRole {
-        STUDENT, LANDLORD, ADMIN
+        STUDENT, LANDLORD, REALTOR, ADMIN
     }
 
     public enum AccountStatus {

@@ -9,7 +9,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   phone: string;
-  role: 'STUDENT' | 'LANDLORD';
+  role: 'STUDENT' | 'LANDLORD' | 'REALTOR';
   gender?: 'MALE' | 'FEMALE';
 }
 

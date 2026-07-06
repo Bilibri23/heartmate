@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, ArrowLeft, Search, Building2, Eye, EyeOff } from "lucide-react"
+import { Loader2, ArrowLeft, Search, Building2, BadgeCheck, Eye, EyeOff } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { Button } from "@/components/ui/button"
 import {
@@ -46,12 +46,12 @@ type RegisterFormValues = z.infer<typeof registerSchema>
 
 function RegisterContent() {
   const searchParams = useSearchParams()
-  const roleFromUrl = searchParams.get("role") as "TENANT" | "LANDLORD" | null
+  const roleFromUrl = searchParams.get("role") as "TENANT" | "LANDLORD" | "REALTOR" | null
   const { register: registerUser } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<"TENANT" | "LANDLORD">(roleFromUrl || "TENANT")
+  const [selectedRole, setSelectedRole] = useState<"TENANT" | "LANDLORD" | "REALTOR">(roleFromUrl || "TENANT")
   const defaultCountry = getDefaultCountry()
   const [selectedCountry, setSelectedCountry] = useState<Country>(defaultCountry)
   // Default to visible so local testing doesn't silently hide OAuth.
@@ -99,6 +99,7 @@ function RegisterContent() {
   }
 
   const isTenant = selectedRole === "TENANT"
+  const isRealtor = selectedRole === "REALTOR"
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 p-6">
@@ -113,42 +114,36 @@ function RegisterContent() {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="mb-8 text-center">
-            <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl ${isTenant ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
-              {isTenant ? <Search className="h-7 w-7" /> : <Building2 className="h-7 w-7" />}
+            <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl ${
+              isTenant ? 'bg-blue-50 text-blue-600' : isRealtor ? 'bg-violet-50 text-violet-600' : 'bg-emerald-50 text-emerald-600'
+            }`}>
+              {isTenant ? <Search className="h-7 w-7" /> : isRealtor ? <BadgeCheck className="h-7 w-7" /> : <Building2 className="h-7 w-7" />}
             </div>
             <h1 className="text-2xl font-bold text-slate-900">Create your account</h1>
             <p className="mt-2 text-sm text-slate-500">
-              {isTenant ? "Find your perfect home" : "List your properties"}
+              {isTenant ? "Find your perfect home" : isRealtor ? "Grow your agency on RoomBay" : "List your properties"}
             </p>
           </div>
 
           {/* Role Toggle */}
           <div className="mb-6 flex rounded-xl bg-slate-100 p-1">
-            <button
-              type="button"
-              onClick={() => setSelectedRole("TENANT")}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                isTenant 
-                  ? 'bg-white text-slate-900 shadow-sm' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Tenant
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedRole("LANDLORD")}
-              className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
-                !isTenant 
-                  ? 'bg-white text-slate-900 shadow-sm' 
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Landlord
-            </button>
+            {(["TENANT", "LANDLORD", "REALTOR"] as const).map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => setSelectedRole(role)}
+                className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-all ${
+                  selectedRole === role
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {role === "TENANT" ? "Tenant" : role === "LANDLORD" ? "Landlord" : "Realtor"}
+              </button>
+            ))}
           </div>
 
-          {showGoogleOAuth && (
+          {showGoogleOAuth && !isRealtor && (
             <div className="mb-6">
               <Button
                 type="button"
@@ -381,7 +376,9 @@ function RegisterContent() {
                 className={`h-11 w-full rounded-xl text-sm font-medium ${
                   isTenant
                     ? 'bg-slate-900 hover:bg-slate-800'
-                    : 'bg-emerald-600 hover:bg-emerald-700'
+                    : isRealtor
+                      ? 'bg-violet-600 hover:bg-violet-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
                 disabled={isLoading}
               >

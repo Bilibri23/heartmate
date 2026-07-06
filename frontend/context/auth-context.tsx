@@ -104,6 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           router.replace('/admin');
         } else if (response.role === 'LANDLORD') {
           router.replace('/landlord');
+        } else if (response.role === 'REALTOR') {
+          router.replace('/realtor');
         } else {
           router.replace('/for-you');
         }
@@ -139,6 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Role-based redirect after registration
         if (response.role === 'LANDLORD') {
           router.replace('/landlord');
+        } else if (response.role === 'REALTOR') {
+          router.replace('/realtor/onboarding');
         } else {
           router.replace('/onboarding');
         }
