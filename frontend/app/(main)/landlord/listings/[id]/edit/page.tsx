@@ -20,6 +20,7 @@ import {
   Trash2,
   Video,
   Glasses,
+  Upload,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -84,6 +85,7 @@ interface VideoTour {
 export default function EditListingPage() {
   const { t, formatCurrency, language } = useLanguage()
   const { user } = useAuth()
+  const basePath = user?.role === "REALTOR" ? "/realtor" : "/landlord"
   const router = useRouter()
   const params = useParams()
   const listingId = params.id as string
@@ -97,6 +99,8 @@ export default function EditListingPage() {
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([])
   const [existingVideoTour, setExistingVideoTour] = useState<VideoTour | null>(null)
   const [newVideoTour, setNewVideoTour] = useState<{ file: File; preview: string; duration?: number } | null>(null)
+  const [existingOwnershipDocUrl, setExistingOwnershipDocUrl] = useState<string | null>(null)
+  const [newOwnershipDoc, setNewOwnershipDoc] = useState<File | null>(null)
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -150,7 +154,8 @@ export default function EditListingPage() {
       })
       
       setExistingPhotos(listing.photos || [])
-      
+      setExistingOwnershipDocUrl(listing.ownershipDocumentUrl || null)
+
       // Set existing video tour
       if (listing.videoTourUrl || listing.videoTour) {
         setExistingVideoTour({
@@ -161,7 +166,7 @@ export default function EditListingPage() {
       }
     } catch (err) {
       console.error("Failed to fetch listing:", err)
-      router.push("/landlord/listings")
+      router.push(`${basePath}/listings`)
     } finally {
       setIsLoading(false)
     }
@@ -235,6 +240,17 @@ export default function EditListingPage() {
 
     setIsSubmitting(true)
     try {
+      let ownershipDocumentUrl = existingOwnershipDocUrl || undefined
+      if (newOwnershipDoc) {
+        const docFormData = new FormData()
+        docFormData.append("file", newOwnershipDoc)
+        const docRes = await uploadApi.post("/upload/profile-photo", docFormData)
+        const docUrl = docRes.data?.data ?? docRes.data?.url
+        if (typeof docUrl === "string" && docUrl.startsWith("http")) {
+          ownershipDocumentUrl = docUrl
+        }
+      }
+
       // Update listing data
       const listingData = {
         title: formData.title,
@@ -256,6 +272,7 @@ export default function EditListingPage() {
         roomWidthMeters: formData.roomWidthMeters ? parseFloat(formData.roomWidthMeters) : null,
         roomHeightMeters: formData.roomHeightMeters ? parseFloat(formData.roomHeightMeters) : null,
         roomPreviewPhotoUrl: formData.roomPreviewPhotoUrl,
+        ownershipDocumentUrl,
       }
 
       await api.put(`/listings/${listingId}`, listingData, {
@@ -292,7 +309,7 @@ export default function EditListingPage() {
         }).catch(() => {})
       }
 
-      router.push("/landlord/listings")
+      router.push(`${basePath}/listings`)
     } catch (err) {
       console.error("Failed to update listing:", err)
     } finally {
@@ -308,7 +325,7 @@ export default function EditListingPage() {
       await api.delete(`/listings/${listingId}`, {
         params: { landlordId: user.id }
       })
-      router.push("/landlord/listings")
+      router.push(`${basePath}/listings`)
     } catch (err) {
       console.error("Failed to delete listing:", err)
     } finally {
@@ -395,6 +412,35 @@ export default function EditListingPage() {
                 </label>
               )}
             </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-2">
+            <Label className="text-slate-700 flex items-center gap-2">Proof of ownership (optional)</Label>
+            <p className="text-xs text-slate-500">
+              Speeds up admin verification — a title deed, lease, or agency mandate letter.
+            </p>
+            {existingOwnershipDocUrl && !newOwnershipDoc && (
+              <a
+                href={existingOwnershipDocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-sm text-blue-600 underline"
+              >
+                View current document
+              </a>
+            )}
+            <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+              <Upload className="h-5 w-5 text-slate-400" />
+              <span className="text-sm text-slate-500">
+                {newOwnershipDoc ? newOwnershipDoc.name : existingOwnershipDocUrl ? "Replace document" : "Choose a file"}
+              </span>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={(e) => setNewOwnershipDoc(e.target.files?.[0] || null)}
+                className="hidden"
+              />
+            </label>
           </div>
 
           <p className="text-xs leading-relaxed text-slate-600 bg-white border border-slate-200 rounded-xl px-3 py-2.5">

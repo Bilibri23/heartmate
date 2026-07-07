@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { useLanguage } from "@/context/language-context"
@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import api, { uploadApi } from "@/lib/api"
 import { useProfileCompletion } from "@/hooks/use-profile-completion"
 import { CompletionBanner } from "@/components/profile/completion-banner"
+import { realtorService } from "@/services/realtor.service"
+import Link from "next/link"
 
 const CAMEROON_CITIES = ["Douala", "Yaounde", "Bamenda", "Bafoussam", "Garoua", "Maroua", "Ngaoundere", "Bertoua", "Limbe", "Buea", "Kribi", "Ebolowa"]
 const PROPERTY_TYPES = [
@@ -141,6 +143,7 @@ function ListingPreview({ photos, previewPhotoIndex, onSelectPhoto, formData, fo
 export default function NewListingPage() {
   const { formatCurrency, language, t } = useLanguage()
   const { user } = useAuth()
+  const basePath = user?.role === "REALTOR" ? "/realtor" : "/landlord"
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -148,6 +151,7 @@ export default function NewListingPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0)
   const [photos, setPhotos] = useState<PhotoItem[]>([])
+  const [ownershipDoc, setOwnershipDoc] = useState<File | null>(null)
   const [virtualTour, setVirtualTour] = useState<VirtualTourItem | null>(null)
   const [tourUploadProgress, setTourUploadProgress] = useState<number>(0)
   const [roomPreviewPhotoIndex, setRoomPreviewPhotoIndex] = useState(0)
@@ -183,6 +187,15 @@ export default function NewListingPage() {
   const { status: completionStatus } = useProfileCompletion()
   const canPublish = completionStatus?.operationEligibility?.LISTING_PUBLISH !== false
   const [showMobilePreview, setShowMobilePreview] = useState(false)
+  const isRealtor = user?.role === "REALTOR"
+  const [realtorGate, setRealtorGate] = useState<"checking" | "blocked" | "ready">(isRealtor ? "checking" : "ready")
+
+  useEffect(() => {
+    if (!isRealtor) return
+    realtorService.getMe().then((profile) => {
+      setRealtorGate(profile?.verificationStatus === "VERIFIED" ? "ready" : "blocked")
+    }).catch(() => setRealtorGate("blocked"))
+  }, [isRealtor])
 
   const handlePhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -213,6 +226,18 @@ export default function NewListingPage() {
     submitInFlightRef.current = true
     setIsSubmitting(true)
     try {
+      // Step 0: Upload proof-of-ownership document, if provided, so its URL can ride with listing creation
+      let ownershipDocumentUrl: string | undefined
+      if (ownershipDoc) {
+        const docFormData = new FormData()
+        docFormData.append("file", ownershipDoc)
+        const docRes = await uploadApi.post("/upload/profile-photo", docFormData)
+        const docUrl = docRes.data?.data ?? docRes.data?.url
+        if (typeof docUrl === "string" && docUrl.startsWith("http")) {
+          ownershipDocumentUrl = docUrl
+        }
+      }
+
       // Step 1: Create listing (media-dependent Room Preview is enabled after listing photos upload)
       const isSale = formData.listingPurpose === "SALE"
       const listingData = {
@@ -244,6 +269,7 @@ export default function NewListingPage() {
         roomWidthMeters: formData.roomWidthMeters ? parseFloat(formData.roomWidthMeters) : null,
         roomHeightMeters: formData.roomHeightMeters ? parseFloat(formData.roomHeightMeters) : null,
         virtualTourProvider: virtualTour ? virtualTour.type : undefined,
+        ownershipDocumentUrl,
       }
       const response = await api.post("/listings", listingData, { params: { landlordId: user.id } })
       const listingId = response.data.id
@@ -322,7 +348,7 @@ export default function NewListingPage() {
         }
       }
 
-      router.push(`/landlord?published=${listingId}`)
+      router.push(`${basePath}?published=${listingId}`)
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Failed to create listing. Please try again."
       setSubmitError(msg)
@@ -346,6 +372,31 @@ export default function NewListingPage() {
 
   const nextStep = () => { if (currentStep < 5 && canProceed()) setCurrentStep(prev => prev + 1) }
   const prevStep = () => { if (currentStep > 1) setCurrentStep(prev => prev - 1) }
+
+  if (isRealtor && realtorGate !== "ready") {
+    return (
+      <div className="flex flex-col min-h-screen bg-slate-50">
+        <MobileHeader title={t.landlordForm.newListing} />
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="max-w-sm text-center bg-white rounded-2xl p-6 shadow-sm">
+            {realtorGate === "checking" ? (
+              <p className="text-slate-500 text-sm">Checking your realtor verification status...</p>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-slate-900 mb-2">Get verified to start listing</h2>
+                <p className="text-sm text-slate-500 mb-4">
+                  Only verified realtors can publish property listings on RoomBay.
+                </p>
+                <Link href="/realtor/onboarding">
+                  <Button className="w-full rounded-xl bg-violet-600 hover:bg-violet-700">Go to onboarding</Button>
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -423,6 +474,24 @@ export default function NewListingPage() {
                         <input type="file" accept="image/*" multiple onChange={handlePhotoAdd} className="hidden" />
                       </label>
                     )}
+                  </div>
+                  <div className="pt-2">
+                    <Label className="text-slate-700 mb-2 block flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Proof of ownership (optional)
+                    </Label>
+                    <p className="text-xs text-slate-500 mb-2">
+                      Speeds up admin verification — a title deed, lease, or agency mandate letter.
+                    </p>
+                    <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                      <Upload className="h-5 w-5 text-slate-400" />
+                      <span className="text-sm text-slate-500">{ownershipDoc ? ownershipDoc.name : "Choose a file"}</span>
+                      <input
+                        type="file"
+                        accept="image/*,.pdf"
+                        onChange={(e) => setOwnershipDoc(e.target.files?.[0] || null)}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                 </div>
               )}

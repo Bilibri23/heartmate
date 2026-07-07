@@ -93,7 +93,10 @@ public class ListingRequest {
     
     // Contact
     private String landlordWhatsapp;
-    
+
+    // Verification — proof of ownership reviewed by admin before approval
+    private String ownershipDocumentUrl;
+
     // Status (for landlord to set)
     private String status; // DRAFT, PENDING, ACTIVE, RENTED, INACTIVE, DELETED
 }

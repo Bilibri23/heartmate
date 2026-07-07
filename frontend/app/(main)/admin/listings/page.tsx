@@ -34,7 +34,8 @@ import {
   Star,
   ExternalLink,
   ImageIcon,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
 } from "lucide-react"
 
 interface ListingPhoto {
@@ -75,6 +76,9 @@ interface Listing {
   roomPreviewStatus?: string
   createdAt: string
   featured: boolean
+  ownershipDocumentUrl?: string
+  listedByRole?: string
+  agencyName?: string
 }
 
 export default function AdminListingsPage() {
@@ -387,6 +391,26 @@ export default function AdminListingsPage() {
                 )
               })()}
 
+              {/* Proof of ownership — required before verifying (setting status ACTIVE) */}
+              {selectedListing.ownershipDocumentUrl ? (
+                <a
+                  href={selectedListing.ownershipDocumentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 hover:bg-emerald-100"
+                >
+                  <span className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> View proof of ownership
+                  </span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ) : (
+                <div className="bg-amber-50 rounded-xl p-4 flex items-center gap-2 text-amber-700">
+                  <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                  <p className="text-sm">No proof of ownership uploaded — cannot verify (approve) until one is provided.</p>
+                </div>
+              )}
+
               {/* Info */}
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
@@ -472,8 +496,13 @@ export default function AdminListingsPage() {
                 </div>
 
                 <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-sm text-slate-500 mb-2">Landlord</p>
+                  <p className="text-sm text-slate-500 mb-2">
+                    {selectedListing.listedByRole === "REALTOR" ? "Realtor" : "Landlord"}
+                  </p>
                   <p className="font-semibold">{selectedListing.landlordName}</p>
+                  {selectedListing.agencyName && (
+                    <p className="text-sm text-violet-600 font-medium">{selectedListing.agencyName}</p>
+                  )}
                   {selectedListing.landlordEmail && (
                     <p className="text-sm text-slate-500">{selectedListing.landlordEmail}</p>
                   )}
@@ -506,6 +535,8 @@ export default function AdminListingsPage() {
                     <Button
                       className="flex-1 rounded-xl bg-green-600 hover:bg-green-700"
                       onClick={() => handleApprove(selectedListing.id)}
+                      disabled={!selectedListing.ownershipDocumentUrl}
+                      title={!selectedListing.ownershipDocumentUrl ? "Proof of ownership required before approval" : undefined}
                     >
                       <CheckCircle className="h-4 w-4 mr-1" />
                       Approve

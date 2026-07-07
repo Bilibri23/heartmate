@@ -62,6 +62,7 @@ interface Listing {
 export default function LandlordListingsPage() {
   const { t, formatCurrency } = useLanguage()
   const { user } = useAuth()
+  const basePath = user?.role === "REALTOR" ? "/realtor" : "/landlord"
   const router = useRouter()
   const [listings, setListings] = useState<Listing[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -192,7 +193,7 @@ export default function LandlordListingsPage() {
           </div>
 
           {/* Add New Button */}
-          <Link href="/landlord/listings/new">
+          <Link href={`${basePath}/listings/new`}>
             <Button className="w-full h-12 rounded-xl" disabled={!canPublish}>
               <Plus className="h-5 w-5 mr-2" />
               Add New Listing
@@ -221,7 +222,7 @@ export default function LandlordListingsPage() {
                   <p className="max-w-xs text-xs leading-relaxed text-slate-500">
                     Start with clear photos, exact neighborhood, rent, amenities, availability, and verification status.
                   </p>
-                  <Link href="/landlord/listings/new">
+                  <Link href={`${basePath}/listings/new`}>
                     <Button size="sm" disabled={!canPublish}>Create Your First Listing</Button>
                   </Link>
                   <Link href="/help" className="text-sm font-medium text-blue-600">
@@ -266,7 +267,7 @@ export default function LandlordListingsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/landlord/listings/${listing.id}/edit`} className="flex items-center">
+                              <Link href={`${basePath}/listings/${listing.id}/edit`} className="flex items-center">
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit
                               </Link>

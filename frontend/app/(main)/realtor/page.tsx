@@ -6,6 +6,8 @@ import Link from "next/link"
 import { MobileHeader } from "@/components/layout/mobile-header"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAuth } from "@/context/auth-context"
+import api from "@/lib/api"
 import { realtorService } from "@/services/realtor.service"
 import type { RealtorProfile } from "@/types/realtor"
 import {
@@ -65,9 +67,17 @@ function StatusBadge({ status }: { status: string }) {
   }
 }
 
+interface ListingStats {
+  totalListings: number
+  activeListings: number
+  rentedListings: number
+}
+
 export default function RealtorDashboardPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [profile, setProfile] = useState<RealtorProfile | null>(null)
+  const [listingStats, setListingStats] = useState<ListingStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -89,6 +99,13 @@ export default function RealtorDashboardPage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (!user?.id || profile?.verificationStatus !== "VERIFIED") return
+    api.get(`/listings/landlord/${user.id}/statistics`)
+      .then((res) => setListingStats(res.data))
+      .catch(() => setListingStats(null))
+  }, [user?.id, profile?.verificationStatus])
 
   if (isLoading || !profile) {
     return (
@@ -218,15 +235,29 @@ export default function RealtorDashboardPage() {
             )}
           </div>
 
-          {/* Placeholders for later phases */}
+          {/* Listings + leads */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-dashed border-slate-200">
-              <Home className="h-5 w-5 text-slate-400 mb-2" />
-              <h4 className="font-medium text-slate-700">Your listings</h4>
-              <p className="text-xs text-slate-500 mt-1">
-                {isVerified ? "Listing management is coming soon." : "Available once you're verified."}
-              </p>
-            </div>
+            {isVerified ? (
+              <Link href="/realtor/listings">
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:border-violet-300 transition-colors h-full">
+                  <Home className="h-5 w-5 text-violet-600 mb-2" />
+                  <h4 className="font-medium text-slate-700">Your listings</h4>
+                  {listingStats ? (
+                    <p className="text-xs text-slate-500 mt-1">
+                      {listingStats.activeListings} active · {listingStats.totalListings} total
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500 mt-1">Manage your listings</p>
+                  )}
+                </div>
+              </Link>
+            ) : (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-dashed border-slate-200">
+                <Home className="h-5 w-5 text-slate-400 mb-2" />
+                <h4 className="font-medium text-slate-700">Your listings</h4>
+                <p className="text-xs text-slate-500 mt-1">Available once you're verified.</p>
+              </div>
+            )}
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-dashed border-slate-200">
               <Users className="h-5 w-5 text-slate-400 mb-2" />
               <h4 className="font-medium text-slate-700">Leads</h4>

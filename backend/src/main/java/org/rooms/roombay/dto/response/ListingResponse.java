@@ -63,6 +63,11 @@ public class ListingResponse {
     private LocalDate availableTo;
     private String status;
     private Boolean verified;
+    private String ownershipDocumentUrl;
+    /** LANDLORD or REALTOR — who manages this listing. */
+    private String listedByRole;
+    /** Set only when listedByRole is REALTOR. */
+    private String agencyName;
     /**
      * Simplified trust signal for tenants: combines listing admin review and landlord KYC.
      * HIGH, VERIFIED, REVIEWED, STANDARD.

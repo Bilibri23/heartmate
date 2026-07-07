@@ -16,6 +16,7 @@ import org.rooms.roombay.entity.ListingFavorite;
 import org.rooms.roombay.entity.ListingPhoto;
 import org.rooms.roombay.entity.ListingSearchOutbox;
 import org.rooms.roombay.entity.PropertyListing;
+import org.rooms.roombay.entity.RealtorProfile;
 import org.rooms.roombay.entity.User;
 import org.rooms.roombay.exception.BadRequestException;
 import org.rooms.roombay.exception.ResourceNotFoundException;
@@ -28,6 +29,7 @@ import org.rooms.roombay.repository.ListingSearchOutboxRepository;
 import org.rooms.roombay.repository.ListingSpecifications;
 import org.rooms.roombay.repository.ListingViewRepository;
 import org.rooms.roombay.repository.PropertyListingRepository;
+import org.rooms.roombay.repository.RealtorProfileRepository;
 import org.rooms.roombay.repository.ReviewRepository;
 import org.rooms.roombay.repository.RoomApplicationRepository;
 import org.rooms.roombay.repository.UserRepository;
@@ -73,17 +75,27 @@ public class ListingService {
     private final PlatformSettingsService platformSettingsService;
     private final AnalyticsEventService analyticsEventService;
     private final AuditLogService auditLogService;
-    
+    private final RealtorProfileRepository realtorProfileRepository;
+
     @CacheEvict(value = "listings", allEntries = true)
     public ListingResponse createListing(UUID landlordId, ListingRequest request) {
         log.info("Creating listing for landlord: {}", landlordId);
-        
+
         User landlord = userRepository.findById(landlordId)
                 .orElseThrow(() -> new ResourceNotFoundException("Landlord not found with id: " + landlordId));
-        
-        // Verify user is a landlord
-        if (landlord.getRole() != User.UserRole.LANDLORD) {
-            throw new BadRequestException("Only landlords can create listings");
+
+        // Verify user is a landlord or a verified realtor
+        if (landlord.getRole() != User.UserRole.LANDLORD && landlord.getRole() != User.UserRole.REALTOR) {
+            throw new BadRequestException("Only landlords and realtors can create listings");
+        }
+
+        RealtorProfile realtorProfile = null;
+        if (landlord.getRole() == User.UserRole.REALTOR) {
+            realtorProfile = realtorProfileRepository.findByUserId(landlordId)
+                    .orElseThrow(() -> new BadRequestException("Complete your realtor profile before listing properties"));
+            if (realtorProfile.getVerificationStatus() != RealtorProfile.VerificationStatus.VERIFIED) {
+                throw new BadRequestException("Only verified realtors can list properties");
+            }
         }
 
         // Enforce max listings per landlord
@@ -147,6 +159,9 @@ public class ListingService {
                 .availableFrom(request.getAvailableFrom())
                 .availableTo(request.getAvailableTo())
                 .landlordWhatsapp(request.getLandlordWhatsapp())
+                .ownershipDocumentUrl(request.getOwnershipDocumentUrl())
+                .listedByRole(realtorProfile != null ? "REALTOR" : "LANDLORD")
+                .agencyName(realtorProfile != null ? realtorProfile.getAgencyName() : null)
                 .status(parseStatus(request.getStatus()))
                 .verified(false)
                 .featured(false)
@@ -173,10 +188,15 @@ public class ListingService {
         log.info("Listing created successfully: {}", saved.getId());
         securityAuditService.logAction("listing.create", landlordId, saved.getId(), "LISTING");
         enqueueSearchOutbox(saved, ListingSearchOutbox.EVENT_CREATED);
-        
+
+        if (realtorProfile != null) {
+            realtorProfile.setTotalListings(realtorProfile.getTotalListings() + 1);
+            realtorProfileRepository.save(realtorProfile);
+        }
+
         // Evict cache for new listing
         // CacheEvict annotation handles this automatically
-        
+
         return mapToResponse(saved, null);
     }
     
@@ -323,6 +343,9 @@ public class ListingService {
         }
         if (request.getLandlordWhatsapp() != null) {
             listing.setLandlordWhatsapp(request.getLandlordWhatsapp());
+        }
+        if (request.getOwnershipDocumentUrl() != null) {
+            listing.setOwnershipDocumentUrl(request.getOwnershipDocumentUrl());
         }
         if (request.getStatus() != null) {
             PropertyListing.Status newStatus = parseStatus(request.getStatus());
@@ -723,6 +746,9 @@ public class ListingService {
         
         if ("ACTIVE".equals(statusUpper)) {
             status = PropertyListing.Status.ACTIVE;
+            if (listing.getOwnershipDocumentUrl() == null || listing.getOwnershipDocumentUrl().isBlank()) {
+                throw new BadRequestException("Cannot verify a listing without a proof-of-ownership document");
+            }
         } else if ("REJECTED".equals(statusUpper)) {
             status = PropertyListing.Status.INACTIVE;
             
@@ -1125,6 +1151,9 @@ public class ListingService {
                 .availableTo(listing.getAvailableTo())
                 .status(listing.getStatus().name())
                 .verified(listing.getVerified())
+                .ownershipDocumentUrl(listing.getOwnershipDocumentUrl())
+                .listedByRole(listing.getListedByRole())
+                .agencyName(listing.getAgencyName())
                 .trustTier(trustTier)
                 .trustSignals(trustSignals(listing, landlordVerification))
                 .featured(listing.getFeatured())
@@ -1346,6 +1375,14 @@ public class ListingService {
         listing.setStatus(PropertyListing.Status.RENTED);
         PropertyListing saved = listingRepository.save(listing);
         enqueueSearchOutbox(saved, ListingSearchOutbox.EVENT_UPDATED);
+
+        if ("REALTOR".equals(saved.getListedByRole())) {
+            realtorProfileRepository.findByUserId(landlordId).ifPresent(profile -> {
+                profile.setSuccessfulRentals(profile.getSuccessfulRentals() + 1);
+                realtorProfileRepository.save(profile);
+            });
+        }
+
         return mapToResponse(saved, landlordId);
     }
 

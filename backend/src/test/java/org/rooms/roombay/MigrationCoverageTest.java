@@ -266,4 +266,37 @@ class MigrationCoverageTest {
                 "idx_realtor_docs_realtor"
         );
     }
+
+    @Test
+    void listingOwnershipDocumentIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V57__listing_ownership_document.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("add column if not exists ownership_document_url");
+    }
+
+    @Test
+    void realtorListingFieldsAreCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V58__realtor_listing_fields.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains(
+                "add column if not exists listed_by_role",
+                "add column if not exists agency_name"
+        );
+    }
 }

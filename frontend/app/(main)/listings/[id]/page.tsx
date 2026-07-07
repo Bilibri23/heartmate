@@ -126,6 +126,8 @@ interface ListingDetail {
   // Backend returns flat landlord fields
   landlordId: string
   landlordName: string
+  listedByRole?: string
+  agencyName?: string
   // Also support nested landlord object if present
   landlord?: {
     id: string
@@ -1028,7 +1030,9 @@ export default function ListingDetailPage() {
           {/* Landlord Card */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 mb-3">
-              {language === "fr" ? "Propriétaire" : "Landlord"}
+              {listing.agencyName
+                ? (language === "fr" ? "Agence" : "Agency")
+                : (language === "fr" ? "Propriétaire" : "Landlord")}
             </h2>
             {(listing.landlord || listing.landlordId) ? (
               <div className="flex items-center justify-between">
@@ -1040,10 +1044,18 @@ export default function ListingDetailPage() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
+                    {listing.agencyName && (
+                      <p className="text-sm font-medium text-violet-600">{listing.agencyName}</p>
+                    )}
                     <p className="font-semibold text-slate-900">
                       {listing.landlord ? `${listing.landlord.firstName} ${listing.landlord.lastName}` : listing.landlordName}
                     </p>
-                    {listing.landlord?.verified && (
+                    {listing.listedByRole === "REALTOR" ? (
+                      <p className="text-xs text-violet-600 flex items-center gap-1 font-medium">
+                        <Shield className="h-3 w-3" />
+                        {language === "fr" ? "Agent immobilier vérifié" : "Verified realtor"}
+                      </p>
+                    ) : listing.landlord?.verified && (
                       <p className="text-xs text-emerald-600 flex items-center gap-1 font-medium">
                         <Shield className="h-3 w-3" />
                         {language === "fr" ? "Propriétaire vérifié" : "Verified Landlord"}

@@ -197,7 +197,19 @@ public class PropertyListing {
     // Contact
     @Column(name = "landlord_whatsapp")
     private String landlordWhatsapp;
-    
+
+    // Verification (proof of ownership, reviewed by admin before approval)
+    @Column(name = "ownership_document_url", length = 500)
+    private String ownershipDocumentUrl;
+
+    // Who is managing this listing (LANDLORD or REALTOR); denormalized to avoid a join on every read
+    @Column(name = "listed_by_role", length = 20)
+    @Builder.Default
+    private String listedByRole = "LANDLORD";
+
+    @Column(name = "agency_name")
+    private String agencyName;
+
     // Statistics
     @Column(name = "views_count")
     @Builder.Default

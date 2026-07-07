@@ -1,0 +1,2 @@
+ALTER TABLE property_listings ADD COLUMN IF NOT EXISTS listed_by_role VARCHAR(20) NOT NULL DEFAULT 'LANDLORD';
+ALTER TABLE property_listings ADD COLUMN IF NOT EXISTS agency_name VARCHAR(255);

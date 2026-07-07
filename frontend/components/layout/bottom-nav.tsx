@@ -26,10 +26,10 @@ function isNavItemActive(pathname: string | null | undefined, href: string): boo
   if (href.startsWith("/admin/")) {
     return pathname === href || pathname.startsWith(`${href}/`)
   }
-  if (href === "/landlord") {
-    return pathname === "/landlord"
+  if (href === "/landlord" || href === "/realtor") {
+    return pathname === href
   }
-  if (href.startsWith("/landlord/")) {
+  if (href.startsWith("/landlord/") || href.startsWith("/realtor/")) {
     return pathname === href || pathname.startsWith(`${href}/`)
   }
   return pathname === href || pathname.startsWith(`${href}/`)
@@ -52,6 +52,16 @@ function landlordNavItems(t: { nav: { home: string; applications: string; messag
     { href: "/landlord/applications", icon: FileText, label: t.nav.applications },
     { href: "/messages", icon: MessageCircle, label: t.nav.messages },
     { href: "/landlord/profile", icon: User, label: t.nav.profile },
+  ]
+}
+
+function realtorNavItems(t: { nav: { home: string; messages: string; profile: string; add: string } }): NavItem[] {
+  return [
+    { href: "/realtor", icon: Home, label: t.nav.home },
+    { href: "/realtor/listings/new", icon: Plus, label: t.nav.add },
+    { href: "/realtor/listings", icon: Building2, label: "Listings" },
+    { href: "/messages", icon: MessageCircle, label: t.nav.messages },
+    { href: "/realtor/onboarding", icon: User, label: t.nav.profile },
   ]
 }
 
@@ -96,6 +106,7 @@ export function BottomNav() {
   const getNavItems = (): NavItem[] => {
     if (user?.role === "ADMIN") return adminNavItems(t)
     if (user?.role === "LANDLORD") return landlordNavItems(t)
+    if (user?.role === "REALTOR") return realtorNavItems(t)
     return studentNavItems(t)
   }
   const navItems = getNavItems()
