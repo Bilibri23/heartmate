@@ -299,4 +299,29 @@ class MigrationCoverageTest {
                 "add column if not exists agency_name"
         );
     }
+
+    @Test
+    void neighborhoodReviewsAreCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V59__create_neighborhood_reviews_table.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains("create extension if not exists pgcrypto");
+        assertThat(migration).contains(
+                "create table if not exists neighborhood_reviews",
+                "reviewer_id uuid not null references users(id)",
+                "safety_rating smallint not null",
+                "amenities_rating smallint not null",
+                "transport_rating smallint not null",
+                "noise_rating smallint not null",
+                "idx_neighborhood_reviews_reviewer_area",
+                "idx_neighborhood_reviews_area"
+        );
+    }
 }

@@ -66,6 +66,9 @@ import { SimilarListingsRail } from "@/components/listings/similar-listings-rail
 import { RoomPreviewCard } from "@/components/room-preview/room-preview-card"
 import { ListingAttributeBadges } from "@/components/listings/listing-attribute-badges"
 import { displayListingPrice, isSaleListing } from "@/lib/listing-taxonomy"
+import { neighborhoodService } from "@/services/neighborhood.service"
+import type { NeighborhoodAssessment } from "@/types/neighborhood-review"
+import { Sparkles, Bus, VolumeX } from "lucide-react"
 
 interface ListingDetail {
   id: string
@@ -232,6 +235,10 @@ export default function ListingDetailPage() {
   const [isCheckingApplication, setIsCheckingApplication] = useState(false)
   const [showVerifyPrompt, setShowVerifyPrompt] = useState(false)
   const { status: completionStatus } = useProfileCompletion()
+  const [neighborhoodAssessment, setNeighborhoodAssessment] = useState<NeighborhoodAssessment | null>(null)
+  const [isRatingSheetOpen, setIsRatingSheetOpen] = useState(false)
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false)
+  const [ratingForm, setRatingForm] = useState({ safetyRating: 0, amenitiesRating: 0, transportRating: 0, noiseRating: 0, comment: "" })
 
   const MESSAGE_TEMPLATES = [
     {
@@ -298,6 +305,46 @@ export default function ListingDetailPage() {
       fetchListing()
     }
   }, [params.id, user?.id])
+
+  useEffect(() => {
+    if (!listing?.city || !listing?.neighborhood) return
+    neighborhoodService.getAssessment(listing.city, listing.neighborhood)
+      .then(setNeighborhoodAssessment)
+      .catch(() => setNeighborhoodAssessment(null))
+  }, [listing?.city, listing?.neighborhood])
+
+  const handleSubmitNeighborhoodRating = async () => {
+    if (!listing?.city || !listing?.neighborhood) return
+    if (!user) {
+      toast.error(language === "fr" ? "Connectez-vous pour noter ce quartier" : "Log in to rate this neighborhood")
+      return
+    }
+    const { safetyRating, amenitiesRating, transportRating, noiseRating, comment } = ratingForm
+    if (!safetyRating || !amenitiesRating || !transportRating || !noiseRating) {
+      toast.error(language === "fr" ? "Veuillez noter les quatre critères" : "Please rate all four categories")
+      return
+    }
+    setIsSubmittingRating(true)
+    try {
+      await neighborhoodService.submitReview({
+        city: listing.city,
+        neighborhood: listing.neighborhood,
+        safetyRating,
+        amenitiesRating,
+        transportRating,
+        noiseRating,
+        comment: comment.trim() || undefined,
+      })
+      const updated = await neighborhoodService.getAssessment(listing.city, listing.neighborhood)
+      setNeighborhoodAssessment(updated)
+      setIsRatingSheetOpen(false)
+      toast.success(language === "fr" ? "Merci pour votre avis !" : "Thanks for rating this neighborhood!")
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to submit rating")
+    } finally {
+      setIsSubmittingRating(false)
+    }
+  }
 
   useEffect(() => {
     const fetchExistingApplication = async () => {
@@ -1026,6 +1073,115 @@ export default function ListingDetailPage() {
               </div>
             </div>
           )}
+
+          {/* About this neighborhood — crowdsourced quality ratings */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-slate-900">
+                {language === "fr" ? "À propos du quartier" : "About this neighborhood"}
+              </h2>
+              <Sheet open={isRatingSheetOpen} onOpenChange={setIsRatingSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="rounded-xl">
+                    {language === "fr" ? "Noter" : "Rate"}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="rounded-t-2xl">
+                  <SheetHeader>
+                    <SheetTitle>
+                      {language === "fr" ? "Noter ce quartier" : "Rate this neighborhood"}
+                    </SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-4">
+                    {([
+                      ["safetyRating", language === "fr" ? "Sécurité" : "Safety"],
+                      ["amenitiesRating", language === "fr" ? "Commodités" : "Amenities"],
+                      ["transportRating", language === "fr" ? "Transport" : "Transport"],
+                      ["noiseRating", language === "fr" ? "Calme" : "Quietness"],
+                    ] as const).map(([key, label]) => (
+                      <div key={key}>
+                        <p className="text-sm text-slate-700 mb-1.5">{label}</p>
+                        <div className="flex gap-1.5">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setRatingForm((prev) => ({ ...prev, [key]: n }))}
+                              className="p-1"
+                              aria-label={`${label} ${n}`}
+                            >
+                              <Star
+                                className={cn(
+                                  "h-6 w-6",
+                                  ratingForm[key] >= n ? "fill-amber-400 text-amber-400" : "text-slate-300"
+                                )}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <Textarea
+                      placeholder={language === "fr" ? "Commentaire (optionnel)" : "Comment (optional)"}
+                      value={ratingForm.comment}
+                      onChange={(e) => setRatingForm((prev) => ({ ...prev, comment: e.target.value }))}
+                      rows={3}
+                    />
+                    <Button
+                      className="w-full h-11 rounded-xl"
+                      onClick={handleSubmitNeighborhoodRating}
+                      disabled={isSubmittingRating}
+                    >
+                      {isSubmittingRating
+                        ? (language === "fr" ? "Envoi..." : "Submitting...")
+                        : (language === "fr" ? "Envoyer" : "Submit rating")}
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+            {neighborhoodAssessment && neighborhoodAssessment.reviewCount > 0 ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5">
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                  <span className="text-lg font-bold text-slate-900">
+                    {neighborhoodAssessment.overallScore?.toFixed(1)}
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    ({neighborhoodAssessment.reviewCount} {language === "fr" ? "avis" : "ratings"})
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-sm">
+                    <Shield className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span className="text-slate-600">{language === "fr" ? "Sécurité" : "Safety"}</span>
+                    <span className="ml-auto font-semibold text-slate-900">{neighborhoodAssessment.avgSafety?.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-sm">
+                    <Sparkles className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span className="text-slate-600">{language === "fr" ? "Commodités" : "Amenities"}</span>
+                    <span className="ml-auto font-semibold text-slate-900">{neighborhoodAssessment.avgAmenities?.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-sm">
+                    <Bus className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span className="text-slate-600">{language === "fr" ? "Transport" : "Transport"}</span>
+                    <span className="ml-auto font-semibold text-slate-900">{neighborhoodAssessment.avgTransport?.toFixed(1)}</span>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 text-sm">
+                    <VolumeX className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span className="text-slate-600">{language === "fr" ? "Calme" : "Quietness"}</span>
+                    <span className="ml-auto font-semibold text-slate-900">{neighborhoodAssessment.avgNoise?.toFixed(1)}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">
+                {language === "fr"
+                  ? "Aucune note pour ce quartier. Soyez le premier à donner votre avis."
+                  : "No ratings yet for this neighborhood — be the first to rate it."}
+              </p>
+            )}
+          </div>
 
           {/* Landlord Card */}
           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">

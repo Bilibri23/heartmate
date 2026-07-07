@@ -108,6 +108,7 @@ public class SecurityConfig {
                         .requestMatchers("GET", "/api/listings/*/similar").permitAll()
                         .requestMatchers("GET", "/api/listings/*/ar-markers").permitAll()
                         .requestMatchers("GET", "/api/listings/{id}").permitAll()
+                        .requestMatchers("GET", "/api/neighborhoods/reviews", "/api/neighborhoods/assessment").permitAll()
                         // Authenticated endpoints
                         .requestMatchers("/api/phone-verification/**").authenticated()
                         .requestMatchers("/api/upload/**").authenticated()
