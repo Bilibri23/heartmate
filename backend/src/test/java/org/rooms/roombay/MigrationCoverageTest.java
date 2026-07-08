@@ -324,4 +324,22 @@ class MigrationCoverageTest {
                 "idx_neighborhood_reviews_area"
         );
     }
+
+    @Test
+    void usersRoleCheckWidenedForRealtorIsCoveredByFlywayMigration() throws IOException {
+        String migration = Files.readString(Path.of(
+                "backend",
+                "src",
+                "main",
+                "resources",
+                "db",
+                "migration",
+                "V60__widen_users_role_check_for_realtor.sql"
+        )).toLowerCase();
+
+        assertThat(migration).contains(
+                "alter table users add constraint users_role_check",
+                "check (role in ('student', 'landlord', 'realtor', 'admin'))"
+        );
+    }
 }
